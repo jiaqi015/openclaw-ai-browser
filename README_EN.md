@@ -109,43 +109,27 @@ Sabrina's greatest advantage isn't rebuilding an AI platform from scratch — it
 <details>
 <summary>View architecture diagram and request flow</summary>
 
-Sabrina cleanly separates "browser engine, thread continuity, and OpenClaw runtime" into three distinct layers.
+Three layers: Browser UI, Main Process, OpenClaw.
 
 ```mermaid
 flowchart LR
-  subgraph Sabrina["Sabrina Browser"]
-    Renderer["Renderer UI\nBrowser Chrome / AI Sidebar / Internal Surfaces"]
-    Preload["Preload Bridge\nwindow.sabrinaDesktop"]
-    Main["Electron Main Process\nruntime authority"]
-    TabMgr["Tab Manager\nreal tabs / navigation / WebContentsView"]
-    Context["Context Pipeline\ntext-first page snapshot"]
-    Threads["Thread Store\nuser-facing task history"]
-    OCState["OpenClaw State Store\nbinding / model / skills / pairing / tasks"]
-    Tasks["Task Store\nbackground handoff records"]
-    Page["Real Web Page\ncurrent page / selection / referenced tabs"]
+  subgraph Sabrina["Sabrina (Electron)"]
+    UI["Browser UI\nTabs · Nav · AI Sidebar"]
+    Main["Main Process\nTabs · Threads · State"]
+    Context["Page Context\nSnapshot · Selection · Multi-tab refs"]
   end
 
   subgraph OpenClaw["OpenClaw"]
-    Adapter["OpenClaw Adapter\nbinding / agent lifecycle / routing"]
-    Gateway["Gateway / CLI / Auth"]
-    Agent["Dedicated Browser Agent\nsabrina-browser"]
-    Ecosystem["Models / Skills / Memory Conventions"]
+    Agent["Browser Agent\nsabrina-browser"]
+    Eco["Models · Skills · Memory"]
   end
 
-  Renderer --> Preload
-  Preload --> Main
-  Main --> TabMgr
-  TabMgr --> Page
-  Page --> Context
-  Main --> Threads
-  Main --> OCState
-  Main --> Tasks
-  Main --> Adapter
-
-  Context --> Adapter
-  Adapter --> Gateway
-  Gateway --> Agent
-  Gateway --> Ecosystem
+  UI -->|IPC| Main
+  Main --> Context
+  Context -->|context package| Agent
+  Agent --> Eco
+  Agent -.->|response| Main
+  Main -->|render| UI
 ```
 
 **Design Principles**
@@ -154,7 +138,7 @@ flowchart LR
 - **Tab / Thread / Session separation** — Browser containers, user task history, and OpenClaw runtime context are three separate things
 - **Main-process-owned runtime** — Durable state converges to the main process
 - **Text-first context pipeline** — Structured page snapshots, not manual context pasting
-- **Dedicated browser agent** — Connects via independent `sabrina-browser` agent, reusing the ecosystem while keeping workloads independent
+- **Dedicated browser agent** — Connects via independent `sabrina-browser` agent
 
 **Request Flow**
 
@@ -162,25 +146,16 @@ flowchart LR
 sequenceDiagram
   participant U as User
   participant UI as Sabrina UI
-  participant Main as Electron Main
-  participant Ctx as Context Pipeline
-  participant OC as OpenClaw Adapter
-  participant GW as OpenClaw Gateway
-  participant AG as sabrina-browser Agent
-  participant TS as Thread Store
+  participant Main as Main Process
+  participant OC as OpenClaw Agent
 
   U->>UI: Ask / select text / reference tabs
-  UI->>Main: runAiAction + active thread + selected references
-  Main->>Ctx: Extract current page and referenced page snapshots
-  Ctx-->>Main: Browser Context Package
-  Main->>OC: Route packaged browser context
-  OC->>GW: Reuse local auth / model / session routing
-  GW->>AG: Execute on dedicated browser agent
-  AG-->>GW: Response / skill trace / model info
-  GW-->>OC: Runtime result
-  OC-->>Main: Normalized response
-  Main->>TS: Persist thread messages
-  Main-->>UI: Render reply / update thread / update state
+  UI->>Main: trigger AI action
+  Main->>Main: capture page + reference snapshots
+  Main->>OC: send context package + intent
+  OC-->>Main: response / skill trace
+  Main->>Main: persist to thread
+  Main-->>UI: render reply
 ```
 
 </details>

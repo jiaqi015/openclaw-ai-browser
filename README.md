@@ -109,43 +109,27 @@ Sabrina 最大的优势，不是重新做一套 AI 平台，而是复用 OpenCla
 <details>
 <summary>展开查看架构图与请求链路</summary>
 
-Sabrina 把"浏览器内核、线程连续性、OpenClaw runtime"拆成清晰的三层。
+三层结构：浏览器 UI、主进程、OpenClaw。
 
 ```mermaid
 flowchart LR
-  subgraph Sabrina["Sabrina Browser"]
-    Renderer["Renderer UI\nBrowser Chrome / AI Sidebar / Internal Surfaces"]
-    Preload["Preload Bridge\nwindow.sabrinaDesktop"]
-    Main["Electron Main Process\nruntime authority"]
-    TabMgr["Tab Manager\nreal tabs / navigation / WebContentsView"]
-    Context["Context Pipeline\ntext-first page snapshot"]
-    Threads["Thread Store\nuser-facing task history"]
-    OCState["OpenClaw State Store\nbinding / model / skills / pairing / tasks"]
-    Tasks["Task Store\nbackground handoff records"]
-    Page["Real Web Page\ncurrent page / selection / referenced tabs"]
+  subgraph Sabrina["Sabrina (Electron)"]
+    UI["浏览器 UI\n标签栏 · 导航 · AI 侧边栏"]
+    Main["主进程\n标签 · 线程 · 状态"]
+    Context["页面上下文\n页面快照 · 选区 · 多标签引用"]
   end
 
   subgraph OpenClaw["OpenClaw"]
-    Adapter["OpenClaw Adapter\nbinding / agent lifecycle / routing"]
-    Gateway["Gateway / CLI / Auth"]
-    Agent["Dedicated Browser Agent\nsabrina-browser"]
-    Ecosystem["Models / Skills / Memory Conventions"]
+    Agent["Browser Agent\nsabrina-browser"]
+    Eco["Models · Skills · Memory"]
   end
 
-  Renderer --> Preload
-  Preload --> Main
-  Main --> TabMgr
-  TabMgr --> Page
-  Page --> Context
-  Main --> Threads
-  Main --> OCState
-  Main --> Tasks
-  Main --> Adapter
-
-  Context --> Adapter
-  Adapter --> Gateway
-  Gateway --> Agent
-  Gateway --> Ecosystem
+  UI -->|IPC| Main
+  Main --> Context
+  Context -->|context package| Agent
+  Agent --> Eco
+  Agent -.->|response| Main
+  Main -->|render| UI
 ```
 
 **Design Principles**
@@ -154,33 +138,24 @@ flowchart LR
 - **Tab / Thread / Session 分离** — 浏览器容器、用户任务历史、OpenClaw runtime context 是三件事
 - **Main-process-owned runtime** — durable state 收敛到主进程
 - **Text-first context pipeline** — 结构化页面快照，而不是让用户手工补上下文
-- **Dedicated browser agent** — 通过独立 `sabrina-browser` agent 接入 OpenClaw，复用生态但保持工作负载独立
+- **Dedicated browser agent** — 通过独立 `sabrina-browser` agent 接入 OpenClaw
 
 **Request Flow**
 
 ```mermaid
 sequenceDiagram
-  participant U as User
+  participant U as 用户
   participant UI as Sabrina UI
-  participant Main as Electron Main
-  participant Ctx as Context Pipeline
-  participant OC as OpenClaw Adapter
-  participant GW as OpenClaw Gateway
-  participant AG as sabrina-browser Agent
-  participant TS as Thread Store
+  participant Main as 主进程
+  participant OC as OpenClaw Agent
 
-  U->>UI: Ask / select text / reference tabs
-  UI->>Main: runAiAction + active thread + selected references
-  Main->>Ctx: Extract current page and referenced page snapshots
-  Ctx-->>Main: Browser Context Package
-  Main->>OC: Route packaged browser context
-  OC->>GW: Reuse local auth / model / session routing
-  GW->>AG: Execute on dedicated browser agent
-  AG-->>GW: Response / skill trace / model info
-  GW-->>OC: Runtime result
-  OC-->>Main: Normalized response
-  Main->>TS: Persist thread messages
-  Main-->>UI: Render reply / update thread / update state
+  U->>UI: 提问 / 选中文本 / 引用标签页
+  UI->>Main: 触发 AI 动作
+  Main->>Main: 抓取当前页 + 引用页快照
+  Main->>OC: 发送上下文包 + 用户意图
+  OC-->>Main: 回复 / skill trace
+  Main->>Main: 持久化到线程
+  Main-->>UI: 渲染回复
 ```
 
 </details>
