@@ -25,15 +25,17 @@
 
 ## How Sabrina Compares
 
-|  | Sabrina | Sider / Monica / Extensions | BrowserOS / Dia / AI Browsers | ChatGPT / Claude Web |
-|--|:-------:|:---------------------------:|:-----------------------------:|:--------------------:|
-| **Context source** | Auto-reads current page + selection + multi-tab refs | Manual select or copy | Partial auto, often screenshot-based | Fully manual paste |
-| **Multi-tab collaboration** | First-class — cross-tab references + GenTab | Single page only | Limited support | Not supported |
-| **AI capability source** | Reuses your existing OpenClaw stack | Self-contained closed system | Self-contained closed system | Platform-locked |
-| **Thread continuity** | Auto-associated by page / site, persists across sessions | Each conversation isolated | Partial support | Each conversation isolated |
-| **Model switching** | Real-time in-browser, reuses OpenClaw model policies | Fixed or limited choices | Fixed or limited choices | Platform-locked |
-| **Skill ecosystem** | Reuses OpenClaw skill ecosystem | Limited built-in tools | Limited built-in tools | Plugin marketplace |
-| **Offline browser** | Full browser, AI degrades gracefully | Depends on host browser | Full browser | Unavailable |
+|  | Sabrina | Tabbit | Sider / Monica / Extensions | BrowserOS / Dia / AI Browsers | ChatGPT / Claude Web |
+|--|:-------:|:------:|:---------------------------:|:-----------------------------:|:--------------------:|
+| **Context source** | Auto-reads current page + selection + multi-tab refs | @mention tabs, groups, files, screenshots | Manual select or copy | Partial auto, often screenshot-based | Fully manual paste |
+| **Multi-tab collaboration** | First-class — cross-tab references + GenTab | Supported — @group refs + background agent across tabs | Single page only | Limited support | Not supported |
+| **AI capability source** | Reuses your existing OpenClaw stack | Built-in multi-model (GPT / Gemini / Claude / DeepSeek), free switching | Self-contained closed system | Self-contained closed system | Platform-locked |
+| **Thread continuity** | Auto-associated by page / site, persists across sessions | No explicit session persistence | Each conversation isolated | Partial support | Each conversation isolated |
+| **Model switching** | Real-time in-browser, reuses OpenClaw model policies | Supported, switchable per conversation | Fixed or limited choices | Fixed or limited choices | Platform-locked |
+| **Skill ecosystem** | Reuses OpenClaw skill ecosystem | Custom Shortcuts (no-code prompt automations) | Limited built-in tools | Limited built-in tools | Plugin marketplace |
+| **Background automation** | OpenClaw async handoff | Built-in Background Agent for autonomous multi-step tasks | None | Limited | None |
+| **Offline browser** | Full browser, AI degrades gracefully | Full browser (Chromium), AI requires internet | Depends on host browser | Full browser | Unavailable |
+| **Open source** | ✅ MIT | ❌ Closed freeware | ❌ | ❌ | ❌ |
 
 > **Sabrina doesn't reinvent AI — it lets your existing OpenClaw work natively in the browser.**
 
