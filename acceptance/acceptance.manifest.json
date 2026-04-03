@@ -1,0 +1,620 @@
+{
+  "version": 1,
+  "app": "sabrina-ai-browser",
+  "productInvariants": [
+    {
+      "id": "browser-first",
+      "label": "Browser-first",
+      "description": "Core browsing must remain usable when OpenClaw is unavailable."
+    },
+    {
+      "id": "tab-thread-session-separation",
+      "label": "Tab/Thread/Session Separation",
+      "description": "Tab, thread, and OpenClaw session remain distinct concepts and may evolve independently."
+    },
+    {
+      "id": "main-process-authority",
+      "label": "Main-process Authority",
+      "description": "Persisted runtime state belongs to the main process; renderer code subscribes and dispatches."
+    },
+    {
+      "id": "text-first-context",
+      "label": "Text-first Context",
+      "description": "Structured text snapshots remain the primary browser context contract, with richer tools layered on top."
+    }
+  ],
+  "criticalFlows": [
+    {
+      "id": "browser-core",
+      "tier": "P0",
+      "owner": "browser",
+      "description": "Create, activate, navigate, reload, and close tabs without AI."
+    },
+    {
+      "id": "thread-continuity",
+      "tier": "P0",
+      "owner": "conversation",
+      "description": "Threads survive navigation, refresh, restore, and pageKey reuse rules."
+    },
+    {
+      "id": "local-binding",
+      "tier": "P0",
+      "owner": "openclaw",
+      "description": "Local OpenClaw discovery, model sync, and binding bootstrap remain recoverable."
+    },
+    {
+      "id": "ai-ask-skill-fallback",
+      "tier": "P0",
+      "owner": "ai",
+      "description": "Ask, summarize, explain-selection, and skill assist fallback all complete with visible trace."
+    },
+    {
+      "id": "handoff-task-recording",
+      "tier": "P1",
+      "owner": "jobs",
+      "description": "Background handoff writes a task record and can be observed by the renderer."
+    },
+    {
+      "id": "gentab-generation",
+      "tier": "P1",
+      "owner": "jobs",
+      "description": "GenTab creation, pending metadata, generation, completion, and retry all use one consistent contract."
+    },
+    {
+      "id": "internal-surfaces",
+      "tier": "P1",
+      "owner": "surfaces",
+      "description": "History, bookmarks, downloads, diagnostics, settings, and skills surfaces continue to behave like tab content."
+    }
+  ],
+  "automatedGates": [
+    {
+      "id": "skill-trace",
+      "label": "Runtime contract regression checks",
+      "command": "npm run test:runtime"
+    },
+    {
+      "id": "electron-smoke",
+      "label": "Electron host smoke checks",
+      "command": "npm run test:electron-smoke"
+    },
+    {
+      "id": "lint",
+      "label": "TypeScript lint",
+      "command": "npm run lint"
+    },
+    {
+      "id": "architecture",
+      "label": "Architecture invariants",
+      "command": "npm run check:architecture"
+    }
+  ],
+  "architectureRules": [
+    {
+      "id": "docs-engineering-system",
+      "type": "path-exists",
+      "path": "docs/ENGINEERING_SYSTEM.md",
+      "reason": "The engineering system must stay documented in-repo."
+    },
+    {
+      "id": "docs-acceptance-matrix",
+      "type": "path-exists",
+      "path": "docs/ACCEPTANCE_MATRIX.md",
+      "reason": "Critical flows need a stable acceptance matrix."
+    },
+    {
+      "id": "docs-iteration-loop",
+      "type": "path-exists",
+      "path": "docs/ITERATION_LOOP.md",
+      "reason": "Iteration rules must be explicit and versioned."
+    },
+    {
+      "id": "docs-browser-openclaw-architecture",
+      "type": "path-exists",
+      "path": "docs/BROWSER_OPENCLAW_ARCHITECTURE.md",
+      "reason": "Browser/OpenClaw boundaries need an explicit in-repo architecture baseline."
+    },
+    {
+      "id": "browser-context-package-service-exists",
+      "type": "path-exists",
+      "path": "runtime/browser/BrowserContextPackageService.mjs",
+      "reason": "Browser context should be packaged as a stable Sabrina runtime contract."
+    },
+    {
+      "id": "browser-skill-registry-exists",
+      "type": "path-exists",
+      "path": "runtime/openclaw/BrowserSkillRegistry.mjs",
+      "reason": "Browser skill compatibility should be explicit via registry or metadata, not heuristic only."
+    },
+    {
+      "id": "gentab-ipc-action-service-exists",
+      "type": "path-exists",
+      "path": "host/electron/GenTabIpcActionService.mjs",
+      "reason": "GenTab host execution should compose browser context packaging through a focused service."
+    },
+    {
+      "id": "ipc-task-handler-name",
+      "type": "file-not-contains",
+      "file": "host/electron/ipc-handlers.mjs",
+      "pattern": "runTrackedLocalAgentTurn(",
+      "reason": "The tracked local agent task IPC handler must call the real task helper."
+    },
+    {
+      "id": "gentab-no-message-array-contract",
+      "type": "file-not-contains",
+      "file": "host/electron/ipc-handlers.mjs",
+      "pattern": "messages: [{ role: \"user\", content: prompt }]",
+      "reason": "GenTab must use the runLocalAgentTurn string message contract."
+    },
+    {
+      "id": "gentab-no-result-content-contract",
+      "type": "file-not-contains",
+      "file": "host/electron/ipc-handlers.mjs",
+      "pattern": "result.content",
+      "reason": "runLocalAgentTurn returns text, not content."
+    },
+    {
+      "id": "task-state-subscription",
+      "type": "file-contains",
+      "file": "host/electron/preload.cjs",
+      "pattern": "onTaskState: (listener) => {",
+      "reason": "Task store events must be subscribable from the renderer."
+    },
+    {
+      "id": "thread-append-message-ipc",
+      "type": "file-contains",
+      "file": "host/electron/preload.cjs",
+      "pattern": "appendMessage: (payload) => ipcRenderer.invoke(\"thread:append-message\", payload),",
+      "reason": "Thread message persistence must flow through an explicit main-process IPC contract."
+    },
+    {
+      "id": "gentab-completion-subscription",
+      "type": "file-contains",
+      "file": "host/electron/preload.cjs",
+      "pattern": "onGenerationCompleted: (listener) => {",
+      "reason": "GenTab completion must be observable by the renderer."
+    },
+    {
+      "id": "gentab-pending-metadata-write",
+      "type": "file-contains",
+      "file": "src/shell/useGenTabController.ts",
+      "pattern": "setPendingGenTabMetadata(",
+      "reason": "GenTab must persist pending metadata before opening the internal tab."
+    },
+    {
+      "id": "renderer-no-thread-state-writeback",
+      "type": "file-not-contains",
+      "file": "src/state/useThreadState.ts",
+      "pattern": "desktop.threads.setState(persistedState)",
+      "reason": "Renderer should not do routine durable thread writeback after main-process authority was introduced."
+    },
+    {
+      "id": "renderer-no-thread-localstorage",
+      "type": "file-not-contains",
+      "file": "src/state/useThreadState.ts",
+      "pattern": "localStorage",
+      "reason": "Thread durable state should live in main-process storage, not renderer localStorage."
+    },
+    {
+      "id": "renderer-no-thread-resolver-import",
+      "type": "file-not-contains",
+      "file": "src/state/useThreadState.ts",
+      "pattern": "ThreadResolver.mjs",
+      "reason": "Renderer should consume thread runtime projections, not run resolver logic locally."
+    },
+    {
+      "id": "renderer-no-chat-context-snapshot",
+      "type": "file-not-contains",
+      "file": "src/commands/useChatCommands.ts",
+      "pattern": "getTabContextSnapshot",
+      "reason": "Chat commands should send turn intent only; page context extraction belongs to main."
+    },
+    {
+      "id": "main-no-legacy-thread-state-event",
+      "type": "file-not-contains",
+      "file": "host/electron/main.mjs",
+      "pattern": "\"thread:state\"",
+      "reason": "Renderer should subscribe to thread runtime-state only after legacy thread contract cleanup."
+    },
+    {
+      "id": "tab-manager-no-thread-reconcile",
+      "type": "file-not-contains",
+      "file": "runtime/browser/TabManager.mjs",
+      "pattern": "reconcileThreadStoreWithTabs(",
+      "reason": "TabManager should emit browser snapshots only; tab-thread binding belongs to a separate coordinator."
+    },
+    {
+      "id": "renderer-no-openclaw-fallback-step-tree",
+      "type": "file-not-contains",
+      "file": "src/state/useOpenClawState.ts",
+      "pattern": "fallbackBindingSetupState",
+      "reason": "Renderer should project OpenClaw runtime state, not carry a duplicated binding setup workflow tree."
+    },
+    {
+      "id": "renderer-no-openclaw-optimistic-model-write",
+      "type": "file-not-contains",
+      "file": "src/state/useOpenClawState.ts",
+      "pattern": "desiredModel: normalizedModelId",
+      "reason": "OpenClaw model state should advance in main and flow back to renderer as projection."
+    },
+    {
+      "id": "openclaw-state-store-no-manager-import",
+      "type": "file-not-contains",
+      "file": "runtime/openclaw/OpenClawStateStore.mjs",
+      "pattern": "OpenClawManager.mjs",
+      "reason": "OpenClawStateStore should persist and broadcast only; snapshot fan-out belongs to a separate service."
+    },
+    {
+      "id": "ipc-handlers-no-inline-openclaw-registration",
+      "type": "file-not-contains",
+      "file": "host/electron/ipc-handlers.mjs",
+      "pattern": "ipcMain.handle(\"openclaw:",
+      "reason": "OpenClaw IPC wiring should be isolated from the generic Electron handler hub."
+    },
+    {
+      "id": "renderer-no-duplicate-thread-pagekey-helper",
+      "type": "file-not-contains",
+      "file": "src/application/sabrina-openclaw.ts",
+      "pattern": "export function normalizePageKey(",
+      "reason": "Thread page-key and host-label helpers should come from one shared implementation, not drift between runtime and renderer."
+    },
+    {
+      "id": "thread-store-no-electron-import",
+      "type": "file-not-contains",
+      "file": "runtime/threads/ThreadStore.mjs",
+      "pattern": "from \"electron\"",
+      "reason": "Thread store should receive host file-system support by injection, not import Electron directly."
+    },
+    {
+      "id": "thread-store-no-monitoring-import",
+      "type": "file-not-contains",
+      "file": "runtime/threads/ThreadStore.mjs",
+      "pattern": "host/electron/monitoring",
+      "reason": "Thread store should report through injected host adapters, not a hardwired Electron monitor import."
+    },
+    {
+      "id": "browser-library-store-no-electron-import",
+      "type": "file-not-contains",
+      "file": "runtime/browser/BrowserLibraryStore.mjs",
+      "pattern": "from \"electron\"",
+      "reason": "Browser library persistence should not pull Electron directly into the store layer."
+    },
+    {
+      "id": "browser-library-store-no-monitoring-import",
+      "type": "file-not-contains",
+      "file": "runtime/browser/BrowserLibraryStore.mjs",
+      "pattern": "host/electron/monitoring",
+      "reason": "Browser library store should emit diagnostics through injected host support only."
+    },
+    {
+      "id": "openclaw-task-store-no-electron-import",
+      "type": "file-not-contains",
+      "file": "runtime/openclaw/OpenClawTaskStore.mjs",
+      "pattern": "from \"electron\"",
+      "reason": "OpenClaw task store should not import Electron directly once host adapters are introduced."
+    },
+    {
+      "id": "openclaw-task-store-no-monitoring-import",
+      "type": "file-not-contains",
+      "file": "runtime/openclaw/OpenClawTaskStore.mjs",
+      "pattern": "host/electron/monitoring",
+      "reason": "OpenClaw task store should report through injected host support, not a static monitoring import."
+    },
+    {
+      "id": "openclaw-state-store-no-electron-import",
+      "type": "file-not-contains",
+      "file": "runtime/openclaw/OpenClawStateStore.mjs",
+      "pattern": "from \"electron\"",
+      "reason": "OpenClaw state store should be host-fed and persist through adapters, not direct Electron imports."
+    },
+    {
+      "id": "openclaw-state-store-no-monitoring-import",
+      "type": "file-not-contains",
+      "file": "runtime/openclaw/OpenClawStateStore.mjs",
+      "pattern": "host/electron/monitoring",
+      "reason": "OpenClaw state store should not import host monitoring directly after adapter extraction."
+    },
+    {
+      "id": "ipc-handlers-no-inline-browser-registration",
+      "type": "file-not-contains",
+      "file": "host/electron/ipc-handlers.mjs",
+      "pattern": "browser:create-tab",
+      "reason": "Browser IPC registration should live in a dedicated host module instead of the top-level IPC hub."
+    },
+    {
+      "id": "ipc-handlers-no-inline-thread-registration",
+      "type": "file-not-contains",
+      "file": "host/electron/ipc-handlers.mjs",
+      "pattern": "thread:run-ai-turn",
+      "reason": "Thread IPC registration should be isolated from the top-level IPC hub."
+    },
+    {
+      "id": "ipc-handlers-no-inline-gentab-registration",
+      "type": "file-not-contains",
+      "file": "host/electron/ipc-handlers.mjs",
+      "pattern": "gentab:create",
+      "reason": "GenTab IPC registration should be isolated from the top-level IPC hub."
+    },
+    {
+      "id": "openclaw-manager-no-inline-model-policy",
+      "type": "file-not-contains",
+      "file": "runtime/openclaw/OpenClawManager.mjs",
+      "pattern": "export async function setLocalModel(",
+      "reason": "OpenClaw model policy should live in a focused service instead of the facade."
+    },
+    {
+      "id": "openclaw-manager-no-inline-pairing-service",
+      "type": "file-not-contains",
+      "file": "runtime/openclaw/OpenClawManager.mjs",
+      "pattern": "export async function approveLocalPairingRequest(",
+      "reason": "OpenClaw pairing approvals should live in a focused service instead of the facade."
+    },
+    {
+      "id": "openclaw-manager-no-inline-workspace-memory",
+      "type": "file-not-contains",
+      "file": "runtime/openclaw/OpenClawManager.mjs",
+      "pattern": "export async function readPrimaryAgentWorkspaceMemory(",
+      "reason": "Workspace memory projection should live in a focused service instead of the facade."
+    },
+    {
+      "id": "gentab-generation-service-exists",
+      "type": "path-exists",
+      "path": "runtime/browser/GenTabGenerationService.mjs",
+      "reason": "GenTab prompt and normalization logic should live in a dedicated browser-domain service."
+    },
+    {
+      "id": "browser-ai-prompt-service-exists",
+      "type": "path-exists",
+      "path": "runtime/browser/BrowserAiPromptService.mjs",
+      "reason": "Browser AI prompt construction should live in its own service instead of the page extraction module."
+    },
+    {
+      "id": "browser-tab-context-service-exists",
+      "type": "path-exists",
+      "path": "runtime/browser/TabContextService.mjs",
+      "reason": "Tab context snapshotting belongs to the browser runtime domain, not the Electron host folder."
+    },
+    {
+      "id": "browser-url-service-exists",
+      "type": "path-exists",
+      "path": "runtime/browser/BrowserUrlService.mjs",
+      "reason": "Browser URL helpers should come from one focused browser-domain service."
+    },
+    {
+      "id": "thread-ipc-action-service-exists",
+      "type": "path-exists",
+      "path": "host/electron/ThreadIpcActionService.mjs",
+      "reason": "Thread IPC execution logic should be split from the registration module."
+    },
+    {
+      "id": "gentab-registration-no-inline-prompt-builder",
+      "type": "file-not-contains",
+      "file": "host/electron/register-gentab-ipc-handlers.mjs",
+      "pattern": "你是 Sabrina 的 GenTab 生成器",
+      "reason": "GenTab IPC registration should not embed the full generation prompt builder inline."
+    },
+    {
+      "id": "gentab-registration-no-inline-normalizer",
+      "type": "file-not-contains",
+      "file": "host/electron/register-gentab-ipc-handlers.mjs",
+      "pattern": "function normalizeGenTabData(",
+      "reason": "GenTab IPC registration should delegate normalization to a focused service."
+    },
+    {
+      "id": "browser-menu-controller-host-module-exists",
+      "type": "path-exists",
+      "path": "host/electron/BrowserMenuController.mjs",
+      "reason": "Native browser menu UI belongs to the Electron host layer."
+    },
+    {
+      "id": "browser-guest-view-host-support-exists",
+      "type": "path-exists",
+      "path": "host/electron/BrowserGuestViewHostSupport.mjs",
+      "reason": "Browser runtime should receive Electron guest-view support through a dedicated host adapter."
+    },
+    {
+      "id": "main-no-runtime-browser-menu-controller-import",
+      "type": "file-not-contains",
+      "file": "host/electron/main.mjs",
+      "pattern": "../../runtime/browser/BrowserMenuController.mjs",
+      "reason": "Host main should import native browser menu UI from host/electron, not runtime/browser."
+    },
+    {
+      "id": "browser-ipc-no-runtime-browser-menu-controller-import",
+      "type": "file-not-contains",
+      "file": "host/electron/register-browser-ipc-handlers.mjs",
+      "pattern": "../../runtime/browser/BrowserMenuController.mjs",
+      "reason": "Browser IPC handlers should import native menu UI from host/electron."
+    },
+    {
+      "id": "tab-manager-no-electron-import",
+      "type": "file-not-contains",
+      "file": "runtime/browser/TabManager.mjs",
+      "pattern": "from \"electron\"",
+      "reason": "Browser tab runtime should receive Electron guest-view creation through injected host support."
+    },
+    {
+      "id": "tab-manager-no-monitoring-import",
+      "type": "file-not-contains",
+      "file": "runtime/browser/TabManager.mjs",
+      "pattern": "host/electron/monitoring",
+      "reason": "Browser tab runtime should not import host monitoring directly after host adapter extraction."
+    },
+    {
+      "id": "tab-manager-no-browser-preload-path",
+      "type": "file-not-contains",
+      "file": "runtime/browser/TabManager.mjs",
+      "pattern": "browser-preload.cjs",
+      "reason": "Browser tab runtime should not resolve host preload paths directly."
+    },
+    {
+      "id": "gentab-registration-no-browser-tabs-map-import",
+      "type": "file-not-contains",
+      "file": "host/electron/register-gentab-ipc-handlers.mjs",
+      "pattern": "browserTabs,",
+      "reason": "GenTab host orchestration should not depend on the tab manager's internal Map shape."
+    },
+    {
+      "id": "gentab-registration-no-host-tab-context-snapshot-import",
+      "type": "file-not-contains",
+      "file": "host/electron/register-gentab-ipc-handlers.mjs",
+      "pattern": "./TabContextSnapshot.mjs",
+      "reason": "GenTab host orchestration should pull tab context from the browser runtime domain, not a host-local wrapper."
+    },
+    {
+      "id": "thread-ipc-no-active-tab-object-peek",
+      "type": "file-not-contains",
+      "file": "host/electron/register-thread-ipc-handlers.mjs",
+      "pattern": "getActiveTab()?.tabId",
+      "reason": "Thread IPC should depend on explicit tab-runtime selectors, not the full active-tab object."
+    },
+    {
+      "id": "thread-registration-no-inline-ai-action-runner",
+      "type": "file-not-contains",
+      "file": "host/electron/register-thread-ipc-handlers.mjs",
+      "pattern": "async function runAiAction(",
+      "reason": "Thread IPC registration should not inline the AI action execution flow."
+    },
+    {
+      "id": "thread-registration-no-inline-local-task-runner",
+      "type": "file-not-contains",
+      "file": "host/electron/register-thread-ipc-handlers.mjs",
+      "pattern": "async function runTrackedLocalAgentTask(",
+      "reason": "Thread IPC registration should not inline OpenClaw task recording logic."
+    },
+    {
+      "id": "thread-registration-no-host-tab-context-snapshot-import",
+      "type": "file-not-contains",
+      "file": "host/electron/register-thread-ipc-handlers.mjs",
+      "pattern": "./TabContextSnapshot.mjs",
+      "reason": "Thread IPC registration should consume browser tab context through runtime/browser."
+    },
+    {
+      "id": "thread-turn-no-inline-attachment-resolution",
+      "type": "file-not-contains",
+      "file": "runtime/threads/ThreadTurnService.mjs",
+      "pattern": "resolveAttachmentContexts(",
+      "reason": "ThreadTurnService should consume a browser context package instead of rebuilding attachment resolution inline."
+    },
+    {
+      "id": "thread-ipc-action-uses-browser-context-package",
+      "type": "file-contains",
+      "file": "host/electron/ThreadIpcActionService.mjs",
+      "pattern": "buildBrowserContextPackage",
+      "reason": "AI action routing should consume the Sabrina browser context package contract."
+    },
+    {
+      "id": "gentab-ipc-action-uses-browser-context-package",
+      "type": "file-contains",
+      "file": "host/electron/GenTabIpcActionService.mjs",
+      "pattern": "buildBrowserContextPackageFromTabSet",
+      "reason": "GenTab generation should consume the Sabrina browser context package contract."
+    },
+    {
+      "id": "browser-ai-prompt-context-package",
+      "type": "file-contains",
+      "file": "runtime/browser/BrowserAiPromptService.mjs",
+      "pattern": "contextPackage",
+      "reason": "Browser ask prompts should be built from the packaged browser context contract."
+    },
+    {
+      "id": "browser-skill-prompt-context-package",
+      "type": "file-contains",
+      "file": "runtime/openclaw/BrowserSkillPromptService.mjs",
+      "pattern": "contextPackage",
+      "reason": "Browser skill prompts should be built from the packaged browser context contract."
+    },
+    {
+      "id": "browser-skill-policy-uses-registry",
+      "type": "file-contains",
+      "file": "runtime/openclaw/BrowserSkillInputPolicyService.mjs",
+      "pattern": "getBrowserSkillRegistryEntry(",
+      "reason": "Browser skill compatibility must consult explicit registry or metadata before heuristics."
+    },
+    {
+      "id": "browser-skill-policy-has-source-routing",
+      "type": "file-contains",
+      "file": "runtime/openclaw/BrowserSkillInputPolicyService.mjs",
+      "pattern": "sourceRoute",
+      "reason": "URL-native browser skills should resolve explicit source routing instead of only checking isHttpUrl."
+    },
+    {
+      "id": "page-context-service-no-inline-browser-ai-prompt",
+      "type": "file-not-contains",
+      "file": "runtime/browser/PageContextService.mjs",
+      "pattern": "export function buildBrowserAiPrompt(",
+      "reason": "Page context extraction should stay separate from browser AI prompt construction."
+    },
+    {
+      "id": "browser-library-store-no-export-url-label-helper",
+      "type": "file-not-contains",
+      "file": "runtime/browser/BrowserLibraryStore.mjs",
+      "pattern": "export function getUrlLabel(",
+      "reason": "Browser library store should not own shared URL label helpers."
+    },
+    {
+      "id": "browser-library-store-no-export-record-helpers",
+      "type": "file-not-contains",
+      "file": "runtime/browser/BrowserLibraryStore.mjs",
+      "pattern": "export function createRecordId(",
+      "reason": "Browser library store should keep its record helper utilities private."
+    },
+    {
+      "id": "tab-manager-no-export-serialize-tab",
+      "type": "file-not-contains",
+      "file": "runtime/browser/TabManager.mjs",
+      "pattern": "export function serializeTab(",
+      "reason": "Tab runtime should not expose raw tab-serialization helpers as public API."
+    },
+    {
+      "id": "tab-manager-no-export-startup-tab-list",
+      "type": "file-not-contains",
+      "file": "runtime/browser/TabManager.mjs",
+      "pattern": "export const startupTabUrls =",
+      "reason": "Startup tab configuration should stay internal to the tab runtime."
+    },
+    {
+      "id": "tab-manager-no-export-address-normalizer",
+      "type": "file-not-contains",
+      "file": "runtime/browser/TabManager.mjs",
+      "pattern": "export { normalizeAddressInput }",
+      "reason": "Address normalization should stay private until another browser-domain caller truly needs it."
+    },
+    {
+      "id": "tab-manager-no-export-browser-tabs-map",
+      "type": "file-not-contains",
+      "file": "runtime/browser/TabManager.mjs",
+      "pattern": "export const browserTabs =",
+      "reason": "Tab runtime should keep its tab registry private and expose only focused selectors."
+    },
+    {
+      "id": "tab-manager-no-export-active-tab-object",
+      "type": "file-not-contains",
+      "file": "runtime/browser/TabManager.mjs",
+      "pattern": "export function getActiveTab(",
+      "reason": "Tab runtime should not export raw active-tab objects once host-facing selectors are available."
+    },
+    {
+      "id": "tab-manager-no-export-tab-by-id-object",
+      "type": "file-not-contains",
+      "file": "runtime/browser/TabManager.mjs",
+      "pattern": "export function getTabById(",
+      "reason": "Tab runtime should not export raw tab objects by id when focused selectors exist."
+    },
+    {
+      "id": "package-no-legacy-electron-shim-bundle",
+      "type": "file-not-contains",
+      "file": "package.json",
+      "pattern": "\"electron/**/*\"",
+      "reason": "Legacy shim directory should not be bundled once host/runtime paths are the canonical entrypoints."
+    },
+    {
+      "id": "builder-debug-no-legacy-electron-shim-bundle",
+      "type": "file-not-contains",
+      "file": "release/builder-debug.yml",
+      "allowMissing": true,
+      "pattern": "electron/**/*",
+      "reason": "Debug packaging should not keep including the removed shim directory."
+    }
+  ]
+}

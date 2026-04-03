@@ -1,0 +1,25 @@
+{
+  "name": "@sabrina/openclaw-plugin-sabrina",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sabrina connection plugin for OpenClaw",
+  "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./manifest": "./src/manifest.mjs"
+  },
+  "files": [
+    "openclaw.plugin.json",
+    "src/**/*",
+    "README.md"
+  ],
+  "dependencies": {
+    "@sabrina/sabrina-protocol": "file:../sabrina-protocol"
+  },
+  "openclaw": {
+    "extensions": [
+      "./src/index.mjs"
+    ]
+  }
+}

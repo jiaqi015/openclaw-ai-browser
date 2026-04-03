@@ -1,0 +1,23 @@
+{
+  "id": "openclaw-plugin-sabrina",
+  "name": "Sabrina Browser Connector",
+  "description": "Connect OpenClaw to Sabrina for browser-native actions and browser memory sync.",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "manifestPath": {
+        "type": "string"
+      }
+    }
+  },
+  "uiHints": {
+    "manifestPath": {
+      "label": "Connector Manifest Path",
+      "help": "Optional path to Sabrina's local connector manifest file.",
+      "advanced": true,
+      "placeholder": "~/.sabrina/connector.json"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" rx="248" fill="url(#saburina-shell)" />
+  <rect x="12" y="12" width="1000" height="1000" rx="236" stroke="white" stroke-opacity="0.08" stroke-width="24" />
+  <circle cx="322" cy="300" r="220" fill="url(#saburina-pink-glow)" />
+  <circle cx="744" cy="744" r="244" fill="url(#saburina-blue-glow)" />
+  <path d="M102 104H922V452C804 514 662 546 512 546C362 546 220 514 102 452V104Z" fill="url(#saburina-sheen)" />
+  <path
+    d="M256 250C256 229.013 273.013 212 294 212H402C422.987 212 440 229.013 440 250V392C440 412.987 422.987 430 402 430H352V604H500C520.987 604 538 621.013 538 642V750C538 770.987 520.987 788 500 788H294C273.013 788 256 770.987 256 750V250Z"
+    fill="white"
+  />
+  <path
+    d="M768 250C768 229.013 750.987 212 730 212H622C601.013 212 584 229.013 584 250V392C584 412.987 601.013 430 622 430H672V604H524C503.013 604 486 621.013 486 642V750C486 770.987 503.013 788 524 788H730C750.987 788 768 770.987 768 750V250Z"
+    fill="white"
+  />
+  <circle cx="403" cy="328" r="27" fill="#FF2D55" />
+  <circle cx="621" cy="328" r="27" fill="#0A84FF" />
+  <defs>
+    <linearGradient id="saburina-shell" x1="102" y1="60" x2="900" y2="962" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#171717" />
+      <stop offset="1" stop-color="#050505" />
+    </linearGradient>
+    <radialGradient id="saburina-pink-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(322 300) rotate(90) scale(220)">
+      <stop stop-color="#FF2D55" stop-opacity="0.94" />
+      <stop offset="1" stop-color="#FF2D55" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="saburina-blue-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(744 744) rotate(90) scale(244)">
+      <stop stop-color="#0A84FF" stop-opacity="0.92" />
+      <stop offset="1" stop-color="#0A84FF" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="saburina-sheen" x1="512" y1="104" x2="512" y2="546" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white" stop-opacity="0.18" />
+      <stop offset="1" stop-color="white" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+</svg>

@@ -1,0 +1,178 @@
+import { useState } from "react";
+import { getSabrinaDesktop } from "../lib/sabrina-desktop";
+import { useChatCommands } from "../commands/useChatCommands";
+import { useBrowserCommands } from "../commands/useBrowserCommands";
+import { useDesktopDiagnostics } from "../application/use-desktop-diagnostics";
+import { useOpenClawState } from "../state/useOpenClawState";
+import { useBrowserState } from "../state/useBrowserState";
+import { useThreadState } from "../state/useThreadState";
+import { useThreadComposerState } from "../state/useThreadComposerState";
+import { useGenTabController } from "./useGenTabController";
+
+export function useAppController() {
+  const desktop = getSabrinaDesktop();
+  const {
+    tabs,
+    activeTab,
+    historyEntries,
+    bookmarkEntries,
+    downloads,
+    windowState,
+    desktopUnavailable,
+    isMacDesktop,
+    supportsNativeBrowserMenu,
+  } = useBrowserState(desktop);
+  const {
+    binding,
+    connectionState,
+    bindingSetupState,
+    beginBindingSetup,
+    connectOpenClaw,
+    disconnectOpenClaw,
+    doctorOpenClaw,
+    setBindingTarget,
+    skillCatalog,
+    gatewayStatus,
+    deviceStatus,
+    pairingStatus,
+    lastError,
+    selectedModel,
+    modelOptions,
+    isModelSwitching,
+    approvingPairingRequestId,
+    isApprovingLatestDevice,
+    switchSelectedModel,
+    approvePairingRequest,
+    approveLatestDeviceRequest,
+  } = useOpenClawState(desktop);
+  const {
+    diagnostics,
+    refreshDiagnostics: refreshDesktopDiagnostics,
+    openLogDirectory,
+    revealHumanLogFile,
+  } = useDesktopDiagnostics(desktop);
+  const {
+    activeMessages,
+    activeThreadId,
+    appendMessage,
+    selectThread,
+    threadSummaries,
+  } = useThreadState({
+    desktop,
+    tabs,
+    activeTab,
+  });
+  const {
+    composerText,
+    isThinking,
+    referenceCandidates,
+    referenceQuery,
+    selectedComposerSkill,
+    selectedReferenceIds,
+    clearSelectedComposerSkill,
+    clearSelectedReferences,
+    setComposerText,
+    setPending,
+    setReferenceQuery,
+    setSelectedComposerSkill,
+    toggleReference,
+  } = useThreadComposerState({
+    tabs,
+    activeTab,
+    activeThreadId,
+  });
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const {
+    generatingGenTabId,
+    handleOpenGenTabGenerator,
+    handleCloseGenTab,
+  } = useGenTabController({
+    binding,
+    composerText,
+    selectedReferenceIds,
+  });
+  const isBookmarked = activeTab
+    ? bookmarkEntries.some((bookmark) => bookmark.url === activeTab.url)
+    : false;
+  const desktopActions = useBrowserCommands({
+    desktop,
+    activeTab,
+    refreshDiagnostics: refreshDesktopDiagnostics,
+  });
+  const aiChatActions = useChatCommands({
+    desktop,
+    activeTab,
+    activeThreadId,
+    binding,
+    selectedModel,
+    isModelSwitching,
+    composerText,
+    selectedReferenceIds,
+    selectedComposerSkill,
+    appendMessage,
+    clearSelectedReferences,
+    clearSelectedComposerSkill,
+    setComposerText,
+    setPending,
+    switchSelectedModel,
+  });
+
+  return {
+    binding,
+    connectionState,
+    bindingSetupState,
+    skillCatalog,
+    gatewayStatus,
+    deviceStatus,
+    pairingStatus,
+    lastError,
+    activeThreadId,
+    tabs,
+    activeTab,
+    activeMessages,
+    threadSummaries,
+    referenceCandidates,
+    referenceQuery,
+    selectedComposerSkill,
+    selectedReferenceIds,
+    historyEntries,
+    bookmarkEntries,
+    downloads,
+    diagnostics,
+    composerText,
+    selectedModel,
+    modelOptions,
+    windowState,
+    isMacDesktop,
+    supportsNativeBrowserMenu,
+    sidebarOpen,
+    isThinking,
+    isModelSwitching,
+    approvingPairingRequestId,
+    isApprovingLatestDevice,
+    isBookmarked,
+    desktopUnavailable,
+    beginBindingSetup,
+    connectOpenClaw,
+    disconnectOpenClaw,
+    doctorOpenClaw,
+    approvePairingRequest,
+    approveLatestDeviceRequest,
+    setSidebarOpen,
+    setBindingTarget,
+    setComposerText,
+    setSelectedComposerSkill,
+    setReferenceQuery,
+    clearSelectedComposerSkill,
+    clearSelectedReferences,
+    selectThread,
+    toggleReference,
+    generatingGenTabId,
+    handleOpenGenTabGenerator,
+    handleCloseGenTab,
+    ...aiChatActions,
+    ...desktopActions,
+    openLogDirectory,
+    revealHumanLogFile,
+  };
+}

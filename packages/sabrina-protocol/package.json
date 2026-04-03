@@ -1,0 +1,11 @@
+{
+  "name": "@sabrina/sabrina-protocol",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared Sabrina connector protocol and discovery helpers",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs"
+  }
+}
