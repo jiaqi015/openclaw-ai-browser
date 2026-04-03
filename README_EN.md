@@ -19,7 +19,7 @@
   <a href="https://github.com/jiaqi015/openclaw-ai-browser/releases"><img src="https://img.shields.io/github/v/release/jiaqi015/openclaw-ai-browser?label=download" alt="Download" /></a>
 </p>
 
-<p align="center">Most AI tools make you leave the page, then re-describe what you were just reading.<br/><strong>Sabrina doesn't. The page is the context.</strong></p>
+<p align="center">OpenClaw through IM alone is incomplete.<br/><strong>Sabrina is the browser presence it's been missing.</strong></p>
 
 ---
 

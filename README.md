@@ -19,7 +19,7 @@
   <a href="https://github.com/jiaqi015/openclaw-ai-browser/releases"><img src="https://img.shields.io/github/v/release/jiaqi015/openclaw-ai-browser?label=download" alt="Download" /></a>
 </p>
 
-<p align="center">大多数 AI 工具要你先离开页面、再去描述你刚才在看什么。<br/><strong>Sabrina 不需要。页面本身就是上下文。</strong></p>
+<p align="center">只有 IM 通道的 OpenClaw，是不完整的。<br/><strong>Sabrina 是它缺失的浏览器入口。</strong></p>
 
 ---
 
