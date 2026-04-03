@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    name: Build macOS .dmg
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare icons
+        run: |
+          mkdir -p build/icon.iconset
+          cp docs/icon.svg build/icon.svg
+
+          # SVG → 1024x1024 PNG（qlmanage 在 macOS runner 上可用）
+          qlmanage -t -s 1024 -o build build/icon.svg 2>/dev/null || true
+          mv build/icon.svg.png build/icon-1024.png
+
+          # 生成 iconset 所需的所有尺寸
+          sips -z 16   16   build/icon-1024.png --out build/icon.iconset/icon_16x16.png
+          sips -z 32   32   build/icon-1024.png --out build/icon.iconset/icon_16x16@2x.png
+          sips -z 32   32   build/icon-1024.png --out build/icon.iconset/icon_32x32.png
+          sips -z 64   64   build/icon-1024.png --out build/icon.iconset/icon_32x32@2x.png
+          sips -z 128  128  build/icon-1024.png --out build/icon.iconset/icon_128x128.png
+          sips -z 256  256  build/icon-1024.png --out build/icon.iconset/icon_128x128@2x.png
+          sips -z 256  256  build/icon-1024.png --out build/icon.iconset/icon_256x256.png
+          sips -z 512  512  build/icon-1024.png --out build/icon.iconset/icon_256x256@2x.png
+          sips -z 512  512  build/icon-1024.png --out build/icon.iconset/icon_512x512.png
+          sips -z 1024 1024 build/icon-1024.png --out build/icon.iconset/icon_512x512@2x.png
+
+          # 生成标准 .icns
+          iconutil -c icns build/icon.iconset -o build/icon.icns
+          cp build/icon-1024.png build/icon.png
+
+      - name: Build renderer
+        run: npm run build
+
+      - name: Package .dmg
+        run: npx electron-builder --mac dmg
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload .dmg to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.dmg
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
