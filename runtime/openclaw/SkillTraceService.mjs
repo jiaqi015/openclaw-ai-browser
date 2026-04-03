@@ -1,6 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { resolveOpenClawStateDir } from "./OpenClawConfigCache.mjs";
+import {
+  getOpenClawTransportContext,
+} from "./OpenClawTransportContext.mjs";
+import { supportsOpenClawSessionTrace } from "./drivers/OpenClawDriverRegistry.mjs";
 
 function truncateSkillTraceDetail(value, max = 220) {
   const normalized = `${value ?? ""}`.replace(/\s+/g, " ").trim();
@@ -305,6 +309,26 @@ export async function extractSkillTraceFromSession(params) {
   ];
 
   if (!agentId || !sessionId) {
+    steps.push(
+      buildSkillFinalTraceStep({
+        skillName,
+        requestId,
+        status,
+        failureReason: params?.failureReason,
+        responseText: params?.responseText,
+      }),
+    );
+    return buildSkillTrace({
+      skillName,
+      requestId,
+      sessionId,
+      status,
+      failureReason: params?.failureReason,
+      steps,
+    });
+  }
+
+  if (!supportsOpenClawSessionTrace(getOpenClawTransportContext())) {
     steps.push(
       buildSkillFinalTraceStep({
         skillName,

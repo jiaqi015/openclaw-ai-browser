@@ -6,6 +6,9 @@ import {
   executeAiTurn,
   executeOpenClawTaskTurn,
 } from "../turns/TurnEngine.mjs";
+import { normalizeUiLocale, translate } from "../../shared/localization.mjs";
+import { buildTurnJournalEntry } from "../turns/TurnJournalService.mjs";
+import { recordTurnJournalEntry } from "../turns/TurnJournalStore.mjs";
 
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
@@ -33,20 +36,35 @@ async function appendThreadMessage(threadId, message) {
   });
 }
 
+async function appendTurnJournal(threadId, userText, turnResult) {
+  return recordTurnJournalEntry(
+    buildTurnJournalEntry({
+      threadId,
+      userText,
+      plan: turnResult?.executionPlan,
+      receipt: turnResult?.receipt,
+      contextPackage: turnResult?.contextPackage,
+      response: turnResult?.response,
+      error: turnResult?.error,
+    }),
+  );
+}
+
 export async function runThreadAiTurn(payload = {}, dependencies = {}) {
   const threadId = normalizeNonEmptyString(payload?.threadId);
   const userText = normalizeNonEmptyString(payload?.userText);
   const runAiAction = dependencies?.runAiAction;
   const actionPayload = payload?.actionPayload ?? {};
+  const uiLocale = normalizeUiLocale(actionPayload?.uiLocale);
   const tabId = normalizeNonEmptyString(actionPayload?.tabId);
 
   ensureThreadExists(threadId);
 
   if (!userText) {
-    throw new Error("请输入要发送的消息。");
+    throw new Error(translate(uiLocale, "error.enterMessage"));
   }
   if (typeof runAiAction !== "function") {
-    throw new Error("AI turn 执行器暂未就绪。");
+    throw new Error(translate(uiLocale, "error.aiTurnUnavailable"));
   }
 
   await appendThreadMessage(threadId, {
@@ -68,6 +86,7 @@ export async function runThreadAiTurn(payload = {}, dependencies = {}) {
         runAiAction,
       },
     );
+    const journalEntry = await appendTurnJournal(threadId, userText, turnResult);
     const runtimeState = await appendThreadMessage(threadId, {
       role: turnResult.ok ? "assistant" : "error",
       text: turnResult.receipt.userVisibleMessage,
@@ -80,6 +99,7 @@ export async function runThreadAiTurn(payload = {}, dependencies = {}) {
       return {
         ok: true,
         runtimeState,
+        journalEntryId: journalEntry.journalId,
       };
     }
 
@@ -87,8 +107,16 @@ export async function runThreadAiTurn(payload = {}, dependencies = {}) {
       ok: false,
       errorMessage: turnResult.receipt.userVisibleMessage,
       runtimeState,
+      journalEntryId: journalEntry.journalId,
     };
   } catch (error) {
+    const journalEntry = await recordTurnJournalEntry(
+      buildTurnJournalEntry({
+        threadId,
+        userText,
+        error,
+      }),
+    );
     const runtimeState = await appendThreadMessage(threadId, {
       role: "error",
       text: getErrorMessage(error),
@@ -98,6 +126,7 @@ export async function runThreadAiTurn(payload = {}, dependencies = {}) {
       ok: false,
       errorMessage: getErrorMessage(error),
       runtimeState,
+      journalEntryId: journalEntry.journalId,
     };
   }
 }
@@ -107,18 +136,19 @@ export async function runThreadOpenClawTaskTurn(payload = {}, dependencies = {})
   const userText = normalizeNonEmptyString(payload?.userText);
   const runLocalAgentTask = dependencies?.runLocalAgentTask;
   const taskPayload = payload?.taskPayload ?? {};
+  const uiLocale = normalizeUiLocale(taskPayload?.uiLocale);
   const tabId = normalizeNonEmptyString(taskPayload?.tabId);
 
   ensureThreadExists(threadId);
 
   if (!userText) {
-    throw new Error("请输入要交给龙虾处理的内容。");
+    throw new Error(translate(uiLocale, "error.enterOpenClawTask"));
   }
   if (typeof runLocalAgentTask !== "function") {
-    throw new Error("OpenClaw turn 执行器暂未就绪。");
+    throw new Error(translate(uiLocale, "error.openClawTurnUnavailable"));
   }
   if (!tabId) {
-    throw new Error("当前没有可用标签页，暂时无法交给龙虾处理。");
+    throw new Error(translate(uiLocale, "error.noUsableTab"));
   }
   await appendThreadMessage(threadId, {
     role: "user",
@@ -140,6 +170,7 @@ export async function runThreadOpenClawTaskTurn(payload = {}, dependencies = {})
         runLocalAgentTask,
       },
     );
+    const journalEntry = await appendTurnJournal(threadId, userText, turnResult);
     const runtimeState = await appendThreadMessage(threadId, {
       role: turnResult.ok ? "assistant" : "error",
       text: turnResult.receipt.userVisibleMessage,
@@ -149,6 +180,7 @@ export async function runThreadOpenClawTaskTurn(payload = {}, dependencies = {})
       return {
         ok: true,
         runtimeState,
+        journalEntryId: journalEntry.journalId,
       };
     }
 
@@ -156,8 +188,16 @@ export async function runThreadOpenClawTaskTurn(payload = {}, dependencies = {})
       ok: false,
       errorMessage: turnResult.receipt.userVisibleMessage,
       runtimeState,
+      journalEntryId: journalEntry.journalId,
     };
   } catch (error) {
+    const journalEntry = await recordTurnJournalEntry(
+      buildTurnJournalEntry({
+        threadId,
+        userText,
+        error,
+      }),
+    );
     const runtimeState = await appendThreadMessage(threadId, {
       role: "error",
       text: getErrorMessage(error),
@@ -167,6 +207,7 @@ export async function runThreadOpenClawTaskTurn(payload = {}, dependencies = {})
       ok: false,
       errorMessage: getErrorMessage(error),
       runtimeState,
+      journalEntryId: journalEntry.journalId,
     };
   }
 }

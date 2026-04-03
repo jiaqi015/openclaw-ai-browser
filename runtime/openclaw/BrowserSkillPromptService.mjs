@@ -1,3 +1,8 @@
+import {
+  getAssistantLanguageInstruction,
+  getPromptMarkdownInstruction,
+} from "../../shared/localization.mjs";
+
 export function buildBrowserSkillPrompt({
   action,
   prompt,
@@ -7,6 +12,7 @@ export function buildBrowserSkillPrompt({
   skill,
   inputPlan,
   requestId,
+  assistantLocale = "zh-CN",
 }) {
   const primaryContext = contextPackage?.primary ?? context ?? null;
   const references = Array.isArray(contextPackage?.references)
@@ -86,7 +92,8 @@ export function buildBrowserSkillPrompt({
       : `第一行只能输出 [SKILL_USED:${skill.name}] 或 [SKILL_FAILED:${skill.name}] <原因>`,
     "没有真的执行 skill 时，不要输出 [SKILL_USED]。",
     "从第二行开始输出最终回答正文，不要重复输出协议说明，也不要把这次请求改写成普通聊天。",
-    "请始终使用中文回答，并避免编造页面中不存在的事实。",
+    getAssistantLanguageInstruction(assistantLocale),
+    getPromptMarkdownInstruction(assistantLocale),
   ]
     .filter(Boolean)
     .join("\n\n");

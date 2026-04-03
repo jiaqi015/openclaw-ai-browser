@@ -14,6 +14,12 @@ import {
   buildCompletedTurnReceipt,
   buildFailedTurnReceipt,
 } from "./TurnReceiptService.mjs";
+import {
+  getAssistantLanguageInstruction,
+  normalizeUiLocale,
+  resolveAssistantLocale,
+  translate,
+} from "../../shared/localization.mjs";
 
 function normalizeNonEmptyString(value) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
@@ -23,10 +29,32 @@ function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function getTurnLocales(payload = {}) {
+  const actionPayload = payload?.actionPayload ?? {};
+  const taskPayload = payload?.taskPayload ?? {};
+  const uiLocale = normalizeUiLocale(
+    actionPayload?.uiLocale ?? taskPayload?.uiLocale ?? payload?.uiLocale,
+  );
+
+  return {
+    uiLocale,
+    assistantLocale: resolveAssistantLocale(
+      uiLocale,
+      actionPayload?.assistantLocaleMode ??
+        taskPayload?.assistantLocaleMode ??
+        payload?.assistantLocaleMode,
+    ),
+  };
+}
+
 function buildOpenClawTaskPrompt(params = {}) {
   const prompt = normalizeNonEmptyString(params?.prompt);
   const contextPackage = params?.contextPackage ?? null;
   const context = contextPackage?.primary ?? null;
+  const assistantLocale = resolveAssistantLocale(
+    params?.uiLocale,
+    params?.assistantLocaleMode,
+  );
   const references = Array.isArray(contextPackage?.references)
     ? contextPackage.references
     : [];
@@ -55,6 +83,7 @@ function buildOpenClawTaskPrompt(params = {}) {
     `页面摘要：\n${context?.leadText || context?.contentPreview || "当前页面暂无摘要。"}`,
     attachmentBlock ? `额外引用页面：\n\n${attachmentBlock}` : "",
     `用户意图：\n${prompt || "请继续处理当前页面相关任务。"}`,
+    getAssistantLanguageInstruction(assistantLocale),
     "请先确认你会怎么处理，再给出下一步建议或结果。",
   ]
     .filter(Boolean)
@@ -138,6 +167,7 @@ async function packageContextFromTabSetPayload(payload, dependencies) {
 
 export async function executeAiTurn(payload = {}, dependencies = {}) {
   const actionPayload = payload?.actionPayload ?? {};
+  const { uiLocale, assistantLocale } = getTurnLocales(payload);
   const contextPackage = await packageContextFromPayload(payload, dependencies);
   const capability = await resolveAiTurnCapability(
     payload,
@@ -163,14 +193,15 @@ export async function executeAiTurn(payload = {}, dependencies = {}) {
       executionPlan: plan,
       error: new Error(
         normalizeNonEmptyString(plan?.inputPolicy?.failureReason) ||
-          "当前页面输入与所选 skill 不兼容。",
+          translate(uiLocale, "error.incompatibleSkillInput"),
       ),
       receipt: buildBlockedTurnReceipt({
         plan,
         contextPackage,
+        uiLocale,
         message:
           normalizeNonEmptyString(plan?.inputPolicy?.failureReason) ||
-          "当前页面输入与所选 skill 不兼容。",
+          translate(uiLocale, "error.incompatibleSkillInput"),
       }),
     };
   }
@@ -179,6 +210,8 @@ export async function executeAiTurn(payload = {}, dependencies = {}) {
     const response = await dependencies.runAiAction({
       ...actionPayload,
       contextPackage,
+      uiLocale,
+      assistantLocale,
     });
 
     return {
@@ -190,6 +223,7 @@ export async function executeAiTurn(payload = {}, dependencies = {}) {
         plan,
         contextPackage,
         response,
+        uiLocale,
         requestedSkillName: normalizeNonEmptyString(actionPayload?.skillName),
       }),
     };
@@ -203,6 +237,7 @@ export async function executeAiTurn(payload = {}, dependencies = {}) {
         plan,
         contextPackage,
         error,
+        uiLocale,
         executionAttempted: true,
       }),
     };
@@ -211,10 +246,11 @@ export async function executeAiTurn(payload = {}, dependencies = {}) {
 
 export async function executeOpenClawTaskTurn(payload = {}, dependencies = {}) {
   const taskPayload = payload?.taskPayload ?? {};
+  const { uiLocale, assistantLocale } = getTurnLocales(payload);
   const prompt = normalizeNonEmptyString(taskPayload?.prompt);
   const contextPackage = await packageContextFromPayload(payload, dependencies);
   const context = contextPackage.primary ?? null;
-  const taskTitle = context?.title || "当前页面任务";
+  const taskTitle = context?.title || translate(uiLocale, "common.currentPageTask");
   const plan = planTurnExecution({
     intent: {
       type: "handoff",
@@ -232,6 +268,8 @@ export async function executeOpenClawTaskTurn(payload = {}, dependencies = {}) {
       message: buildOpenClawTaskPrompt({
         prompt,
         contextPackage,
+        uiLocale,
+        assistantLocaleMode: taskPayload?.assistantLocaleMode,
       }),
       task: {
         title: taskTitle,
@@ -250,6 +288,7 @@ export async function executeOpenClawTaskTurn(payload = {}, dependencies = {}) {
         plan,
         contextPackage,
         response,
+        uiLocale,
         taskTitle,
       }),
     };
@@ -263,6 +302,7 @@ export async function executeOpenClawTaskTurn(payload = {}, dependencies = {}) {
         plan,
         contextPackage,
         error,
+        uiLocale,
         executionAttempted: true,
       }),
     };
@@ -270,6 +310,7 @@ export async function executeOpenClawTaskTurn(payload = {}, dependencies = {}) {
 }
 
 export async function executeGenTabTurn(payload = {}, dependencies = {}) {
+  const { uiLocale, assistantLocale } = getTurnLocales(payload);
   const userIntent = normalizeNonEmptyString(payload?.userIntent);
   const preferredType = payload?.preferredType;
   const referenceTabIds = Array.isArray(payload?.referenceTabIds)
@@ -290,10 +331,10 @@ export async function executeGenTabTurn(payload = {}, dependencies = {}) {
   const runAgentTurn = dependencies?.runLocalAgentTurn;
 
   if (referenceTabIds.length === 0) {
-    throw new Error("请至少提供一个来源标签页");
+    throw new Error(translate(uiLocale, "error.requireSourceTabs"));
   }
   if (typeof runAgentTurn !== "function") {
-    throw new Error("GenTab turn 执行器暂未就绪。");
+    throw new Error(translate(uiLocale, "error.gentabExecutorUnavailable"));
   }
 
   const contextPackage = await packageContextFromTabSetPayload(payload, dependencies);
@@ -311,27 +352,27 @@ export async function executeGenTabTurn(payload = {}, dependencies = {}) {
 
   try {
     if (!contextPackage?.primary) {
-      throw new Error("未能获取任何标签页内容");
+      throw new Error(translate(uiLocale, "error.noTabContent"));
     }
 
-    const prompt = buildPrompt(userIntent, contextPackage, preferredType);
+    const prompt = buildPrompt(userIntent, contextPackage, preferredType, assistantLocale);
     const response = await runAgentTurn({
       message: prompt,
     });
 
     if (!response || !response.text) {
-      throw new Error("AI 未能返回结果");
+      throw new Error(translate(uiLocale, "error.aiNoResult"));
     }
 
     let parsed;
     try {
       parsed = JSON.parse(extractJson(response.text));
     } catch {
-      throw new Error("AI 返回格式不正确，无法解析 JSON");
+      throw new Error(translate(uiLocale, "error.invalidJson"));
     }
 
     if (!parsed.success || !parsed.gentab) {
-      throw new Error(parsed.error || "生成失败");
+      throw new Error(parsed.error || translate(uiLocale, "error.generationFailed"));
     }
 
     const gentab = normalizeGentab(parsed.gentab, {
@@ -354,6 +395,7 @@ export async function executeGenTabTurn(payload = {}, dependencies = {}) {
         plan,
         contextPackage,
         response,
+        uiLocale,
         gentabTitle: gentab?.title,
       }),
     };
@@ -367,6 +409,7 @@ export async function executeGenTabTurn(payload = {}, dependencies = {}) {
         plan,
         contextPackage,
         error,
+        uiLocale,
         executionAttempted: true,
       }),
     };

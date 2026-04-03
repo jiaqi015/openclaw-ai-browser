@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { translate, type UiLocale } from "../../shared/localization.mjs";
 import {
   BROWSER_RECOMMENDED_SKILLS,
   BROWSER_UNSUITED_SKILLS,
@@ -24,8 +25,9 @@ export function useSkillsSurfaceState(params: {
   hiddenSkillNames: string[];
   pinnedSkillNames: string[];
   skillCatalog: SabrinaOpenClawSkillCatalog | null;
+  uiLocale: UiLocale;
 }) {
-  const { hiddenSkillNames, pinnedSkillNames, skillCatalog } = params;
+  const { hiddenSkillNames, pinnedSkillNames, skillCatalog, uiLocale } = params;
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<SkillFilter>("all");
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
@@ -50,8 +52,8 @@ export function useSkillsSurfaceState(params: {
     const sectionDefs = [
       {
         key: "favorites",
-        title: "最爱 · 可见",
-        subtitle: "你标记的最爱，随时可用",
+        title: translate(uiLocale, "skills.section.favorites.title"),
+        subtitle: translate(uiLocale, "skills.section.favorites.subtitle"),
         titleClassName: "text-apple-pink",
         subtitleClassName: "text-apple-pink/60",
         dotClassName: "bg-apple-pink",
@@ -61,8 +63,8 @@ export function useSkillsSurfaceState(params: {
       },
       {
         key: "recommended",
-        title: "浏览器推荐 · 可见",
-        subtitle: "最适合在浏览器场景下使用",
+        title: translate(uiLocale, "skills.section.recommended.title"),
+        subtitle: translate(uiLocale, "skills.section.recommended.subtitle"),
         titleClassName: "text-emerald-300",
         subtitleClassName: "text-emerald-300/60",
         dotClassName: "bg-emerald-400",
@@ -75,8 +77,8 @@ export function useSkillsSurfaceState(params: {
       },
       {
         key: "others",
-        title: "其他技能 · 可见",
-        subtitle: "可在特定场景使用",
+        title: translate(uiLocale, "skills.section.others.title"),
+        subtitle: translate(uiLocale, "skills.section.others.subtitle"),
         titleClassName: "text-white/70",
         subtitleClassName: "text-white/40",
         dotClassName: "bg-white/40",
@@ -90,8 +92,8 @@ export function useSkillsSurfaceState(params: {
       },
       {
         key: "forbidden",
-        title: "不太适合",
-        subtitle: "这类技能通常不适合在浏览器中使用",
+        title: translate(uiLocale, "skills.section.forbidden.title"),
+        subtitle: translate(uiLocale, "skills.section.forbidden.subtitle"),
         titleClassName: "text-white/50",
         subtitleClassName: "text-white/35",
         dotClassName: "bg-white/20",
@@ -99,8 +101,8 @@ export function useSkillsSurfaceState(params: {
       },
       {
         key: "hidden",
-        title: "已隐藏",
-        subtitle: "不会出现在 Sabrina 的本地快捷入口里，但仍保留在技能馆",
+        title: translate(uiLocale, "skills.section.hidden.title"),
+        subtitle: translate(uiLocale, "skills.section.hidden.subtitle"),
         titleClassName: "text-white/40",
         subtitleClassName: "text-white/30",
         dotClassName: "bg-white/15",
@@ -127,6 +129,7 @@ export function useSkillsSurfaceState(params: {
     hasActiveFilter,
     hiddenSkillNames,
     pinnedSkillNames,
+    uiLocale,
   ]);
 
   function toggleSection(sectionKey: string) {

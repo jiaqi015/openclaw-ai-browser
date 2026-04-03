@@ -7,6 +7,7 @@ import {
   getLocalPairingStatus,
   getLocalSkillCatalog,
 } from "./OpenClawManager.mjs";
+import { probeOpenClawTransport } from "./OpenClawClient.mjs";
 import {
   createConnectionState,
   normalizeConnectionConfig,
@@ -37,13 +38,82 @@ export async function buildRefreshedOpenClawState(currentState = {}, options = {
   };
 
   if (selectedTarget === "remote") {
-    nextState.bindingSetupState = await getBindingSetupState({ target: "remote" }).catch(
-      () => createDefaultBindingSetupState("remote"),
-    );
+    const errors = [];
+    const bindingSetupState = await getBindingSetupState({ target: "remote" }).catch((error) => {
+      errors.push(error);
+      return createDefaultBindingSetupState("remote");
+    });
+    const probe = connectionConfig.enabled
+      ? await probeOpenClawTransport().catch((error) => {
+          errors.push(error);
+          return { ok: false, detail: error instanceof Error ? error.message : String(error) };
+        })
+      : { ok: true, detail: "" };
+
+    if (!probe.ok) {
+      nextState.binding = null;
+      nextState.bindingSetupState = bindingSetupState;
+      nextState.modelState = null;
+      nextState.skillCatalog = null;
+      nextState.gatewayStatus = null;
+      nextState.deviceStatus = null;
+      nextState.pairingStatus = null;
+      nextState.lastError =
+        `${probe.detail ?? ""}`.trim() ||
+        (errors.find((error) => error instanceof Error)?.message ??
+          (errors.length > 0 ? String(errors[0]) : ""));
+      nextState.connectionState = createConnectionState({
+        target: selectedTarget,
+        connectionConfig,
+        bindingSetupState,
+        lastError: nextState.lastError,
+        lastRefreshedAt: nextState.lastRefreshedAt,
+      });
+      return nextState;
+    }
+
+    const gatewayStatus = connectionConfig.enabled
+      ? await getLocalGatewayStatus().catch((error) => {
+          errors.push(error);
+          return null;
+        })
+      : null;
+    const binding = connectionConfig.enabled
+      ? await buildLocalOpenClawBinding().catch((error) => {
+          errors.push(error);
+          return null;
+        })
+      : null;
+    const modelState = connectionConfig.enabled && binding?.agentId
+      ? await getLocalModelState(binding.agentId).catch((error) => {
+          errors.push(error);
+          return null;
+        })
+      : null;
+    const skillCatalog = connectionConfig.enabled
+      ? await getLocalSkillCatalog().catch((error) => {
+          errors.push(error);
+          return null;
+        })
+      : null;
+
+    nextState.binding = binding;
+    nextState.bindingSetupState = bindingSetupState;
+    nextState.modelState = modelState;
+    nextState.skillCatalog = skillCatalog;
+    nextState.gatewayStatus = gatewayStatus;
+    nextState.deviceStatus = null;
+    nextState.pairingStatus = null;
+    nextState.lastError =
+      errors.find((error) => error instanceof Error)?.message ??
+      (errors.length > 0 ? String(errors[0]) : "");
     nextState.connectionState = createConnectionState({
       target: selectedTarget,
       connectionConfig,
-      bindingSetupState: nextState.bindingSetupState,
+      binding,
+      gatewayStatus,
+      bindingSetupState,
+      lastError: nextState.lastError,
       lastRefreshedAt: nextState.lastRefreshedAt,
     });
     return nextState;

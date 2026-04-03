@@ -1,12 +1,15 @@
+import { translate, type UiLocale } from "../../shared/localization.mjs";
+
 export type SkillFilter = "all" | "ready" | "recommended" | "missing" | "hidden";
 
-export const FILTER_OPTIONS: Array<{ id: SkillFilter; label: string }> = [
-  { id: "all", label: "全部" },
-  { id: "ready", label: "可用" },
-  { id: "recommended", label: "推荐" },
-  { id: "missing", label: "缺依赖" },
-  { id: "hidden", label: "已隐藏" },
-];
+export const FILTER_OPTION_IDS: SkillFilter[] = ["all", "ready", "recommended", "missing", "hidden"];
+
+export function getSkillFilterOptions(locale: UiLocale): Array<{ id: SkillFilter; label: string }> {
+  return FILTER_OPTION_IDS.map((id) => ({
+    id,
+    label: translate(locale, `skills.filter.${id}`),
+  }));
+}
 
 export const BROWSER_RECOMMENDED_SKILLS = new Set([
   "summarize",
@@ -87,47 +90,74 @@ function containsCjk(text: string) {
   return /[\u3400-\u9fff]/.test(text);
 }
 
-function buildFallbackChineseSummary(skill: SabrinaOpenClawSkillEntry) {
+function buildFallbackSkillSummary(skill: SabrinaOpenClawSkillEntry, locale: UiLocale) {
   const haystack = `${skill.name} ${skill.displayName ?? ""} ${skill.description ?? ""}`.toLowerCase();
+  const isEnglish = locale === "en-US";
 
   if (/github|pull request|issue|ci/.test(haystack)) {
-    return "处理 GitHub 相关任务，例如 PR、Issue 和 CI。";
+    return isEnglish
+      ? "Handles GitHub workflows such as PRs, issues, and CI."
+      : "处理 GitHub 相关任务，例如 PR、Issue 和 CI。";
   }
   if (/browser|chrome|playwright|web/.test(haystack)) {
-    return "处理浏览器、网页或自动化相关任务。";
+    return isEnglish
+      ? "Handles browser, web, or automation tasks."
+      : "处理浏览器、网页或自动化相关任务。";
   }
   if (/pdf/.test(haystack)) {
-    return "处理 PDF 相关任务。";
+    return isEnglish ? "Handles PDF-related tasks." : "处理 PDF 相关任务。";
   }
   if (/audio|speech|transcrib|whisper|voice/.test(haystack)) {
-    return "处理语音、音频转写或声音相关任务。";
+    return isEnglish
+      ? "Handles speech, transcription, or audio-related tasks."
+      : "处理语音、音频转写或声音相关任务。";
   }
   if (/note|obsidian|bear|wiki|doc/.test(haystack)) {
-    return "处理笔记、文档或知识库相关任务。";
+    return isEnglish
+      ? "Handles notes, documents, or knowledge-base tasks."
+      : "处理笔记、文档或知识库相关任务。";
   }
   if (/task|todo|things|reminder|calendar/.test(haystack)) {
-    return "处理任务、待办或日程相关任务。";
+    return isEnglish
+      ? "Handles tasks, reminders, or calendar workflows."
+      : "处理任务、待办或日程相关任务。";
   }
   if (/slack|discord|whatsapp|telegram|message|mail/.test(haystack)) {
-    return "处理消息、聊天或邮件相关任务。";
+    return isEnglish
+      ? "Handles messaging, chat, or email workflows."
+      : "处理消息、聊天或邮件相关任务。";
   }
   if (/weather/.test(haystack)) {
-    return "查询天气相关信息。";
+    return isEnglish ? "Looks up weather information." : "查询天气相关信息。";
   }
 
-  return `用于处理「${skill.displayName || skill.name}」相关任务。`;
+  return isEnglish
+    ? `Used for tasks related to "${skill.displayName || skill.name}".`
+    : `用于处理「${skill.displayName || skill.name}」相关任务。`;
 }
 
-export function getReadableSkillDescription(skill: SabrinaOpenClawSkillEntry) {
+export function getReadableSkillDescription(
+  skill: SabrinaOpenClawSkillEntry,
+  locale: UiLocale = "zh-CN",
+) {
   const rawDescription = `${skill.description ?? ""}`.trim();
   if (!rawDescription) {
-    return "该技能暂未提供说明。";
+    return translate(locale, "skills.noDescription");
   }
+
+  if (locale === "en-US") {
+    if (!containsCjk(rawDescription)) {
+      return rawDescription;
+    }
+
+    return buildFallbackSkillSummary(skill, locale);
+  }
+
   if (containsCjk(rawDescription)) {
     return rawDescription;
   }
 
-  return LOCALIZED_SKILL_SUMMARIES[skill.name] || buildFallbackChineseSummary(skill);
+  return LOCALIZED_SKILL_SUMMARIES[skill.name] || buildFallbackSkillSummary(skill, locale);
 }
 
 export function filterSkillEntries(

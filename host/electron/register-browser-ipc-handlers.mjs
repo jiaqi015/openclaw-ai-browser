@@ -33,6 +33,7 @@ import {
   closeBrowserMenuWindow,
   showBrowserMenuPopup,
 } from "./BrowserMenuController.mjs";
+import { setCurrentUiLocale } from "../../shared/localization.mjs";
 
 export function registerBrowserIpcHandlers(getMainWindow) {
   ipcMain.handle("browser:get-snapshot", () => serializeState());
@@ -53,6 +54,9 @@ export function registerBrowserIpcHandlers(getMainWindow) {
   ipcMain.handle("browser:go-forward", () => goForward());
   ipcMain.handle("browser:reload", () => reloadActiveTab());
   ipcMain.handle("browser:set-bounds", (_e, payload) => setBrowserBounds(payload));
+  ipcMain.handle("browser:set-ui-locale", (_e, payload) =>
+    setCurrentUiLocale(`${payload?.locale ?? ""}`),
+  );
   ipcMain.handle("browser:show-menu", (_e, payload) =>
     showBrowserMenuPopup(getMainWindow(), payload),
   );

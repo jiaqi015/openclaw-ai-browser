@@ -4,6 +4,7 @@ import {
   type SabrinaThreadSummary,
 } from "../application/sabrina-openclaw";
 import { type SabrinaChatMessage } from "../application/sabrina-chat";
+import { translate, type UiLocale } from "../../shared/localization.mjs";
 
 type SabrinaDesktop = NonNullable<Window["sabrinaDesktop"]>;
 
@@ -19,12 +20,12 @@ function createEmptyState(): SabrinaThreadRuntimeResolution {
   };
 }
 
-function getThreadPreview(messages: SabrinaChatMessage[]) {
+function getThreadPreview(messages: SabrinaChatMessage[], uiLocale: UiLocale) {
   const previewMessage = [...messages]
     .reverse()
     .find((message) => message.role !== "system");
 
-  return previewMessage?.text?.trim() || "关于这个页面的历史对话会显示在这里。";
+  return previewMessage?.text?.trim() || translate(uiLocale, "thread.previewFallback");
 }
 
 function getRuntimeSignature(runtimeState: SabrinaThreadRuntimeResolution) {
@@ -35,8 +36,9 @@ export function useThreadState(params: {
   desktop?: SabrinaDesktop;
   tabs: SabrinaDesktopTab[];
   activeTab: SabrinaDesktopTab | null;
+  uiLocale: UiLocale;
 }) {
-  const { activeTab, desktop } = params;
+  const { activeTab, desktop, uiLocale } = params;
   const [runtimeState, setRuntimeState] = useState<SabrinaThreadRuntimeResolution>(
     createEmptyState,
   );
@@ -107,9 +109,9 @@ export function useThreadState(params: {
             title: thread.title,
             siteLabel: thread.siteLabel,
             siteHost: thread.siteHost,
-            preview: getThreadPreview(messages),
+            preview: getThreadPreview(messages, uiLocale),
             updatedAt: thread.updatedAt,
-            updatedAtLabel: formatThreadTimestampLabel(thread.updatedAt),
+            updatedAtLabel: formatThreadTimestampLabel(thread.updatedAt, uiLocale),
             active: activeThreadId === threadId,
             status: (lastMessage?.role === "error" ? "error" : "active") as
               | "active"
@@ -117,7 +119,7 @@ export function useThreadState(params: {
           };
         })
         .filter(Boolean) as SabrinaThreadSummary[],
-    [activeThreadId, runtimeState],
+    [activeThreadId, runtimeState, uiLocale],
   );
 
   async function appendMessage(threadId: string, message: SabrinaChatMessage) {

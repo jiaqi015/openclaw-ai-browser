@@ -6,6 +6,8 @@ import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 import { cn } from "../lib/utils";
 import { CustomAIIcon } from "./custom-ai-icon";
 import type { SidebarMessage } from "./ai-sidebar-types";
+import { useUiPreferences } from "../application/use-ui-preferences";
+import { translate } from "../../shared/localization.mjs";
 
 export function AiSidebarMessageList(props: {
   chatKey: string;
@@ -13,6 +15,9 @@ export function AiSidebarMessageList(props: {
   visibleMessages: SidebarMessage[];
 }) {
   const { chatKey, isThinking, visibleMessages } = props;
+  const {
+    preferences: { uiLocale },
+  } = useUiPreferences();
   const [expandedTraceIds, setExpandedTraceIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -34,9 +39,9 @@ export function AiSidebarMessageList(props: {
           <div className="h-full flex flex-col items-center justify-center text-center opacity-40 space-y-4 py-20">
             <MessageSquare className="w-12 h-12" />
             <p className="text-sm px-6">
-              关于此网页，你可以问 Sabrina
+              {translate(uiLocale, "sidebar.askAboutPage")}
               <br />
-              任何问题。
+              {translate(uiLocale, "sidebar.anyQuestion")}
             </p>
           </div>
         ) : null}
@@ -65,7 +70,7 @@ export function AiSidebarMessageList(props: {
               <div className="flex-1 min-w-0">
                 {message.role === "user" ? (
                   <div className="mb-1 text-[10px] font-bold text-white/20 uppercase tracking-widest">
-                    你
+                    {translate(uiLocale, "common.you")}
                   </div>
                 ) : null}
                 <div
@@ -99,10 +104,10 @@ export function AiSidebarMessageList(props: {
           <div className="px-10 py-6 flex flex-col items-start gap-2 text-white/30 text-xs">
             <div className="flex items-center gap-3">
               <Loader2 className="w-4 h-4 animate-spin opacity-50" />
-              <span>Sabrina 正在处理请求...</span>
+              <span>{translate(uiLocale, "newTab.processing")}</span>
             </div>
             <div className="pl-7 text-[10px] text-white/20">
-              技能执行完整编排通常需要几十秒，请耐心等候
+              {translate(uiLocale, "newTab.processingHint")}
             </div>
           </div>
         ) : null}
@@ -118,14 +123,17 @@ function SkillTraceMeta(props: {
   onToggle: () => void;
 }) {
   const { expanded, onToggle, trace } = props;
+  const {
+    preferences: { uiLocale },
+  } = useUiPreferences();
   const statusLabel =
     trace.status === "used"
-      ? "已执行"
+      ? translate(uiLocale, "chat.skillUsed")
       : trace.status === "fallback"
-        ? "已回退"
+        ? translate(uiLocale, "chat.skillFallback")
         : trace.status === "failed"
-          ? "失败"
-          : "已请求";
+          ? translate(uiLocale, "chat.skillFailed")
+          : translate(uiLocale, "chat.skillRequested");
 
   return (
     <div className="mt-3 rounded-xl border border-white/6 bg-white/[0.025] px-3 py-2">
@@ -140,7 +148,9 @@ function SkillTraceMeta(props: {
           <span>{statusLabel}</span>
         </div>
         <span className="shrink-0 text-[10px] text-white/28">
-          {expanded ? "收起" : "详情"}
+          {expanded
+            ? translate(uiLocale, "common.collapse")
+            : translate(uiLocale, "common.details")}
         </span>
       </button>
 
@@ -176,6 +186,9 @@ function formatSkillTraceHeadline(step: SabrinaSkillTraceStep) {
 
 function ChatScrollToLatest() {
   const { isAtBottom, scrollToBottom } = useStickToBottomContext();
+  const {
+    preferences: { uiLocale },
+  } = useUiPreferences();
 
   return (
     <AnimatePresence>
@@ -190,7 +203,7 @@ function ChatScrollToLatest() {
         >
           <span className="flex items-center gap-1.5">
             <ArrowDown className="h-3.5 w-3.5" />
-            回到最新
+            {translate(uiLocale, "common.backToLatest")}
           </span>
         </motion.button>
       ) : null}

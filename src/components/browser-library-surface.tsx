@@ -1,4 +1,5 @@
 import { ArrowUpRight, Clock, Download, Star, X } from "lucide-react";
+import { useUiPreferences } from "../application/use-ui-preferences";
 import { cn } from "../lib/utils";
 
 type BrowserLibrarySurfaceMode = "history" | "bookmarks" | "downloads";
@@ -20,20 +21,23 @@ function formatByteSize(bytes: number) {
   return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`;
 }
 
-function getDownloadStateLabel(state: SabrinaDownloadEntry["state"]) {
+function getDownloadStateLabel(
+  state: SabrinaDownloadEntry["state"],
+  t: (key: string, params?: Record<string, unknown>) => string,
+) {
   if (state === "completed") {
-    return "已完成";
+    return t("library.download.completed");
   }
 
   if (state === "cancelled") {
-    return "已取消";
+    return t("library.download.cancelled");
   }
 
   if (state === "interrupted") {
-    return "已中断";
+    return t("library.download.interrupted");
   }
 
-  return "下载中";
+  return t("library.download.inProgress");
 }
 
 export function BrowserLibrarySurface(props: {
@@ -56,14 +60,18 @@ export function BrowserLibrarySurface(props: {
     onRemoveBookmark,
     onRevealDownload,
   } = props;
+  const {
+    preferences: { uiLocale },
+    t,
+  } = useUiPreferences();
 
   if (mode === "history") {
     return (
       <div className="surface-screen absolute inset-0 overflow-y-auto p-10">
         <div className="mx-auto max-w-4xl">
-          <h1 className="mb-8 text-3xl font-semibold text-white">历史浏览</h1>
+          <h1 className="mb-8 text-3xl font-semibold text-white">{t("library.historyTitle")}</h1>
           {historyEntries.length === 0 ? (
-            <p className="text-white/40">暂无历史记录</p>
+            <p className="text-white/40">{t("library.historyEmpty")}</p>
           ) : (
             <div className="space-y-2">
               {historyEntries.map((item) => (
@@ -78,7 +86,7 @@ export function BrowserLibrarySurface(props: {
                     <div className="truncate text-xs text-white/40">{item.url}</div>
                   </div>
                   <div className="whitespace-nowrap text-xs text-white/30">
-                    {new Date(item.visitedAt).toLocaleTimeString()}
+                    {new Date(item.visitedAt).toLocaleTimeString(uiLocale)}
                   </div>
                 </div>
               ))}
@@ -93,9 +101,9 @@ export function BrowserLibrarySurface(props: {
     return (
       <div className="surface-screen absolute inset-0 overflow-y-auto p-10">
         <div className="mx-auto max-w-4xl">
-          <h1 className="mb-8 text-3xl font-semibold text-white">书签</h1>
+          <h1 className="mb-8 text-3xl font-semibold text-white">{t("library.bookmarksTitle")}</h1>
           {bookmarkEntries.length === 0 ? (
-            <p className="text-white/40">暂无书签</p>
+            <p className="text-white/40">{t("library.bookmarksEmpty")}</p>
           ) : (
             <div className="space-y-2">
               {bookmarkEntries.map((bookmark) => (
@@ -131,11 +139,11 @@ export function BrowserLibrarySurface(props: {
   return (
     <div className="surface-screen absolute inset-0 overflow-y-auto p-10">
       <div className="mx-auto max-w-4xl">
-        <h1 className="mb-8 text-3xl font-semibold text-white">下载内容</h1>
+        <h1 className="mb-8 text-3xl font-semibold text-white">{t("library.downloadsTitle")}</h1>
         {downloads.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-white/40">
             <Download className="mb-4 h-12 w-12 opacity-50" />
-            <p>暂无下载内容</p>
+            <p>{t("library.downloadsEmpty")}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -166,7 +174,7 @@ export function BrowserLibrarySurface(props: {
                       <div className="truncate text-xs text-white/40">{download.url}</div>
                     </div>
                     <div className="whitespace-nowrap text-right text-xs">
-                      <div className="text-white/60">{getDownloadStateLabel(download.state)}</div>
+                      <div className="text-white/60">{getDownloadStateLabel(download.state, t)}</div>
                       <div className="text-white/30">
                         {download.totalBytes > 0
                           ? `${formatByteSize(download.receivedBytes)} / ${formatByteSize(download.totalBytes)}`
@@ -185,7 +193,7 @@ export function BrowserLibrarySurface(props: {
                       "p-2 text-white/40 transition-colors",
                       canRevealDownload ? "hover:text-white" : "cursor-default opacity-40",
                     )}
-                    title="在 Finder 中显示"
+                    title={t("library.revealInFinder")}
                   >
                     <ArrowUpRight className="h-4 w-4" />
                   </button>

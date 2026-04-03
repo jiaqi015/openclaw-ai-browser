@@ -11,3 +11,8 @@ coverage/
 .playwright-cli/
 .env*
 !.env.example
+
+# Runtime state
+openclaw-state.json
+turn-journal.json
+thread-state.json

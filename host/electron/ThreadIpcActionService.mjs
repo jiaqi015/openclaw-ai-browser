@@ -13,6 +13,11 @@ import {
   refreshOpenClawRuntimeState,
 } from "../../runtime/openclaw/OpenClawRuntimeService.mjs";
 import { recordOpenClawTask } from "../../runtime/openclaw/OpenClawTaskStore.mjs";
+import {
+  normalizeUiLocale,
+  resolveAssistantLocale,
+  translate,
+} from "../../shared/localization.mjs";
 
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
@@ -27,8 +32,11 @@ function shouldFallbackFromSkill(error, skillName) {
 
   return (
     message.includes(`OpenClaw skill ${normalizedSkillName} 当前不可直接使用`) ||
+    message.includes(`OpenClaw skill ${normalizedSkillName} is not directly available`) ||
     message.includes(`OpenClaw skill ${normalizedSkillName} 没有确认执行成功`) ||
+    message.includes(`OpenClaw skill ${normalizedSkillName} did not confirm successful execution`) ||
     message.includes(`OpenClaw 未返回技能回执 [SKILL_USED:${normalizedSkillName}`) ||
+    message.includes(`OpenClaw did not return skill receipt [SKILL_USED:${normalizedSkillName}`) ||
     /Missing [A-Z0-9_]+ environment variable/i.test(message)
   );
 }
@@ -137,9 +145,14 @@ export async function runAiAction(payload, services = {}) {
         getContextSnapshotForTab: payload?.getContextSnapshotForTab,
       });
   const context = contextPackage.primary ?? null;
+  const uiLocale = normalizeUiLocale(payload?.uiLocale);
+  const assistantLocale = resolveAssistantLocale(
+    uiLocale,
+    payload?.assistantLocaleMode,
+  );
 
   if (payload.action === "explain-selection" && !context.selectedText) {
-    throw new Error('请先在网页里选中一段文本，再使用“解释选中文本”。');
+    throw new Error(translate(uiLocale, "error.selectionRequired"));
   }
 
   const agentId =
@@ -156,6 +169,7 @@ export async function runAiAction(payload, services = {}) {
     action: payload.action,
     prompt: payload.prompt,
     contextPackage,
+    assistantLocale,
   });
   const requestedSkillName =
     typeof payload?.skillName === "string" && payload.skillName.trim()
@@ -183,6 +197,7 @@ export async function runAiAction(payload, services = {}) {
           action: payload.action,
           prompt: payload.prompt,
           contextPackage,
+          assistantLocale,
           agentId,
           sessionId,
           thinking: "low",

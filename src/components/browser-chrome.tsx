@@ -17,6 +17,8 @@ import { BrowserMenuDropdown } from "./browser-menu-dropdown";
 import { ChatTextIcon } from "./custom-ai-icon";
 import { SystemEntryIcon } from "./system-entry-icon";
 import { cn } from "../lib/utils";
+import { useUiPreferences } from "../application/use-ui-preferences";
+import { translate } from "../../shared/localization.mjs";
 
 export function BrowserChrome(props: {
   displayTabs: Array<{
@@ -80,6 +82,9 @@ export function BrowserChrome(props: {
     onSelectMenu,
     onToggleSidebar,
   } = props;
+  const {
+    preferences: { uiLocale },
+  } = useUiPreferences();
 
   return (
     <>
@@ -166,7 +171,7 @@ export function BrowserChrome(props: {
           </div>
           <input
             type="text"
-            placeholder="搜索或输入网站名称"
+            placeholder={translate(uiLocale, "common.searchOrEnterSite")}
             value={addressDisplay}
             onChange={(event) => onAddressChange(event.target.value)}
             onFocus={(event) => event.target.select()}
@@ -182,7 +187,11 @@ export function BrowserChrome(props: {
             <button
               onClick={onToggleBookmark}
               className="surface-icon-button p-1.5 rounded-md transition-colors"
-              title={isBookmarked ? "取消书签" : "添加书签"}
+              title={
+                isBookmarked
+                  ? translate(uiLocale, "browser.removeBookmark")
+                  : translate(uiLocale, "browser.addBookmark")
+              }
             >
               <Star
                 className={cn("w-4 h-4", isBookmarked && "fill-yellow-400 text-yellow-400")}

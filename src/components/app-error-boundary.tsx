@@ -4,6 +4,7 @@ import {
   openMonitorLogDirectory,
   reportRendererEvent,
 } from "../lib/sabrina-desktop";
+import { DEFAULT_UI_LOCALE, normalizeUiLocale, translate } from "../../shared/localization.mjs";
 
 type Props = {
   children: ReactNode;
@@ -12,6 +13,14 @@ type Props = {
 type State = {
   error: Error | null;
 };
+
+function getRendererLocale() {
+  if (typeof document === "undefined") {
+    return DEFAULT_UI_LOCALE;
+  }
+
+  return normalizeUiLocale(document.documentElement.lang || DEFAULT_UI_LOCALE);
+}
 
 export class AppErrorBoundary extends Component<Props, State> {
   state: State = {
@@ -40,6 +49,7 @@ export class AppErrorBoundary extends Component<Props, State> {
     if (!this.state.error) {
       return this.props.children;
     }
+    const locale = getRendererLocale();
 
     return (
       <div className="surface-screen min-h-screen text-white flex items-center justify-center p-8">
@@ -50,10 +60,10 @@ export class AppErrorBoundary extends Component<Props, State> {
             </div>
             <div className="min-w-0">
               <h1 className="text-2xl font-semibold tracking-tight">
-                应用界面遇到了未处理错误
+                {translate(locale, "errorBoundary.title")}
               </h1>
               <p className="mt-2 text-sm leading-7 text-white/60">
-                错误已经写入本地诊断日志。你可以先刷新界面继续使用，也可以直接打开日志目录排查。
+                {translate(locale, "errorBoundary.description")}
               </p>
             </div>
           </div>
@@ -63,7 +73,7 @@ export class AppErrorBoundary extends Component<Props, State> {
               {this.state.error.name || "Error"}
             </p>
             <p className="mt-2 text-sm text-white/55">
-              {this.state.error.message || "未知错误"}
+              {this.state.error.message || translate(locale, "errorBoundary.unknown")}
             </p>
           </div>
 
@@ -73,14 +83,14 @@ export class AppErrorBoundary extends Component<Props, State> {
               className="surface-button-system inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-medium transition"
             >
               <RefreshCw className="h-4 w-4" />
-              重新加载
+              {translate(locale, "errorBoundary.reload")}
             </button>
             <button
               onClick={() => void openMonitorLogDirectory()}
               className="surface-button-system inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-medium transition"
             >
               <FolderOpen className="h-4 w-4" />
-              打开日志目录
+              {translate(locale, "errorBoundary.openLogs")}
             </button>
           </div>
         </div>

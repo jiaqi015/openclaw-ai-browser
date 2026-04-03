@@ -78,6 +78,15 @@ test("executeAiTurn plans strict skill execution from Browser Context Package fa
   assert.equal(result.executionPlan.inputPolicy.sourceRoute, "private-http");
   assert.equal(result.executionPlan.inputPolicy.canExecute, true);
   assert.equal(result.executionPlan.skillPolicy.compatibilitySource, "skill-metadata");
+  assert.equal(result.executionPlan.executionContract.resultContract, "skill-result");
+  assert.equal(
+    result.executionPlan.executionContract.honestyMode,
+    "explicit-failure-required",
+  );
+  assert.deepEqual(result.executionPlan.executionContract.requiredEvidence, [
+    "skill-receipt",
+    "skill-trace",
+  ]);
   assert.equal(result.executionPlan.skillPolicy.browserCapability?.inputMode, "source-url");
   assert.deepEqual(result.executionPlan.skillPolicy.browserCapability?.sourceKinds, [
     "public-url",
@@ -166,6 +175,10 @@ test("executeAiTurn blocks strict skill execution before runtime when route is i
   assert.equal(result.executionPlan.turnType, "skill");
   assert.equal(result.executionPlan.policyDecision, "reject");
   assert.equal(result.executionPlan.inputPolicy.canExecute, false);
+  assert.equal(
+    result.executionPlan.executionContract.blockingMode,
+    "reject-before-execution",
+  );
   assert.equal(result.receipt.status, "blocked");
   assert.equal(result.receipt.evidence.executionAttempted, false);
   assert.match(result.receipt.userVisibleMessage, /当前页面路由为/);
@@ -227,6 +240,8 @@ test("executeOpenClawTaskTurn builds background task receipts and prompts", asyn
   assert.equal(result.executionPlan.strategy, "background_task");
   assert.equal(result.executionPlan.inputPolicy.kind, "browser-handoff");
   assert.equal(result.executionPlan.browserContext.primarySourceKind, "public-http");
+  assert.equal(result.executionPlan.executionContract.resultContract, "task-record");
+  assert.deepEqual(result.executionPlan.executionContract.requiredEvidence, ["task-record"]);
   assert.equal(result.receipt.status, "completed");
   assert.equal(result.receipt.trace.taskId, "task-1");
   assert.equal(capturedTask.task.title, "Spec");
@@ -307,6 +322,8 @@ test("executeGenTabTurn plans artifact generation and returns normalized gentab"
   assert.equal(result.executionPlan.strategy, "artifact_generation");
   assert.equal(result.executionPlan.inputPolicy.kind, "artifact-generation");
   assert.equal(result.executionPlan.browserContext.totalSourceCount, 2);
+  assert.equal(result.executionPlan.executionContract.resultContract, "artifact");
+  assert.deepEqual(result.executionPlan.executionContract.requiredEvidence, ["artifact"]);
   assert.equal(result.receipt.status, "completed");
   assert.equal(result.gentab.title, "竞品对比台");
   assert.deepEqual(result.gentab.metadata.missingReferenceTabIds, ["missing-tab"]);

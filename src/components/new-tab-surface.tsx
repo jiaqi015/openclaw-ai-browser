@@ -4,6 +4,8 @@ import { AnimatePresence, motion } from "motion/react";
 import Markdown from "react-markdown";
 import { CustomAIIcon } from "./custom-ai-icon";
 import { cn } from "../lib/utils";
+import { useUiPreferences } from "../application/use-ui-preferences";
+import { translate } from "../../shared/localization.mjs";
 
 type ModelOption = {
   id: string;
@@ -42,6 +44,9 @@ export function NewTabSurface(props: {
     onSelectModel,
     onSubmit,
   } = props;
+  const {
+    preferences: { uiLocale },
+  } = useUiPreferences();
 
   const visibleMessages = messages.filter((message) => message.role !== "system");
   const isWelcomeState = visibleMessages.length === 0;
@@ -66,14 +71,14 @@ export function NewTabSurface(props: {
               </select>
             </div>
             <h1 className="text-4xl md:text-5xl font-semibold text-white mb-10 tracking-tighter">
-              今天想了解点什么？
+              {translate(uiLocale, "newTab.welcome")}
             </h1>
             <div className="w-full max-w-4xl relative group">
               <input
                 type="text"
                 value={inputValue}
                 onChange={(event) => onChangeInput(event.target.value)}
-                placeholder="输入网址或者和你的龙虾对话"
+                placeholder={translate(uiLocale, "newTab.heroPlaceholder")}
                 className="surface-input-hero w-full h-16 rounded-2xl border pl-6 pr-14 text-lg transition-all placeholder:text-white/30"
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
@@ -125,7 +130,7 @@ export function NewTabSurface(props: {
                     <div className="flex-1 min-w-0">
                       {message.role === "user" && (
                         <div className="mb-1 text-[10px] font-bold text-white/20 uppercase tracking-widest">
-                          你
+                          {translate(uiLocale, "common.you")}
                         </div>
                       )}
                       <div className={cn(
@@ -143,10 +148,10 @@ export function NewTabSurface(props: {
                 <div className="px-10 py-6 flex flex-col items-start gap-2 text-white/30 text-xs">
                   <div className="flex items-center gap-3">
                     <Loader2 className="w-4 h-4 animate-spin opacity-50" />
-                    <span>Sabrina 正在处理请求...</span>
+                    <span>{translate(uiLocale, "newTab.processing")}</span>
                   </div>
                   <div className="pl-7 text-[10px] text-white/20">
-                    技能执行完整编排通常需要几十秒，请耐心等候
+                    {translate(uiLocale, "newTab.processingHint")}
                   </div>
                 </div>
               )}
@@ -167,7 +172,7 @@ export function NewTabSurface(props: {
           >
             <div className="surface-panel rounded-2xl border p-3 transition-all">
               <textarea
-                placeholder="继续提问..."
+                placeholder={translate(uiLocale, "newTab.composerPlaceholder")}
                 value={inputValue}
                 onChange={(event) => onChangeInput(event.target.value)}
                 onKeyDown={(event) => {
@@ -201,7 +206,7 @@ export function NewTabSurface(props: {
                   {isModelSwitching && (
                     <div className="flex items-center gap-1.5 text-[11px] text-white/45">
                       <Loader2 className="w-3 h-3 animate-spin" />
-                      正在切换模型...
+                      {translate(uiLocale, "newTab.switchingModel")}
                     </div>
                   )}
                 </div>
@@ -227,6 +232,7 @@ export function NewTabSurface(props: {
 
 function ChatScrollToLatest() {
   const { isAtBottom, scrollToBottom } = useStickToBottomContext();
+  const { t } = useUiPreferences();
 
   return (
     <AnimatePresence>
@@ -239,7 +245,7 @@ function ChatScrollToLatest() {
           onClick={() => void scrollToBottom({ animation: "smooth" })}
           className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/10 bg-black/65 px-3 py-1.5 text-[11px] font-medium text-white/80 shadow-[0_10px_30px_rgba(0,0,0,0.25)] backdrop-blur-xl transition-all hover:bg-white/10 hover:text-white"
         >
-          回到最新
+          {t("common.backToLatest")}
         </motion.button>
       )}
     </AnimatePresence>

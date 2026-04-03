@@ -6,36 +6,23 @@ import {
 } from "../application/use-ui-preferences";
 import { cn } from "../lib/utils";
 import { useEffect, useState } from "react";
-
-function getGlassModeLabel(mode: GlassMode) {
-  return mode === "liquid" ? "液态玻璃" : "毛玻璃";
-}
-
-function getSearchEngineLabel(searchEngine: SearchEngine) {
-  if (searchEngine === "google") {
-    return "谷歌";
-  }
-
-  if (searchEngine === "duckduckgo") {
-    return "隐私搜索";
-  }
-
-  if (searchEngine === "baidu") {
-    return "百度";
-  }
-
-  return "必应";
-}
+import {
+  getGlassModeLabel,
+  getSearchEngineLabel,
+  translate,
+  type UiLocale,
+} from "../../shared/localization.mjs";
 
 export function GeneralSettingsSurface(props: {
   onOpenDiagnostics: () => void;
 }) {
   const { onOpenDiagnostics } = props;
-  const { preferences, setDefaultSearchEngine, setGlassMode } = useUiPreferences();
+  const { preferences, setDefaultSearchEngine, setGlassMode, setUiLocale } = useUiPreferences();
+  const uiLocale = preferences.uiLocale;
   const [glassPreviewMode, setGlassPreviewMode] = useState<GlassMode>(preferences.glassMode);
-  const [settingsTab, setSettingsTab] = useState<"appearance" | "search-engine" | "diagnostics">(
-    "appearance",
-  );
+  const [settingsTab, setSettingsTab] = useState<
+    "appearance" | "language" | "search-engine" | "diagnostics"
+  >("appearance");
 
   useEffect(() => {
     setGlassPreviewMode(preferences.glassMode);
@@ -48,13 +35,13 @@ export function GeneralSettingsSurface(props: {
   }> = [
     {
       mode: "frosted",
-      title: "毛玻璃",
-      description: "经典深色毛玻璃，对比度更高，阅读更稳。",
+      title: translate(uiLocale, "glass.frosted.title"),
+      description: translate(uiLocale, "glass.frosted.description"),
     },
     {
       mode: "liquid",
-      title: "液态玻璃",
-      description: "更通透轻盈，层次感更明显。",
+      title: translate(uiLocale, "glass.liquid.title"),
+      description: translate(uiLocale, "glass.liquid.description"),
     },
   ];
   const searchEngineOptions: Array<{
@@ -64,23 +51,39 @@ export function GeneralSettingsSurface(props: {
   }> = [
     {
       id: "bing",
-      title: "必应",
-      description: "当前默认方案，综合网页结果覆盖比较均衡。",
+      title: translate(uiLocale, "searchEngine.bing.title"),
+      description: translate(uiLocale, "searchEngine.bing.description"),
     },
     {
       id: "google",
-      title: "谷歌",
-      description: "更适合开发、文档和国际化搜索场景。",
+      title: translate(uiLocale, "searchEngine.google.title"),
+      description: translate(uiLocale, "searchEngine.google.description"),
     },
     {
       id: "duckduckgo",
-      title: "隐私搜索",
-      description: "更轻量，也更强调隐私。",
+      title: translate(uiLocale, "searchEngine.duckduckgo.title"),
+      description: translate(uiLocale, "searchEngine.duckduckgo.description"),
     },
     {
       id: "baidu",
-      title: "百度",
-      description: "更适合中文内容和本地化信息检索。",
+      title: translate(uiLocale, "searchEngine.baidu.title"),
+      description: translate(uiLocale, "searchEngine.baidu.description"),
+    },
+  ];
+  const localeOptions: Array<{
+    id: UiLocale;
+    title: string;
+    description: string;
+  }> = [
+    {
+      id: "zh-CN",
+      title: translate(uiLocale, "language.option.zh-CN"),
+      description: translate(uiLocale, "language.option.zh-CN.description"),
+    },
+    {
+      id: "en-US",
+      title: translate(uiLocale, "language.option.en-US"),
+      description: translate(uiLocale, "language.option.en-US.description"),
     },
   ];
   const hasPendingGlassChange = glassPreviewMode !== preferences.glassMode;
@@ -90,12 +93,14 @@ export function GeneralSettingsSurface(props: {
   return (
     <div className="surface-screen absolute inset-0 overflow-y-auto p-10">
       <div className="mx-auto max-w-6xl">
-        <h1 className="mb-8 text-3xl font-semibold text-white">设置</h1>
+        <h1 className="mb-8 text-3xl font-semibold text-white">
+          {translate(uiLocale, "settings.title")}
+        </h1>
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
           <div className="w-full lg:w-56 lg:shrink-0">
             <div className="lg:sticky lg:top-0">
               <div className="px-1 pb-3 text-[10px] font-bold uppercase tracking-widest text-white/35">
-                设置导航
+                {translate(uiLocale, "settings.nav")}
               </div>
               <div className="space-y-2">
                 <button
@@ -105,8 +110,26 @@ export function GeneralSettingsSurface(props: {
                     settingsTab === "appearance" && "surface-card-selectable-active",
                   )}
                 >
-                  <div className="text-sm font-medium text-white">外观设置</div>
-                  <div className="mt-1 text-[12px] leading-5 text-white/40">玻璃材质预览与应用</div>
+                  <div className="text-sm font-medium text-white">
+                    {translate(uiLocale, "settings.appearance")}
+                  </div>
+                  <div className="mt-1 text-[12px] leading-5 text-white/40">
+                    {translate(uiLocale, "settings.appearanceDescription")}
+                  </div>
+                </button>
+                <button
+                  onClick={() => setSettingsTab("language")}
+                  className={cn(
+                    "surface-card-selectable w-full rounded-[18px] border px-4 py-3 text-left transition-colors",
+                    settingsTab === "language" && "surface-card-selectable-active",
+                  )}
+                >
+                  <div className="text-sm font-medium text-white">
+                    {translate(uiLocale, "settings.language")}
+                  </div>
+                  <div className="mt-1 text-[12px] leading-5 text-white/40">
+                    {translate(uiLocale, "settings.languageDescription")}
+                  </div>
                 </button>
                 <button
                   onClick={() => setSettingsTab("search-engine")}
@@ -115,9 +138,13 @@ export function GeneralSettingsSurface(props: {
                     settingsTab === "search-engine" && "surface-card-selectable-active",
                   )}
                 >
-                  <div className="text-sm font-medium text-white">默认搜索引擎</div>
+                  <div className="text-sm font-medium text-white">
+                    {translate(uiLocale, "settings.searchEngine")}
+                  </div>
                   <div className="mt-1 text-[12px] leading-5 text-white/40">
-                    当前是 {getSearchEngineLabel(preferences.defaultSearchEngine)}
+                    {translate(uiLocale, "settings.searchEngineCurrent", {
+                      value: getSearchEngineLabel(preferences.defaultSearchEngine, uiLocale),
+                    })}
                   </div>
                 </button>
                 <button
@@ -127,8 +154,12 @@ export function GeneralSettingsSurface(props: {
                     settingsTab === "diagnostics" && "surface-card-selectable-active",
                   )}
                 >
-                  <div className="text-sm font-medium text-white">诊断与日志</div>
-                  <div className="mt-1 text-[12px] leading-5 text-white/40">本地错误、网络与日志</div>
+                  <div className="text-sm font-medium text-white">
+                    {translate(uiLocale, "settings.diagnostics")}
+                  </div>
+                  <div className="mt-1 text-[12px] leading-5 text-white/40">
+                    {translate(uiLocale, "settings.diagnosticsDescription")}
+                  </div>
                 </button>
               </div>
             </div>
@@ -139,12 +170,18 @@ export function GeneralSettingsSurface(props: {
               <div className="surface-panel rounded-2xl border p-6">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <h2 className="text-lg font-medium text-white">外观设置</h2>
-                    <p className="mt-2 text-sm text-white/50">先预览，再应用。</p>
+                    <h2 className="text-lg font-medium text-white">
+                      {translate(uiLocale, "settings.appearance")}
+                    </h2>
+                    <p className="mt-2 text-sm text-white/50">
+                      {translate(uiLocale, "settings.previewThenApply")}
+                    </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="surface-badge rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-widest">
-                      已应用 {getGlassModeLabel(preferences.glassMode)}
+                      {translate(uiLocale, "settings.applied", {
+                        value: getGlassModeLabel(preferences.glassMode, uiLocale),
+                      })}
                     </span>
                     <button
                       onClick={() => setGlassMode(glassPreviewMode)}
@@ -155,7 +192,7 @@ export function GeneralSettingsSurface(props: {
                           "cursor-default border-white/10 bg-white/[0.04] text-white/35",
                       )}
                     >
-                      应用到界面
+                      {translate(uiLocale, "settings.applyToInterface")}
                     </button>
                   </div>
                 </div>
@@ -177,7 +214,12 @@ export function GeneralSettingsSurface(props: {
                           <div className="space-y-1">
                             <h3 className="text-base font-medium text-white/88">{option.title}</h3>
                             <p className="text-[12px] text-white/46">
-                              {option.mode === "liquid" ? "更亮，更悬浮。" : "更稳，更克制。"}
+                              {translate(
+                                uiLocale,
+                                option.mode === "liquid"
+                                  ? "glass.liquid.mood"
+                                  : "glass.frosted.mood",
+                              )}
                             </p>
                           </div>
                           <div
@@ -207,9 +249,13 @@ export function GeneralSettingsSurface(props: {
 
                 <div className="surface-panel mt-5 rounded-[24px] border p-5">
                   <div className="flex items-center justify-between gap-4">
-                    <h3 className="text-sm font-medium text-white">预览</h3>
+                    <h3 className="text-sm font-medium text-white">
+                      {translate(uiLocale, "settings.preview")}
+                    </h3>
                     <span className="surface-badge rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-widest">
-                      预览中 {getGlassModeLabel(glassPreviewMode)}
+                      {translate(uiLocale, "settings.previewing", {
+                        value: getGlassModeLabel(glassPreviewMode, uiLocale),
+                      })}
                     </span>
                   </div>
 
@@ -267,17 +313,82 @@ export function GeneralSettingsSurface(props: {
               </div>
             )}
 
+            {settingsTab === "language" && (
+              <div className="surface-panel rounded-2xl border p-6">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <h2 className="text-lg font-medium text-white">
+                      {translate(uiLocale, "language.title")}
+                    </h2>
+                    <p className="mt-2 text-sm leading-7 text-white/50">
+                      {translate(uiLocale, "language.description")}
+                    </p>
+                  </div>
+                  <span className="surface-badge rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-widest">
+                    {translate(uiLocale, "language.option." + preferences.uiLocale)}
+                  </span>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/34">
+                    {translate(uiLocale, "language.interface")}
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {localeOptions.map((option) => {
+                      const isSelected = option.id === preferences.uiLocale;
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => setUiLocale(option.id)}
+                          className={cn(
+                            "surface-card-selectable w-full rounded-[20px] border p-5 text-left transition-colors",
+                            isSelected && "surface-card-selectable-active",
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-base font-medium text-white">{option.title}</div>
+                              <p className="mt-3 text-sm leading-6 text-white/50">
+                                {option.description}
+                              </p>
+                            </div>
+                            <div
+                              className={cn(
+                                "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
+                                isSelected
+                                  ? "border-white/20 bg-white/12 text-white"
+                                  : "border-white/10 text-transparent",
+                              )}
+                            >
+                              <Check className="h-3 w-3" />
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-sm leading-7 text-white/50">
+                    {translate(uiLocale, "language.aiFollowsUi")}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {settingsTab === "search-engine" && (
               <div className="surface-panel rounded-2xl border p-6">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <h2 className="text-lg font-medium text-white">默认搜索引擎</h2>
+                    <h2 className="text-lg font-medium text-white">
+                      {translate(uiLocale, "settings.searchEngine")}
+                    </h2>
                     <p className="mt-2 text-sm leading-7 text-white/50">
-                      地址栏输入普通关键词时，会自动使用这里选中的搜索引擎发起搜索。
+                      {translate(uiLocale, "settings.searchEngineIntro")}
                     </p>
                   </div>
                   <span className="surface-badge rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-widest">
-                    当前 {getSearchEngineLabel(preferences.defaultSearchEngine)}
+                    {translate(uiLocale, "settings.searchEngineCurrent", {
+                      value: getSearchEngineLabel(preferences.defaultSearchEngine, uiLocale),
+                    })}
                   </span>
                 </div>
 
@@ -318,9 +429,11 @@ export function GeneralSettingsSurface(props: {
               <div className="surface-panel rounded-2xl border p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-lg font-medium text-white">本地诊断与日志</h2>
+                    <h2 className="text-lg font-medium text-white">
+                      {translate(uiLocale, "settings.localDiagnostics")}
+                    </h2>
                     <p className="mt-2 text-sm leading-7 text-white/50">
-                      现在可以直接查看最近错误、网络失败、AI 调用耗时，并一键打开日志目录。
+                      {translate(uiLocale, "settings.diagnosticsIntro")}
                     </p>
                   </div>
                   <button
@@ -328,7 +441,7 @@ export function GeneralSettingsSurface(props: {
                     className="surface-button-system flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors"
                   >
                     <Activity className="h-4 w-4" />
-                    打开诊断中心
+                    {translate(uiLocale, "settings.openDiagnostics")}
                   </button>
                 </div>
               </div>

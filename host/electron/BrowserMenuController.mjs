@@ -1,5 +1,6 @@
 // Native browser menu popup window.
 import { BrowserWindow } from "electron";
+import { getCurrentUiLocale, getSurfaceTitle, translate } from "../../shared/localization.mjs";
 
 /** @type {BrowserWindow | null} */
 let browserMenuWindow = null;
@@ -83,8 +84,10 @@ export function showBrowserMenuPopup(mainWindow, payload) {
 }
 
 function getBrowserMenuHtml() {
+  const locale = getCurrentUiLocale();
+
   return String.raw`<!doctype html>
-<html lang="zh-CN">
+<html lang="${locale}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -107,17 +110,17 @@ function getBrowserMenuHtml() {
   </head>
   <body>
     <div class="panel">
-      <button class="item" data-command="history"><span class="icon">${MENU_ICONS.history}</span><span>历史浏览</span></button>
-      <button class="item" data-command="bookmarks"><span class="icon">${MENU_ICONS.bookmarks}</span><span>书签</span></button>
-      <button class="item" data-command="downloads"><span class="icon">${MENU_ICONS.downloads}</span><span>下载内容</span></button>
-      <button class="item" data-command="diagnostics"><span class="icon">${MENU_ICONS.diagnostics}</span><span>诊断中心</span></button>
+      <button class="item" data-command="history"><span class="icon">${MENU_ICONS.history}</span><span>${getSurfaceTitle("history", locale)}</span></button>
+      <button class="item" data-command="bookmarks"><span class="icon">${MENU_ICONS.bookmarks}</span><span>${getSurfaceTitle("bookmarks", locale)}</span></button>
+      <button class="item" data-command="downloads"><span class="icon">${MENU_ICONS.downloads}</span><span>${getSurfaceTitle("downloads", locale)}</span></button>
+      <button class="item" data-command="diagnostics"><span class="icon">${MENU_ICONS.diagnostics}</span><span>${getSurfaceTitle("diagnostics", locale)}</span></button>
       <div class="separator"></div>
-      <button class="item danger" data-command="clear-history"><span class="icon">${MENU_ICONS["clear-history"]}</span><span>删除浏览记录</span></button>
+      <button class="item danger" data-command="clear-history"><span class="icon">${MENU_ICONS["clear-history"]}</span><span>${translate(locale, "menu.clearHistory")}</span></button>
       <div class="separator"></div>
-      <button class="item" data-command="general-settings"><span class="icon">${MENU_ICONS["general-settings"]}</span><span>设置</span></button>
-      <button class="item" data-command="settings"><span class="icon">${MENU_ICONS.settings}</span><span>龙虾连接</span></button>
+      <button class="item" data-command="general-settings"><span class="icon">${MENU_ICONS["general-settings"]}</span><span>${getSurfaceTitle("general-settings", locale)}</span></button>
+      <button class="item" data-command="settings"><span class="icon">${MENU_ICONS.settings}</span><span>${getSurfaceTitle("settings", locale)}</span></button>
       <div class="separator"></div>
-      <button class="item accent" data-command="download-latest"><span class="icon">${MENU_ICONS["download-latest"]}</span><span>获取最新版本</span></button>
+      <button class="item accent" data-command="download-latest"><span class="icon">${MENU_ICONS["download-latest"]}</span><span>${translate(locale, "menu.downloadLatest")}</span></button>
     </div>
     <script>
       const { ipcRenderer } = require("electron");

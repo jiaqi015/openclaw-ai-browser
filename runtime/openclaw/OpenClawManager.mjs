@@ -7,6 +7,7 @@ import {
 import {
   execGatewayMethodJson,
   execOpenClawJson,
+  probeOpenClawTransport,
 } from "./OpenClawClient.mjs";
 import {
   flattenMissingReasons,
@@ -22,6 +23,11 @@ import {
 import {
   buildLocalGatewayStatus,
 } from "./OpenClawStatusService.mjs";
+import {
+  getOpenClawTransportContext,
+  getOpenClawRemoteTargetRef,
+  getOpenClawTransportLabel,
+} from "./OpenClawTransportContext.mjs";
 import {
   getGatewayHealthOk,
   recoverLocalGateway as recoverLocalGatewayViaService,
@@ -69,19 +75,36 @@ export {
 } from "./OpenClawPairingService.mjs";
 export { readPrimaryAgentWorkspaceMemory } from "./OpenClawWorkspaceMemoryService.mjs";
 
-let cachedSkillStatusPayload = null;
-let cachedSkillStatusExpiresAt = 0;
+const cachedSkillStatusByTransport = new Map();
+
+function getSkillStatusCacheKey() {
+  const context = getOpenClawTransportContext();
+  const transportLabel = getOpenClawTransportLabel(context);
+  return JSON.stringify({
+    transport: context?.transport ?? "local",
+    driver: context?.driver ?? "local-cli",
+    profile: context?.profile ?? null,
+    stateDir: context?.stateDir ?? null,
+    sshTarget: context?.sshTarget ?? null,
+    sshPort: context?.sshPort ?? null,
+    transportLabel,
+  });
+}
 
 async function getGatewaySkillStatusSnapshot(options = {}) {
   const force = Boolean(options?.force);
   const now = Date.now();
-  if (!force && cachedSkillStatusPayload && now < cachedSkillStatusExpiresAt) {
-    return cachedSkillStatusPayload;
+  const cacheKey = getSkillStatusCacheKey();
+  const cached = cachedSkillStatusByTransport.get(cacheKey);
+  if (!force && cached?.payload && now < cached.expiresAt) {
+    return cached.payload;
   }
 
   const payload = await execGatewayMethodJson("skills.status");
-  cachedSkillStatusPayload = payload;
-  cachedSkillStatusExpiresAt = now + 20_000;
+  cachedSkillStatusByTransport.set(cacheKey, {
+    payload,
+    expiresAt: now + 20_000,
+  });
   return payload;
 }
 
@@ -187,7 +210,57 @@ export async function getBindingSetupState(params) {
   const target = `${params?.target ?? "local"}`.trim();
 
   if (target === "remote") {
-    return buildBindingSetupState({ target: "remote" });
+    const context = getOpenClawTransportContext();
+    const transportLabel = getOpenClawTransportLabel(context);
+    const hasRemoteTarget = Boolean(getOpenClawRemoteTargetRef(context));
+    if (!hasRemoteTarget) {
+      return buildBindingSetupState({
+        target: "remote",
+        statusOverride: "degraded",
+        transportLabel,
+        note: "请先提供远程控制面目标。",
+      });
+    }
+
+    try {
+      const probe = await probeOpenClawTransport();
+      if (!probe.ok) {
+        return buildBindingSetupState({
+          target: "remote",
+          statusOverride: "degraded",
+          configExists: hasRemoteTarget,
+          transportLabel,
+          sshTarget: context.sshTarget,
+          note: probe.detail || `当前无法访问远程控制面 ${transportLabel}。`,
+        });
+      }
+
+      const ensuredAgent = await ensureSabrinaBrowserAgent();
+      const gatewayStatus = await getLocalGatewayStatus().catch(() => null);
+      const skillCatalog = await getLocalSkillCatalog().catch(() => null);
+
+      return buildBindingSetupState({
+        target: "remote",
+        configExists: hasRemoteTarget,
+        hasAgent: Boolean(ensuredAgent?.agentId),
+        gatewayReachable: Boolean(gatewayStatus?.ok),
+        hasSkillCatalog: Boolean(skillCatalog),
+        skillCount: skillCatalog?.summary?.ready ?? skillCatalog?.summary?.eligible ?? 0,
+        transportLabel,
+        sshTarget: context.sshTarget,
+        note: Boolean(gatewayStatus?.ok)
+          ? `当前会复用远程 OpenClaw 的 agent、模型和技能。`
+          : `当前可以访问远程控制面 ${transportLabel}，但还没确认远程网关就绪。`,
+      });
+    } catch (error) {
+      return buildBindingSetupState({
+        target: "remote",
+        statusOverride: "degraded",
+        transportLabel,
+        sshTarget: context.sshTarget,
+        note: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   try {
@@ -229,7 +302,58 @@ export async function beginBindingSetup(params) {
   const target = `${params?.target ?? "local"}`.trim();
 
   if (target === "remote") {
-    return buildBindingSetupState({ target: "remote" });
+    const context = getOpenClawTransportContext();
+    const transportLabel = getOpenClawTransportLabel(context);
+    const hasRemoteTarget = Boolean(getOpenClawRemoteTargetRef(context));
+    if (!hasRemoteTarget) {
+      return buildBindingSetupState({
+        target: "remote",
+        statusOverride: "degraded",
+        transportLabel,
+        note: "请先提供远程控制面目标。",
+      });
+    }
+
+    try {
+      const probe = await probeOpenClawTransport();
+      if (!probe.ok) {
+        return buildBindingSetupState({
+          target: "remote",
+          statusOverride: "degraded",
+          configExists: hasRemoteTarget,
+          transportLabel,
+          sshTarget: context.sshTarget,
+          note: probe.detail || `当前无法访问远程控制面 ${transportLabel}。`,
+        });
+      }
+
+      const ensuredAgent = await ensureSabrinaBrowserAgent();
+      const gatewayStatus = await getLocalGatewayStatus().catch(() => null);
+      const skillCatalog = await getLocalSkillCatalog().catch(() => null);
+      await buildLocalOpenClawBinding().catch(() => null);
+
+      return buildBindingSetupState({
+        target: "remote",
+        configExists: hasRemoteTarget,
+        hasAgent: Boolean(ensuredAgent?.agentId),
+        gatewayReachable: Boolean(gatewayStatus?.ok),
+        hasSkillCatalog: Boolean(skillCatalog),
+        skillCount: skillCatalog?.summary?.ready ?? skillCatalog?.summary?.eligible ?? 0,
+        transportLabel,
+        sshTarget: context.sshTarget,
+        note: Boolean(gatewayStatus?.ok)
+          ? `已验证远程控制面 ${transportLabel} 可用。`
+          : `已连接到远程控制面 ${transportLabel}，但远程网关还未就绪。`,
+      });
+    } catch (error) {
+      return buildBindingSetupState({
+        target: "remote",
+        statusOverride: "degraded",
+        transportLabel,
+        sshTarget: context.sshTarget,
+        note: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   try {

@@ -5,6 +5,11 @@ import {
   normalizeOpenClawProfile,
   normalizeOpenClawStateDir,
 } from "../../packages/sabrina-protocol/index.mjs";
+import {
+  getCurrentUiLocale,
+  normalizeUiLocale,
+  translate,
+} from "../../shared/localization.mjs";
 import { resolveOpenClawStateDir } from "./OpenClawConfigCache.mjs";
 import { getOpenClawTransportContext } from "./OpenClawTransportContext.mjs";
 
@@ -27,16 +32,17 @@ export function getAgentLabel(agentRecord) {
 }
 
 export function formatLocalTimestamp(input) {
+  const locale = getCurrentUiLocale();
   if (!input) {
-    return "未知";
+    return translate(locale, "openclaw.presentation.unknown");
   }
 
   const date = typeof input === "number" ? new Date(input) : new Date(input);
   if (Number.isNaN(date.getTime())) {
-    return "未知";
+    return translate(locale, "openclaw.presentation.unknown");
   }
 
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat(normalizeUiLocale(locale), {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -59,6 +65,7 @@ export function prettifyScope(scope) {
 }
 
 export function buildLocalBindingRecord(params = {}) {
+  const locale = getCurrentUiLocale();
   const {
     device,
     deviceAuth,
@@ -95,25 +102,31 @@ export function buildLocalBindingRecord(params = {}) {
     mode: "local",
     status: gatewayReachable ? "active" : "disconnected",
     gatewayUrl: gateway.url,
-    deviceId: device?.deviceId ?? "未发现设备身份",
+    deviceId: device?.deviceId ?? translate(locale, "openclaw.presentation.noDeviceIdentity"),
     hostLabel,
     openclawProfile,
     openclawStateDir,
     capabilities: [...SABRINA_LOCAL_CAPABILITIES],
     note: gatewayReachable
-      ? `已连接本机龙虾。浏览器会话使用独立代理 ${agentId}。${healthSummary || "网关可达。"}`
-      : `已读取本机龙虾配置，浏览器代理为 ${agentId}，但当前无法使用本机网关。${gatewayHealthDetail ? `（${gatewayHealthDetail}）` : ""}`,
+      ? translate(locale, "openclaw.presentation.localNoteConnected", {
+          agentId,
+          health: healthSummary || translate(locale, "openclaw.presentation.gatewayReachable"),
+        }).trim()
+      : translate(locale, "openclaw.presentation.localNoteDisconnected", {
+          agentId,
+          detail: gatewayHealthDetail ? `(${gatewayHealthDetail})` : "",
+        }).trim(),
     scopes: flattenedScopes.length
       ? flattenedScopes.map((scope) => ({
           id: scope,
           label: prettifyScope(scope),
-          description: "来自本机 OpenClaw 设备授权 token 的真实 scope。",
+          description: translate(locale, "openclaw.presentation.scope.deviceToken"),
         }))
       : [
           {
             id: "operator.read",
-            label: "No Device Scopes",
-            description: "当前未检测到设备授权 scopes。",
+            label: translate(locale, "openclaw.presentation.noDeviceScopesLabel"),
+            description: translate(locale, "openclaw.presentation.noDeviceScopesDescription"),
           },
         ],
     pairedAt: formatLocalTimestamp(pairedAtMs),
@@ -122,34 +135,40 @@ export function buildLocalBindingRecord(params = {}) {
 }
 
 export function buildRemoteBindingRecord(params = {}) {
+  const locale = getCurrentUiLocale();
   const agentId = `${params?.agentId ?? ""}`.trim() || "main";
-  const remoteLabel = `${params?.displayLabel ?? params?.sshTarget ?? "remote-openclaw"}`.trim();
-  const sshTarget = `${params?.sshTarget ?? remoteLabel}`.trim();
+  const driver = `${params?.driver ?? "remote"}`.trim() || "remote";
+  const remoteTarget = `${params?.sshTarget ?? params?.relayUrl ?? ""}`.trim();
+  const remoteLabel = `${params?.displayLabel ?? ""}`.trim() || remoteTarget || "remote-openclaw";
+  const remoteRef = `${remoteTarget || remoteLabel}`.trim();
   const gatewayReachable = params?.gatewayReachable === true;
   const agentRecord = params?.agentRecord ?? null;
 
   return {
-    bindingId: `binding-remote-${sshTarget.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
+    bindingId: `binding-remote-${remoteRef.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
     protocolVersion: SABRINA_PROTOCOL_VERSION,
     agentId,
-    lobsterId: `remote:${sshTarget}`,
+    lobsterId: `remote:${remoteRef}`,
     displayName: `${getAgentLabel(agentRecord)} @ ${remoteLabel}`,
     mode: "remote",
     status: gatewayReachable ? "active" : "disconnected",
-    gatewayUrl: `ssh://${sshTarget}`,
-    deviceId: `ssh:${sshTarget}`,
+    gatewayUrl: `${driver}://${remoteRef}`,
+    deviceId: `${driver}:${remoteRef}`,
     hostLabel: remoteLabel,
     openclawProfile: normalizeOpenClawProfile(params?.openclawProfile),
     openclawStateDir: normalizeOpenClawStateDir(params?.openclawStateDir),
     capabilities: [...SABRINA_LOCAL_CAPABILITIES],
     note: gatewayReachable
-      ? `已连接远程 OpenClaw。浏览器通过 SSH 复用代理 ${agentId}。`
-      : `已读取远程 OpenClaw 配置，但当前无法通过 SSH 验证网关。`,
+      ? translate(locale, "openclaw.presentation.remoteNoteConnected", {
+          driver,
+          agentId,
+        })
+      : translate(locale, "openclaw.presentation.remoteNoteDisconnected"),
     scopes: [
       {
-        id: "ssh.control",
-        label: "SSH Control",
-        description: "通过 SSH 复用远程 OpenClaw 控制面。",
+        id: "remote.control",
+        label: translate(locale, "openclaw.presentation.scope.remoteControlLabel"),
+        description: translate(locale, "openclaw.presentation.scope.remoteControl"),
       },
     ],
     pairedAt: formatLocalTimestamp(Date.now()),

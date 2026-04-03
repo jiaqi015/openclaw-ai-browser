@@ -1,5 +1,6 @@
 import { Check, Globe2, Search } from "lucide-react";
 import type { SabrinaTabReferenceCandidate } from "../application/sabrina-openclaw";
+import { useUiPreferences } from "../application/use-ui-preferences";
 import { cn } from "../lib/utils";
 
 export function TabReferencePicker(props: {
@@ -10,6 +11,7 @@ export function TabReferencePicker(props: {
   onToggleTab?: (id: string) => void;
 }) {
   const { onChangeQuery, onToggleTab, query, selectedIds, tabs } = props;
+  const { t } = useUiPreferences();
   const normalizedQuery = query.trim().toLowerCase();
   const visibleTabs = tabs.filter((tab) => {
     if (!normalizedQuery) {
@@ -26,14 +28,18 @@ export function TabReferencePicker(props: {
     <section className="surface-panel border rounded-[24px] p-4 flex min-h-0 flex-col gap-4">
       <div className="space-y-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/34">
-          引用页面
+          {t("sidebar.references")}
         </p>
         <label className="surface-input flex h-11 items-center gap-3 rounded-2xl border px-3">
           <Search className="h-4 w-4 text-white/34" />
           <input
             value={query}
             onChange={(event) => onChangeQuery?.(event.target.value)}
-            placeholder="输入 @ 后，这里会筛选可引用的标签页"
+            placeholder={
+              t("language.option.en-US") === "English"
+                ? t("common.search")
+                : undefined
+            }
             className="w-full bg-transparent text-sm text-white/80 placeholder:text-white/30 focus:outline-none"
           />
         </label>

@@ -1,21 +1,23 @@
 import type { JSX } from "react";
+import { translate, type UiLocale } from "../../shared/localization.mjs";
 import type { GenTabData, GenTabItem } from "../lib/gentab-types";
 import { cn } from "../lib/utils";
 
 interface GenTabRendererProps {
   gentab: GenTabData;
   onNavigate: (url: string) => void;
+  uiLocale: UiLocale;
 }
 
 interface GenTabRenderer {
   render: (props: GenTabRendererProps) => JSX.Element;
 }
 
-function TableRenderer({ gentab, onNavigate }: GenTabRendererProps) {
+function TableRenderer({ gentab, onNavigate, uiLocale }: GenTabRendererProps) {
   if (!gentab.items.length) {
     return (
       <div className="text-center py-12 text-white/40 text-sm">
-        没有数据项
+        {translate(uiLocale, "gentab.render.noDataItems")}
       </div>
     );
   }
@@ -31,13 +33,17 @@ function TableRenderer({ gentab, onNavigate }: GenTabRendererProps) {
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b border-white/10">
-            <th className="text-left py-3 px-4 text-xs font-medium text-white/60">名称</th>
+            <th className="text-left py-3 px-4 text-xs font-medium text-white/60">
+              {translate(uiLocale, "gentab.render.name")}
+            </th>
             {fields.map(field => (
               <th key={field} className="text-left py-3 px-4 text-xs font-medium text-white/60">
                 {field}
               </th>
             ))}
-            <th className="text-right py-3 px-4 text-xs font-medium text-white/60">来源</th>
+            <th className="text-right py-3 px-4 text-xs font-medium text-white/60">
+              {translate(uiLocale, "gentab.render.source")}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -63,7 +69,7 @@ function TableRenderer({ gentab, onNavigate }: GenTabRendererProps) {
                   className="text-xs text-white/68 hover:text-white transition-colors"
                   title={item.sourceTitle}
                 >
-                  原页面
+                  {translate(uiLocale, "gentab.render.sourcePage")}
                 </button>
               </td>
             </tr>
@@ -74,7 +80,7 @@ function TableRenderer({ gentab, onNavigate }: GenTabRendererProps) {
   );
 }
 
-function ListRenderer({ gentab, onNavigate }: GenTabRendererProps) {
+function ListRenderer({ gentab, onNavigate, uiLocale }: GenTabRendererProps) {
   return (
     <div className="space-y-3">
       {gentab.items.map(item => (
@@ -93,7 +99,7 @@ function ListRenderer({ gentab, onNavigate }: GenTabRendererProps) {
               onClick={() => onNavigate(item.sourceUrl)}
               className="shrink-0 text-xs text-white/68 hover:text-white whitespace-nowrap transition-colors"
             >
-              查看原页面
+              {translate(uiLocale, "gentab.render.viewSourcePage")}
             </button>
           </div>
           {item.fields && Object.keys(item.fields).length > 0 && (
@@ -110,14 +116,14 @@ function ListRenderer({ gentab, onNavigate }: GenTabRendererProps) {
       ))}
       {gentab.items.length === 0 && (
         <div className="text-center py-12 text-white/40 text-sm">
-          没有数据项
+          {translate(uiLocale, "gentab.render.noDataItems")}
         </div>
       )}
     </div>
   );
 }
 
-function TimelineRenderer({ gentab, onNavigate }: GenTabRendererProps) {
+function TimelineRenderer({ gentab, onNavigate, uiLocale }: GenTabRendererProps) {
   const sortedItems = [...gentab.items].sort((a, b) => {
     if (!a.date) return 1;
     if (!b.date) return -1;
@@ -144,7 +150,7 @@ function TimelineRenderer({ gentab, onNavigate }: GenTabRendererProps) {
                 onClick={() => onNavigate(item.sourceUrl)}
                 className="shrink-0 text-xs text-white/68 hover:text-white whitespace-nowrap transition-colors"
               >
-                原页面
+                {translate(uiLocale, "gentab.render.sourcePage")}
               </button>
             </div>
           </div>
@@ -152,14 +158,14 @@ function TimelineRenderer({ gentab, onNavigate }: GenTabRendererProps) {
       ))}
       {sortedItems.length === 0 && (
         <div className="text-center py-12 text-white/40 text-sm">
-          没有时间项
+          {translate(uiLocale, "gentab.render.noTimelineItems")}
         </div>
       )}
     </div>
   );
 }
 
-function CardGridRenderer({ gentab, onNavigate }: GenTabRendererProps) {
+function CardGridRenderer({ gentab, onNavigate, uiLocale }: GenTabRendererProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {gentab.items.map(item => (
@@ -186,21 +192,23 @@ function CardGridRenderer({ gentab, onNavigate }: GenTabRendererProps) {
               onClick={() => onNavigate(item.sourceUrl)}
               className="w-full rounded-lg bg-white/5 hover:bg-white/10 py-2 text-xs font-medium text-white/70 transition-colors"
             >
-              查看原页面：{item.sourceTitle}
+              {translate(uiLocale, "gentab.render.viewSourcePageWithTitle", {
+                title: item.sourceTitle,
+              })}
             </button>
           </div>
         </div>
       ))}
       {gentab.items.length === 0 && (
         <div className="col-span-full text-center py-12 text-white/40 text-sm">
-          没有卡片项
+          {translate(uiLocale, "gentab.render.noCardItems")}
         </div>
       )}
     </div>
   );
 }
 
-function ComparisonRenderer({ gentab, onNavigate }: GenTabRendererProps) {
+function ComparisonRenderer({ gentab, onNavigate, uiLocale }: GenTabRendererProps) {
   return (
     <div className="space-y-4">
       {gentab.items.map(item => (
@@ -214,7 +222,7 @@ function ComparisonRenderer({ gentab, onNavigate }: GenTabRendererProps) {
               onClick={() => onNavigate(item.sourceUrl)}
               className="shrink-0 text-xs text-white/68 hover:text-white whitespace-nowrap transition-colors"
             >
-              原页面
+              {translate(uiLocale, "gentab.render.sourcePage")}
             </button>
           </div>
           {item.description && (
@@ -234,7 +242,7 @@ function ComparisonRenderer({ gentab, onNavigate }: GenTabRendererProps) {
       ))}
       {gentab.items.length === 0 && (
         <div className="text-center py-12 text-white/40 text-sm">
-          没有对比项
+          {translate(uiLocale, "gentab.render.noComparisonItems")}
         </div>
       )}
     </div>

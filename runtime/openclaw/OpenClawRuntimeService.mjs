@@ -21,6 +21,11 @@ import {
   saveBrowserMemoryRecord,
   searchBrowserMemoryRecords,
 } from "./SabrinaMemoryBridgeService.mjs";
+import {
+  getTurnJournalStats,
+  listTurnJournalEntries,
+  searchTurnJournalEntries,
+} from "../turns/TurnJournalStore.mjs";
 import { setOpenClawTransportContext } from "./OpenClawTransportContext.mjs";
 
 function getErrorMessage(error) {
@@ -61,7 +66,10 @@ export async function beginOpenClawBindingSetup(params = {}) {
 
 export async function connectOpenClaw(params = {}) {
   const target =
-    typeof params?.target === "string" && params.target.trim() === "remote"
+    (typeof params?.target === "string" && params.target.trim() === "remote") ||
+    (`${params?.driver ?? ""}`.trim() && `${params?.driver ?? ""}`.trim() !== "local-cli") ||
+    `${params?.sshTarget ?? ""}`.trim() ||
+    `${params?.relayUrl ?? ""}`.trim()
       ? "remote"
       : "local";
   const connectionConfig = normalizeConnectionConfig(
@@ -71,6 +79,13 @@ export async function connectOpenClaw(params = {}) {
       transport: target,
       profile: params?.profile,
       stateDir: params?.stateDir,
+      driver: params?.driver,
+      sshTarget: params?.sshTarget,
+      sshPort: params?.sshPort,
+      relayUrl: params?.relayUrl,
+      connectCode: params?.connectCode,
+      label: params?.label,
+      agentId: params?.agentId,
     },
     target,
   );
@@ -78,7 +93,7 @@ export async function connectOpenClaw(params = {}) {
 
   await setOpenClawSelectedTarget(target, {
     refresh: false,
-    status: target === "remote" ? "degraded" : "bootstrapping",
+    status: "bootstrapping",
   });
   await patchOpenClawState({
     selectedTarget: target,
@@ -103,7 +118,10 @@ export async function connectOpenClaw(params = {}) {
 export async function disconnectOpenClaw(params = {}) {
   const currentState = serializeOpenClawState();
   const target =
-    typeof params?.target === "string" && params.target.trim() === "remote"
+    (typeof params?.target === "string" && params.target.trim() === "remote") ||
+    (`${params?.driver ?? ""}`.trim() && `${params?.driver ?? ""}`.trim() !== "local-cli") ||
+    `${params?.sshTarget ?? ""}`.trim() ||
+    `${params?.relayUrl ?? ""}`.trim()
       ? "remote"
       : currentState.selectedTarget;
   const connectionConfig = normalizeConnectionConfig(
@@ -113,6 +131,13 @@ export async function disconnectOpenClaw(params = {}) {
       transport: target,
       profile: params?.profile ?? currentState.connectionConfig?.profile,
       stateDir: params?.stateDir ?? currentState.connectionConfig?.stateDir,
+      driver: params?.driver ?? currentState.connectionConfig?.driver,
+      sshTarget: params?.sshTarget ?? currentState.connectionConfig?.sshTarget,
+      sshPort: params?.sshPort ?? currentState.connectionConfig?.sshPort,
+      relayUrl: params?.relayUrl ?? currentState.connectionConfig?.relayUrl,
+      connectCode: params?.connectCode ?? currentState.connectionConfig?.connectCode,
+      label: params?.label ?? currentState.connectionConfig?.label,
+      agentId: params?.agentId ?? currentState.connectionConfig?.agentId,
     },
     target,
   );
@@ -189,7 +214,20 @@ export async function ensureRequestedSkillModel(agentId, requestedModel) {
 export async function doctorOpenClaw(params = {}) {
   return buildOpenClawDoctorReport({
     target: params?.target,
-    connectionConfig: params?.connectionConfig,
+    connectionConfig:
+      params?.connectionConfig ??
+      {
+        transport: params?.target,
+        driver: params?.driver,
+        profile: params?.profile,
+        stateDir: params?.stateDir,
+        sshTarget: params?.sshTarget,
+        sshPort: params?.sshPort,
+        relayUrl: params?.relayUrl,
+        connectCode: params?.connectCode,
+        label: params?.label,
+        agentId: params?.agentId,
+      },
     state: serializeOpenClawState(),
   });
 }
@@ -212,5 +250,28 @@ export async function searchOpenClawBrowserMemory(params = {}) {
     query: `${params?.query ?? ""}`.trim(),
     records,
     stats: await getBrowserMemoryStats(),
+  };
+}
+
+export async function getOpenClawTurnJournal(params = {}) {
+  return {
+    ok: true,
+    entries: listTurnJournalEntries({
+      limit: params?.limit,
+      threadId: params?.threadId,
+      status: params?.status,
+    }),
+    stats: getTurnJournalStats(),
+  };
+}
+
+export async function searchOpenClawTurnJournal(params = {}) {
+  return {
+    ok: true,
+    query: `${params?.query ?? ""}`.trim(),
+    entries: searchTurnJournalEntries(params?.query, {
+      limit: params?.limit,
+    }),
+    stats: getTurnJournalStats(),
   };
 }

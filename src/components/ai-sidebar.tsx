@@ -18,6 +18,8 @@ import type {
   SidebarModelOption,
   SidebarQuickAction,
 } from "./ai-sidebar-types";
+import { useUiPreferences } from "../application/use-ui-preferences";
+import { translate } from "../../shared/localization.mjs";
 
 export function AiSidebar(props: {
   binding: SabrinaOpenClawBinding | null;
@@ -96,6 +98,9 @@ export function AiSidebar(props: {
     visibleMessages,
   } = props;
   const [panelMode, setPanelMode] = useState<"history" | "references" | null>(null);
+  const {
+    preferences: { uiLocale },
+  } = useUiPreferences();
   const selectedReferenceTabs = useMemo(
     () => referenceCandidates.filter((tab) => selectedReferenceIds.includes(tab.id)),
     [referenceCandidates, selectedReferenceIds],
@@ -128,13 +133,21 @@ export function AiSidebar(props: {
             <span className={cn("w-1.5 h-1.5 rounded-full", lobsterStatus === "connected" ? "bg-green-400 animate-pulse" : "bg-red-400")} />
             <span
               className="text-[10px] text-white/50 font-medium max-w-[140px] truncate"
-              title={lobsterStatus === "connected" ? `OpenClaw: ${lobsterLabel}` : "OpenClaw: 未连接"}
+              title={
+                lobsterStatus === "connected"
+                  ? `OpenClaw: ${lobsterLabel}`
+                  : translate(uiLocale, "sidebar.openClawDisconnected")
+              }
             >
-              {lobsterStatus === "connected" ? `OpenClaw: ${lobsterLabel}` : "OpenClaw: 未连接"}
+              {lobsterStatus === "connected"
+                ? `OpenClaw: ${lobsterLabel}`
+                : translate(uiLocale, "sidebar.openClawDisconnected")}
             </span>
             {lobsterStatus === "connected" ? (
               <span className="text-[9px] px-1 py-0.5 rounded bg-white/10 text-white/60 leading-none">
-                {binding?.mode === "remote" ? "远程" : "本机"}
+                {binding?.mode === "remote"
+                  ? translate(uiLocale, "sidebar.remote")
+                  : translate(uiLocale, "sidebar.local")}
               </span>
             ) : null}
           </div>
@@ -148,20 +161,22 @@ export function AiSidebar(props: {
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-apple-pink" />
-            <span className="text-[10px] font-bold text-apple-pink/90 uppercase tracking-widest">最爱的技能</span>
+            <span className="text-[10px] font-bold text-apple-pink/90 uppercase tracking-widest">
+              {translate(uiLocale, "sidebar.favoriteSkills")}
+            </span>
           </div>
           <button
             onClick={onOpenSkills}
             className="group flex items-center gap-1 text-[10px] font-medium text-white/50 hover:text-white transition-colors"
           >
             <Swords className="w-3 h-3" />
-            <span>技能馆</span>
+            <span>{translate(uiLocale, "surface.skills")}</span>
             <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform -ml-0.5" />
           </button>
         </div>
         {quickActions.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-xs text-white/40">
-            暂无快捷技能 → 去技能馆添加
+            {translate(uiLocale, "sidebar.noQuickSkills")}
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-2">
@@ -189,7 +204,7 @@ export function AiSidebar(props: {
             )}
           >
             <History className="h-3.5 w-3.5" />
-            历史对话
+            {translate(uiLocale, "history.title")}
           </button>
         </div>
 
@@ -198,14 +213,18 @@ export function AiSidebar(props: {
             onClick={onOpenSettings}
             className="text-[11px] font-medium text-white/60 hover:text-white transition-colors"
           >
-            去连接
+            {translate(uiLocale, "sidebar.connect")}
           </button>
         ) : selectedReferenceIds.length > 0 ? (
           <span className="text-[11px] text-white/42">
-            已引用 {selectedReferenceIds.length} 个页面
+            {translate(uiLocale, "sidebar.referencedCount", {
+              count: selectedReferenceIds.length,
+            })}
           </span>
         ) : (
-          <span className="text-[11px] text-white/30">当前页对话</span>
+          <span className="text-[11px] text-white/30">
+            {translate(uiLocale, "sidebar.currentPageChat")}
+          </span>
         )}
       </div>
 

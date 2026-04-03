@@ -1,7 +1,10 @@
 import {
   describeBrowserSkillCompatibility,
 } from "./BrowserSkillInputPolicyService.mjs";
-import { getDeclaredBrowserSkillCompatibility } from "./BrowserSkillCapabilityService.mjs";
+import { normalizeOpenClawSkillPayload } from "./OpenClawSkillPayloadService.mjs";
+import {
+  SABRINA_BROWSER_CAPABILITY_SCHEMA_VERSION,
+} from "../../packages/sabrina-protocol/index.mjs";
 
 function flattenMissingReasons(missing) {
   const labels = [];
@@ -22,11 +25,11 @@ function flattenMissingReasons(missing) {
 }
 
 export function normalizeSkillMetadata(rawSkill) {
-  const missingReasons = flattenMissingReasons(rawSkill?.missing);
-  const blockedByAllowlist = Boolean(rawSkill?.blockedByAllowlist);
-  const declaredBrowserCapability =
-    getDeclaredBrowserSkillCompatibility(rawSkill);
-  const browserCompatibility = describeBrowserSkillCompatibility(rawSkill);
+  const normalizedPayload = normalizeOpenClawSkillPayload(rawSkill);
+  const missingReasons = flattenMissingReasons(normalizedPayload.missing);
+  const blockedByAllowlist = Boolean(normalizedPayload.blockedByAllowlist);
+  const declaredBrowserCapability = normalizedPayload.declaredBrowserCapability;
+  const browserCompatibility = describeBrowserSkillCompatibility(normalizedPayload);
   const browserCapability = {
     inputMode: browserCompatibility.inputMode,
     sourceKinds: browserCompatibility.sourceKinds,
@@ -36,21 +39,21 @@ export function normalizeSkillMetadata(rawSkill) {
   };
 
   return {
-    name: `${rawSkill?.name ?? rawSkill?.skillKey ?? ""}`.trim(),
-    displayName: `${rawSkill?.displayName ?? rawSkill?.display_name ?? ""}`.trim() || undefined,
-    description: `${rawSkill?.description ?? ""}`.trim(),
-    eligible: Boolean(rawSkill?.eligible),
+    name: normalizedPayload.name,
+    displayName: normalizedPayload.displayName,
+    description: normalizedPayload.description,
+    eligible: Boolean(normalizedPayload.eligible),
     ready:
-      Boolean(rawSkill?.eligible) &&
-      !Boolean(rawSkill?.disabled) &&
+      Boolean(normalizedPayload.eligible) &&
+      !Boolean(normalizedPayload.disabled) &&
       !blockedByAllowlist &&
       missingReasons.length === 0,
-    disabled: Boolean(rawSkill?.disabled),
+    disabled: Boolean(normalizedPayload.disabled),
     blockedByAllowlist,
-    source: `${rawSkill?.source ?? ""}`.trim(),
-    bundled: Boolean(rawSkill?.bundled),
-    emoji: `${rawSkill?.emoji ?? ""}`.trim() || undefined,
-    homepage: `${rawSkill?.homepage ?? ""}`.trim() || undefined,
+    source: normalizedPayload.source,
+    bundled: Boolean(normalizedPayload.bundled),
+    emoji: normalizedPayload.emoji,
+    homepage: normalizedPayload.homepage,
     declaredBrowserCapability,
     browserCapabilityDeclared: Boolean(declaredBrowserCapability),
     browserCapability,
@@ -61,20 +64,9 @@ export function normalizeSkillMetadata(rawSkill) {
     browserCompatibilityOverlay: browserCapability.overlay,
     missingSummary: missingReasons.join(" · "),
     missingReasons,
-    filePath: `${rawSkill?.filePath ?? ""}`.trim() || "",
-    baseDir: `${rawSkill?.baseDir ?? ""}`.trim() || "",
-    install: Array.isArray(rawSkill?.install)
-      ? rawSkill.install
-          .map((entry) => ({
-            id: `${entry?.id ?? ""}`.trim(),
-            kind: `${entry?.kind ?? ""}`.trim(),
-            label: `${entry?.label ?? ""}`.trim(),
-            bins: Array.isArray(entry?.bins)
-              ? entry.bins.filter((value) => typeof value === "string" && value.trim())
-              : [],
-          }))
-          .filter((entry) => entry.id || entry.label)
-      : [],
+    filePath: normalizedPayload.filePath || "",
+    baseDir: normalizedPayload.baseDir || "",
+    install: normalizedPayload.install,
   };
 }
 
@@ -108,6 +100,7 @@ export function toCatalogSkillEntry(rawSkill) {
 export function buildSkillCatalogSummary(skills) {
   const entries = Array.isArray(skills) ? skills : [];
   return {
+    browserCapabilitySchemaVersion: SABRINA_BROWSER_CAPABILITY_SCHEMA_VERSION,
     total: entries.length,
     eligible: entries.filter((skill) => skill.eligible).length,
     ready: entries.filter((skill) => skill.ready).length,
@@ -120,6 +113,15 @@ export function buildSkillCatalogSummary(skills) {
         !skill.blockedByAllowlist &&
         Boolean(skill.missingSummary),
     ).length,
+    capabilitySourceCounts: {
+      declared: entries.filter((skill) => skill.browserCapabilityDeclared).length,
+      overlay: entries.filter((skill) => skill.browserCompatibilitySource === "sabrina-overlay")
+        .length,
+      heuristic: entries.filter((skill) => skill.browserCompatibilitySource === "heuristic")
+        .length,
+      metadata: entries.filter((skill) => skill.browserCompatibilitySource === "skill-metadata")
+        .length,
+    },
   };
 }
 

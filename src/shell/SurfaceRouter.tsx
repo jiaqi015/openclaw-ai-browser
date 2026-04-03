@@ -9,6 +9,7 @@ import { parseGenTabIdFromUrl } from "../lib/gentab-url";
 
 export function SurfaceRouter(props: {
   binding: SabrinaOpenClawBinding | null;
+  connectionConfig: SabrinaOpenClawConnectionConfig;
   connectionState: SabrinaOpenClawConnectionState | null;
   bindingSetupState: SabrinaOpenClawBindingSetupState;
   bookmarkEntries: SabrinaBookmarkEntry[];
@@ -30,7 +31,31 @@ export function SurfaceRouter(props: {
     request: SabrinaOpenClawPairingStatus["requests"][number],
   ) => void;
   onBeginBindingSetup: (target?: "local" | "remote") => void;
+  onConnectOpenClaw: (params?: {
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+  }) => void;
   onDisconnectOpenClaw: (target?: "local" | "remote") => void;
+  onDoctorOpenClaw: (params?: {
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+  }) => void;
   onCloseGenTab: (genTabId: string) => void;
   onNavigate: (url: string) => void;
   onOpenDiagnostics: () => void;
@@ -47,6 +72,7 @@ export function SurfaceRouter(props: {
 }) {
   const {
     binding,
+    connectionConfig,
     connectionState,
     bindingSetupState,
     bookmarkEntries,
@@ -66,7 +92,9 @@ export function SurfaceRouter(props: {
     onApproveLatestDeviceRequest,
     onApprovePairingRequest,
     onBeginBindingSetup,
+    onConnectOpenClaw,
     onDisconnectOpenClaw,
+    onDoctorOpenClaw,
     onCloseGenTab,
     onNavigate,
     onOpenDiagnostics,
@@ -125,6 +153,7 @@ export function SurfaceRouter(props: {
     return (
       <OpenClawSettingsSurface
         binding={binding}
+        connectionConfig={connectionConfig}
         connectionState={connectionState}
         bindingSetupState={bindingSetupState}
         gatewayStatus={gatewayStatus}
@@ -136,7 +165,9 @@ export function SurfaceRouter(props: {
         approvingPairingRequestId={approvingPairingRequestId}
         isApprovingLatestDevice={isApprovingLatestDevice}
         onBeginBindingSetup={onBeginBindingSetup}
+        onConnectOpenClaw={onConnectOpenClaw}
         onDisconnectOpenClaw={onDisconnectOpenClaw}
+        onDoctorOpenClaw={onDoctorOpenClaw}
         onOpenExternalUrl={onOpenExternalUrl}
         onSelectBindingTarget={onSelectBindingTarget}
         onApprovePairingRequest={onApprovePairingRequest}

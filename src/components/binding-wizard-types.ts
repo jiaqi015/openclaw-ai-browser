@@ -5,6 +5,7 @@ import type {
 
 export type BindingWizardProps = {
   state: SabrinaBindingSetupState;
+  connectionConfig?: SabrinaOpenClawConnectionConfig;
   connectionState?: SabrinaOpenClawConnectionState | null;
   gatewayStatus?: SabrinaOpenClawGatewayStatus | null;
   deviceStatus?: SabrinaOpenClawDeviceStatus | null;
@@ -19,4 +20,28 @@ export type BindingWizardProps = {
     request: SabrinaOpenClawPairingStatus["requests"][number],
   ) => void;
   onApproveLatestDeviceRequest?: () => void;
+  onConnectRemote?: (params?: {
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+  }) => void;
+  onDoctorRemote?: (params?: {
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+  }) => void;
 };

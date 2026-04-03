@@ -62,8 +62,9 @@ Sabrina now has a thin but real `runtime/turns` implementation.
 Current implementation:
 
 - `TurnEngine` exists and already owns the first execution boundary for browser AI turns
-- `TurnPlanner` exists and selects the initial strategy and policy decision
-- `TurnReceiptService` exists and normalizes completed and failed turn receipts
+- `TurnPlanner` exists and now emits an `ExecutionPlan` with explicit `executionContract`
+- `TurnReceiptService` exists and normalizes completed, failed, and blocked turn receipts against that contract
+- `TurnJournalService` and `TurnJournalStore` exist and keep durable Sabrina-side turn evidence separate from thread-visible messages
 - thread AI turns, OpenClaw background handoff, and GenTab generation now route through this turn layer before appending back into thread history
 
 Current implementation:
@@ -71,6 +72,8 @@ Current implementation:
 - [TurnEngine.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/turns/TurnEngine.mjs)
 - [TurnPlanner.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/turns/TurnPlanner.mjs)
 - [TurnReceiptService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/turns/TurnReceiptService.mjs)
+- [TurnJournalService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/turns/TurnJournalService.mjs)
+- [TurnJournalStore.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/turns/TurnJournalStore.mjs)
 - [ThreadTurnService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/threads/ThreadTurnService.mjs)
 
 ## Updated Runtime Map
@@ -208,6 +211,16 @@ The important rule is:
 - `runtime/turns` uses the facts
 - `runtime/openclaw` must not rediscover them from prompts
 
+Current implementation now also treats these as execution-grade facts, not just routing hints. The package includes:
+
+- `executionReliability`
+- `reachabilityConfidence`
+- `authBoundaryConfidence`
+- `reproducibilityGuarantee`
+- `outsideBrowserExecutable`
+- `requiresBrowserSession`
+- `requiresFilesystemAccess`
+
 ## Turn Planning
 
 `runtime/turns` should introduce one planner:
@@ -225,6 +238,8 @@ into a concrete `ExecutionPlan`.
 
 ```ts
 type ExecutionPlan = {
+  turnId: string
+  createdAt: string
   turnType: 'ask' | 'skill' | 'handoff' | 'gentab'
   strategy:
     | 'chat_response'
@@ -268,6 +283,22 @@ type ExecutionPlan = {
     | 'allow'
     | 'reject'
     | 'allow-with-honesty-constraints'
+  executionContract: {
+    contractVersion: number
+    browserContextContract: 'browser-context-package'
+    resultContract:
+      | 'assistant-message'
+      | 'skill-result'
+      | 'task-record'
+      | 'artifact'
+    capabilitySource?: string
+    capabilityDeclared: boolean
+    overlayUsed: boolean
+    honestyMode: string
+    blockingMode: 'none' | 'reject-before-execution'
+    requiredEvidence: string[]
+    sourceRoute?: string
+  }
   notes: string[]
 }
 ```
@@ -278,6 +309,12 @@ The planner should be the only place that decides:
 - whether URL handoff is allowed
 - whether a local file handoff is allowed
 - whether the turn must fail early
+
+Current implementation now also makes `ExecutionPlan` carry an explicit `executionContract`, so:
+
+- capability provenance is preserved through the turn
+- honesty mode is chosen before execution
+- evidence requirements are explicit before OpenClaw is invoked
 
 ## Turn Engine
 
@@ -351,9 +388,11 @@ type TurnReceipt = {
   evidence: {
     executionAttempted: boolean
     routeKind?: string
-    sourceKind?: string
+    trustLevel?: string
+    requiredEvidence?: string[]
     honestyConstraintsApplied?: boolean
   }
+  contract?: ExecutionPlan['executionContract']
 }
 ```
 
@@ -407,8 +446,11 @@ It adds a clean **turn journal** so Sabrina can reason about:
 - what was asked
 - what execution path was chosen
 - what receipt came back
+ - what execution contract was in force
 
 without pretending that thread history and OpenClaw memory are the same thing.
+
+Current implementation already exposes journal querying through the OpenClaw runtime boundary, so diagnostics and future surfaces can inspect turn evidence without scraping thread messages.
 
 ## Renderer Contract
 
@@ -448,6 +490,12 @@ It should not:
 
 - add stronger turn journaling and diagnostics
 - expose receipts to host-level smoke and acceptance gates
+
+This phase is now partially landed:
+
+- `TurnJournalStore` persists Sabrina-side turn evidence
+- receipts carry `executionContract`
+- acceptance now asserts the presence of execution-contract and journal wiring
 
 ## What This Design Is Not
 

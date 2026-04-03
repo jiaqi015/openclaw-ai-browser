@@ -1,3 +1,4 @@
+import type { UiLocale } from "../../shared/localization.mjs";
 import { useState } from "react";
 import { getSabrinaDesktop } from "../lib/sabrina-desktop";
 import { useChatCommands } from "../commands/useChatCommands";
@@ -9,7 +10,7 @@ import { useThreadState } from "../state/useThreadState";
 import { useThreadComposerState } from "../state/useThreadComposerState";
 import { useGenTabController } from "./useGenTabController";
 
-export function useAppController() {
+export function useAppController(uiLocale: UiLocale) {
   const desktop = getSabrinaDesktop();
   const {
     tabs,
@@ -24,6 +25,7 @@ export function useAppController() {
   } = useBrowserState(desktop);
   const {
     binding,
+    connectionConfig,
     connectionState,
     bindingSetupState,
     beginBindingSetup,
@@ -61,6 +63,7 @@ export function useAppController() {
     desktop,
     tabs,
     activeTab,
+    uiLocale,
   });
   const {
     composerText,
@@ -104,6 +107,7 @@ export function useAppController() {
     activeTab,
     activeThreadId,
     binding,
+    uiLocale,
     selectedModel,
     isModelSwitching,
     composerText,
@@ -119,6 +123,7 @@ export function useAppController() {
 
   return {
     binding,
+    connectionConfig,
     connectionState,
     bindingSetupState,
     skillCatalog,

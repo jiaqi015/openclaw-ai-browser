@@ -59,6 +59,7 @@ export function useAppShellState({
     tabs: controller.tabs,
     activeTab: controller.activeTab,
     searchEngine: preferences.defaultSearchEngine,
+    uiLocale: preferences.uiLocale,
     createTab: controller.createTab,
     navigateCurrentTab: controller.navigateCurrentTab,
     clearHistory: controller.clearHistory,
@@ -100,6 +101,7 @@ export function useAppShellState({
     skillCatalog: controller.skillCatalog,
     surfaceMode,
     toggleBookmark: controller.toggleBookmark,
+    uiLocale: preferences.uiLocale,
   });
 
   useEffect(() => {
@@ -223,6 +225,7 @@ export function useAppShellState({
     lobsterStatus,
     lobsterLabel,
     binding: controller.binding,
+    connectionConfig: controller.connectionConfig,
     connectionState: controller.connectionState,
     bindingSetupState: controller.bindingSetupState,
     gatewayStatus: controller.gatewayStatus,
@@ -239,8 +242,14 @@ export function useAppShellState({
     onBeginBindingSetup: (target) => {
       void controller.beginBindingSetup(target);
     },
+    onConnectOpenClaw: (params) => {
+      void controller.connectOpenClaw(params).catch(() => {});
+    },
     onDisconnectOpenClaw: (target) => {
       void controller.disconnectOpenClaw({ target }).catch(() => {});
+    },
+    onDoctorOpenClaw: (params) => {
+      void controller.doctorOpenClaw(params).catch(() => {});
     },
     onCloseGenTab: controller.handleCloseGenTab,
     onApprovePairingRequest: (request) => {

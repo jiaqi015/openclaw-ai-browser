@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeSkillMetadata } from "./SkillCatalogService.mjs";
+import {
+  buildSkillCatalogSummary,
+  normalizeSkillMetadata,
+} from "./SkillCatalogService.mjs";
 
 test("normalizeSkillMetadata keeps explicit declared browser capability separate from resolved capability", () => {
   const normalized = normalizeSkillMetadata({
@@ -37,4 +40,44 @@ test("normalizeSkillMetadata leaves declared browser capability empty when Sabri
   assert.equal(normalized.declaredBrowserCapability, null);
   assert.equal(normalized.browserCapability.source, "sabrina-overlay");
   assert.equal(normalized.browserCapability.overlay, true);
+});
+
+test("buildSkillCatalogSummary tracks capability provenance counts", () => {
+  const summary = buildSkillCatalogSummary([
+    {
+      eligible: true,
+      ready: true,
+      disabled: false,
+      blockedByAllowlist: false,
+      missingSummary: "",
+      browserCapabilityDeclared: true,
+      browserCompatibilitySource: "skill-metadata",
+    },
+    {
+      eligible: true,
+      ready: true,
+      disabled: false,
+      blockedByAllowlist: false,
+      missingSummary: "",
+      browserCapabilityDeclared: false,
+      browserCompatibilitySource: "sabrina-overlay",
+    },
+    {
+      eligible: true,
+      ready: false,
+      disabled: false,
+      blockedByAllowlist: false,
+      missingSummary: "missing env",
+      browserCapabilityDeclared: false,
+      browserCompatibilitySource: "heuristic",
+    },
+  ]);
+
+  assert.equal(summary.browserCapabilitySchemaVersion, "1");
+  assert.deepEqual(summary.capabilitySourceCounts, {
+    declared: 1,
+    overlay: 1,
+    heuristic: 1,
+    metadata: 1,
+  });
 });

@@ -51,19 +51,42 @@ function registerConnectCommand(rootCommand, api) {
     .description("Ask Sabrina to connect to the current OpenClaw control plane")
     .option("--profile <profile>", "Target a specific OpenClaw profile")
     .option("--state-dir <path>", "Target a specific OpenClaw state dir")
-    .option("--remote", "Reserve remote transport (currently returns attention state)")
+    .option("--remote", "Use a remote OpenClaw control plane")
+    .option("--driver <driver>", "Remote driver (currently ssh-cli is implemented)")
+    .option("--ssh-target <target>", "SSH target for the ssh-cli remote driver (for example root@example.com)")
+    .option("--ssh-port <port>", "Optional SSH port for the ssh-cli driver")
+    .option("--relay-url <url>", "Relay URL for the relay-paired remote driver")
+    .option("--connect-code <code>", "Short-lived connect code for the relay-paired driver")
+    .option("--label <label>", "Friendly label for the remote OpenClaw")
+    .option("--agent <id>", "Prefer a specific remote agent")
     .option("--json", "Print raw JSON")
     .action(async (options) => {
       try {
+        const requestedDriver =
+          options.driver ||
+          (options.remote || options.sshTarget
+            ? "ssh-cli"
+            : options.relayUrl || options.connectCode
+              ? "relay-paired"
+              : "local-cli");
+        const target =
+          options.remote || options.sshTarget || options.relayUrl || options.connectCode || requestedDriver !== "local-cli" ? "remote" : "local";
         const result = await requestSabrinaConnector(
           api.pluginConfig ?? {},
           "/v1/openclaw/connect",
           {
             method: "POST",
             body: {
-              target: options.remote ? "remote" : "local",
+              target,
               profile: options.profile,
               stateDir: options.stateDir,
+              driver: target === "remote" ? requestedDriver : "local-cli",
+              sshTarget: options.sshTarget,
+              sshPort: options.sshPort ? Number(options.sshPort) : undefined,
+              relayUrl: options.relayUrl,
+              connectCode: options.connectCode,
+              label: options.label,
+              agentId: options.agent,
             },
           },
         );
@@ -113,12 +136,37 @@ function registerDoctorCommand(rootCommand, api) {
     .command("doctor")
     .description("Run Sabrina connector diagnostics")
     .option("--target <target>", "local or remote", "local")
+    .option("--driver <driver>", "Remote driver (currently ssh-cli is implemented)")
+    .option("--ssh-target <target>", "SSH target for the ssh-cli remote driver")
+    .option("--ssh-port <port>", "Optional SSH port for the ssh-cli driver")
+    .option("--relay-url <url>", "Relay URL for the relay-paired remote driver")
+    .option("--connect-code <code>", "Short-lived connect code for the relay-paired driver")
+    .option("--label <label>", "Friendly label for the remote OpenClaw")
+    .option("--agent <id>", "Prefer a specific remote agent")
+    .option("--profile <profile>", "Target a specific OpenClaw profile")
+    .option("--state-dir <path>", "Target a specific OpenClaw state dir")
     .option("--json", "Print raw JSON")
     .action(async (options) => {
       try {
+        const params = new URLSearchParams();
+        params.set("target", options.target);
+        if (options.driver) params.set("driver", options.driver);
+        if (options.sshTarget) params.set("sshTarget", options.sshTarget);
+        if (options.sshPort) params.set("sshPort", `${options.sshPort}`);
+        if (options.relayUrl) params.set("relayUrl", options.relayUrl);
+        if (options.connectCode) params.set("connectCode", options.connectCode);
+        if (options.label) params.set("label", options.label);
+        if (options.agent) params.set("agentId", options.agent);
+        if (options.profile) params.set("profile", options.profile);
+        if (options.stateDir) params.set("stateDir", options.stateDir);
+        if (!options.driver && (options.target === "remote" || options.sshTarget)) {
+          params.set("driver", "ssh-cli");
+        } else if (!options.driver && (options.relayUrl || options.connectCode)) {
+          params.set("driver", "relay-paired");
+        }
         const result = await requestSabrinaConnector(
           api.pluginConfig ?? {},
-          `/v1/openclaw/doctor?target=${encodeURIComponent(options.target)}`,
+          `/v1/openclaw/doctor?${params.toString()}`,
         );
 
         if (options.json) {

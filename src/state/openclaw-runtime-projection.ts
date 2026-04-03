@@ -4,6 +4,7 @@ import {
   type MutableRefObject,
   type SetStateAction,
 } from "react";
+import { getCurrentUiLocale, translate } from "../../shared/localization.mjs";
 
 type SabrinaDesktop = NonNullable<Window["sabrinaDesktop"]>;
 type SabrinaDesktopOpenClaw = NonNullable<SabrinaDesktop["openclaw"]>;
@@ -24,37 +25,86 @@ function getRuntimeSignature(state: SabrinaOpenClawState) {
 export function createEmptyOpenClawState(
   target: "local" | "remote" = "local",
 ): SabrinaOpenClawState {
+  const isRemote = target === "remote";
+  const locale = getCurrentUiLocale();
+  const targetLabel = translate(
+    locale,
+    isRemote ? "openclaw.state.target.remote" : "openclaw.state.target.local",
+  );
   return {
     selectedTarget: target,
     connectionConfig: {
       enabled: false,
       transport: target,
+      driver: isRemote ? "ssh-cli" : "local-cli",
       profile: null,
       stateDir: null,
+      sshTarget: null,
+      sshPort: null,
+      relayUrl: null,
+      connectCode: null,
+      label: null,
+      agentId: null,
     },
     connectionState: {
-      status: target === "remote" ? "attention" : "disconnected",
+      status: "disconnected",
       target,
       transport: target,
       profile: null,
       stateDir: null,
       bindingId: null,
-      summary: target === "remote" ? "远程连接暂未开放" : "尚未连接本机 OpenClaw",
-      detail: "",
-      commandHint: "openclaw sabrina connect",
-      doctorHint: "",
-      transportLabel: "default",
+      summary: translate(locale, "openclaw.state.disconnectedSummary", {
+        target: targetLabel,
+      }),
+      detail: isRemote
+        ? translate(locale, "openclaw.state.remoteDetailWithoutTarget")
+        : translate(locale, "openclaw.state.localDetail", {
+            target: targetLabel,
+          }),
+      commandHint: isRemote
+        ? "openclaw sabrina connect --remote --driver ssh-cli --ssh-target <user@host>"
+        : "openclaw sabrina connect",
+      doctorHint: translate(
+        locale,
+        isRemote
+          ? "openclaw.state.remoteDoctorDisconnected"
+          : "openclaw.state.localDoctorDisconnected",
+      ),
+      transportLabel: isRemote ? "remote" : "default",
       capabilities: [],
+      remoteSessionContract: {
+        contractVersion: "1",
+        transport: target,
+        driver: isRemote ? "ssh-cli" : "local-cli",
+        profile: null,
+        stateDir: null,
+        sshTarget: null,
+        sshPort: null,
+        relayUrl: null,
+        agentId: null,
+        features: [],
+      },
       lastCheckedAt: null,
       lastConnectedAt: null,
     },
     binding: null,
     bindingSetupState: {
-      status: target === "remote" ? "degraded" : "idle",
+      status: isRemote ? "degraded" : "idle",
       target,
-      title: target === "remote" ? "连接远程龙虾" : "连接本机龙虾",
-      description: "",
-      note: "",
+      title: translate(
+        locale,
+        isRemote ? "binding.default.remote.title" : "binding.default.local.title",
+      ),
+      description: translate(
+        locale,
+        isRemote
+          ? "binding.default.remote.description"
+          : "binding.default.local.description",
+      ),
+      note: translate(
+        locale,
+        isRemote ? "binding.default.remote.note" : "binding.default.local.note",
+      ),
       steps: [],
     },
     modelState: null,

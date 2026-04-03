@@ -1,6 +1,12 @@
+import { getGenTabLanguageInstruction } from "../../shared/localization.mjs";
 import { getContextPackageSourceTabIds } from "./BrowserContextPackageService.mjs";
 
-export function buildGenTabPrompt(userIntent, contextPackageOrContexts, preferredType) {
+export function buildGenTabPrompt(
+  userIntent,
+  contextPackageOrContexts,
+  preferredType,
+  assistantLocale = "zh-CN",
+) {
   const normalizedIntent = sanitizeGenTabText(userIntent, 600) || "整理这些页面为结构化工作台";
   const normalizedPreferredType = normalizeGenTabPreferredType(preferredType);
   const normalizedInput = normalizeGenTabInput(contextPackageOrContexts);
@@ -63,7 +69,7 @@ Sabrina 已经先把这些页面组织成一个带 provenance 的 Browser Contex
 8. suggestedPrompts 要是用户接下来还可能继续让 Sabrina 调整工作台的自然语言。
 9. sources 只保留最有代表性的来源，并说明为何纳入。
 10. 只输出 JSON。
-11. 使用中文。
+11. ${getGenTabLanguageInstruction(assistantLocale)}
 12. 如果 Browser Context Package 标记了缺失引用页，请不要假装看到了它们的内容。
 
 Browser Context Package provenance：

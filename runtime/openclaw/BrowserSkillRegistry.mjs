@@ -1,8 +1,6 @@
-const BROWSER_SOURCE_KINDS = [
-  "public-url",
-  "private-url",
-  "local-file",
-];
+import {
+  SABRINA_BROWSER_CAPABILITY_SOURCE_KINDS,
+} from "../../packages/sabrina-protocol/index.mjs";
 
 export const SABRINA_BROWSER_SKILL_OVERLAY_SOURCE = "sabrina-overlay";
 
@@ -31,7 +29,7 @@ export function normalizeBrowserSourceKinds(values) {
     new Set(
       (Array.isArray(values) ? values : [])
         .map((value) => normalizeNonEmptyString(value))
-        .filter((value) => BROWSER_SOURCE_KINDS.includes(value)),
+        .filter((value) => SABRINA_BROWSER_CAPABILITY_SOURCE_KINDS.includes(value)),
     ),
   );
 }

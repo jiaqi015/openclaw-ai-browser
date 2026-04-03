@@ -1,7 +1,8 @@
 import {
-  normalizeBrowserInputMode,
-  normalizeBrowserSourceKinds,
-} from "./BrowserSkillRegistry.mjs";
+  normalizeSabrinaBrowserCapabilityInputMode,
+  normalizeSabrinaBrowserCapabilitySourceKinds,
+  normalizeSabrinaCapabilitySource,
+} from "../../packages/sabrina-protocol/index.mjs";
 
 export function normalizeNonEmptyString(value) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
@@ -35,14 +36,14 @@ export function normalizeDeclaredBrowserCapabilityDescriptor(
   rawCapability = {},
   fallbackSkill = {},
 ) {
-  const inputMode = normalizeBrowserInputMode(
+  const inputMode = normalizeSabrinaBrowserCapabilityInputMode(
     rawCapability?.inputMode ?? fallbackSkill?.browserInputMode,
   );
   if (!inputMode) {
     return null;
   }
 
-  const sourceKinds = normalizeBrowserSourceKinds(
+  const sourceKinds = normalizeSabrinaBrowserCapabilitySourceKinds(
     rawCapability?.sourceKinds ??
       fallbackSkill?.browserSourceKinds ??
       fallbackSkill?.sourceKinds,
@@ -51,7 +52,7 @@ export function normalizeDeclaredBrowserCapabilityDescriptor(
     inputMode === "source-url" && sourceKinds.length > 0
       ? sourceKinds
       : getDefaultBrowserSourceKinds(inputMode);
-  const source = normalizeNonEmptyString(rawCapability?.source) || "skill-metadata";
+  const source = normalizeSabrinaCapabilitySource(rawCapability?.source);
 
   return {
     inputMode,
@@ -70,8 +71,11 @@ export function getDeclaredBrowserSkillCompatibility(skill) {
   }
 
   const explicitCapability = skill?.browserCapability;
-  if (explicitCapability && normalizeBrowserInputMode(explicitCapability.inputMode)) {
-    const explicitSource = normalizeNonEmptyString(explicitCapability.source);
+  if (
+    explicitCapability &&
+    normalizeSabrinaBrowserCapabilityInputMode(explicitCapability.inputMode)
+  ) {
+    const explicitSource = normalizeSabrinaCapabilitySource(explicitCapability.source);
     if (explicitSource === "sabrina-overlay" || explicitSource === "heuristic") {
       return null;
     }

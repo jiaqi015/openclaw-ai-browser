@@ -14,7 +14,7 @@ import { useAppController } from "./shell/useAppController";
 
 export default function App() {
   const { preferences } = useUiPreferences();
-  const controller = useAppController();
+  const controller = useAppController(preferences.uiLocale);
   const {
     browserChromeProps,
     newTabSurfaceProps,

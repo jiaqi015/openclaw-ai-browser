@@ -4,6 +4,7 @@ import {
   BROWSER_UNSUITED_SKILLS,
   getReadableSkillDescription,
 } from "../application/skill-catalog";
+import { useUiPreferences } from "../application/use-ui-preferences";
 import { cn } from "../lib/utils";
 
 export function SkillsSectionHeader(props: {
@@ -30,6 +31,7 @@ export function SkillsSectionHeader(props: {
     collapsible,
     onToggle,
   } = props;
+  const { t } = useUiPreferences();
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-1">
@@ -48,12 +50,12 @@ export function SkillsSectionHeader(props: {
         >
           {expanded ? (
             <>
-              收起
+              {t("common.collapse")}
               <ChevronUp className="h-3.5 w-3.5" />
             </>
           ) : (
             <>
-              展开 {hiddenCount} 个
+              {t("skills.expandCount", { count: hiddenCount })}
               <ChevronDown className="h-3.5 w-3.5" />
             </>
           )}
@@ -87,9 +89,13 @@ function SkillCard(props: {
     onTranslateSkill,
     compact = false,
   } = props;
+  const {
+    preferences: { uiLocale },
+    t,
+  } = useUiPreferences();
   const isPinned = pinnedSkillNames.includes(skill.name);
   const isHidden = hiddenSkillNames.includes(skill.name);
-  const readableDescription = getReadableSkillDescription(skill);
+  const readableDescription = getReadableSkillDescription(skill, uiLocale);
   const browserCapability = skill.browserCapability;
   const browserInputMode = browserCapability?.inputMode ?? skill.browserInputMode;
   const browserUseHint = browserCapability?.useHint ?? skill.browserUseHint;
@@ -97,10 +103,10 @@ function SkillCard(props: {
     browserCapability?.source ?? skill.browserCompatibilitySource;
   const compatibilityBadgeLabel =
     browserCompatibilitySource === "skill-metadata"
-      ? "OpenClaw 元数据"
+      ? t("skills.metadata.openclaw")
       : browserCompatibilitySource === "sabrina-overlay"
-        ? "Sabrina Overlay"
-        : "Heuristic";
+        ? t("skills.metadata.sabrinaOverlay")
+        : t("skills.metadata.heuristic");
 
   return (
     <div
@@ -129,23 +135,27 @@ function SkillCard(props: {
                       : "border-white/10 bg-white/5 text-white/45",
                 )}
               >
-                {skill.ready ? "可直接使用" : skill.eligible ? "待补依赖" : "当前不可用"}
+                {skill.ready
+                  ? t("skills.status.ready")
+                  : skill.eligible
+                    ? t("skills.status.eligible")
+                    : t("skills.status.unavailable")}
               </span>
             ) : null}
             {!compact && isHidden ? (
               <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/50">
-                已隐藏
+                {t("skills.badge.hidden")}
               </span>
             ) : null}
             {!compact && isPinned ? (
               <span className="flex items-center gap-1 rounded-full border border-apple-pink/20 bg-apple-pink/10 px-2 py-0.5 text-[10px] font-medium text-apple-pink">
                 <Heart className="h-2.5 w-2.5 fill-current" />
-                最爱
+                {t("skills.badge.favorite")}
               </span>
             ) : null}
             {!compact && BROWSER_RECOMMENDED_SKILLS.has(skill.name) ? (
               <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-                浏览器推荐
+                {t("skills.badge.browserRecommended")}
               </span>
             ) : null}
             {!compact ? (
@@ -157,12 +167,14 @@ function SkillCard(props: {
                     : "border-orange-400/20 bg-orange-400/10 text-orange-200",
                 )}
               >
-                {browserInputMode === "page-snapshot" ? "页面快照输入" : "链接/文件输入"}
+                {browserInputMode === "page-snapshot"
+                  ? t("skills.badge.pageSnapshot")
+                  : t("skills.badge.linkOrFile")}
               </span>
             ) : null}
             {!compact && BROWSER_UNSUITED_SKILLS.has(skill.name) ? (
               <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/50">
-                不适用此场景
+                {t("skills.badge.unsuitable")}
               </span>
             ) : null}
           </div>
@@ -192,8 +204,11 @@ function SkillCard(props: {
                 ) : (
                   <Languages className="h-3.5 w-3.5" />
                 )}
-                {translatedText ? "重新翻译 + 摘要" : "翻译 + 中文摘要"}
+                {translatedText ? t("skills.retranslateSummary") : t("skills.translateSummary")}
               </button>
+              <p className="mt-1.5 text-[10px] leading-4 text-white/38">
+                {t("skills.translateChineseOnlyNote")}
+              </p>
             </div>
           ) : null}
 
@@ -201,7 +216,7 @@ function SkillCard(props: {
             <div className="mt-2 rounded-2xl border border-apple-blue/15 bg-apple-blue/10 px-3 py-2.5">
               <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-apple-blue/85">
                 <Sparkles className="h-3 w-3" />
-                龙虾解读
+                {t("skills.openclawReadout")}
               </div>
               <p className="whitespace-pre-line text-[11px] leading-5 text-white/78">
                 {translatedText}
@@ -218,26 +233,30 @@ function SkillCard(props: {
           {!compact ? (
             <>
               <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-white/34">
-                <span>来源：{skill.source || "unknown"}</span>
-                {skill.bundled ? <span>内置</span> : null}
-                {skill.disabled ? <span>后端停用</span> : null}
+                <span>
+                  {t("skills.source", {
+                    value: skill.source || t("skills.sourceUnknown"),
+                  })}
+                </span>
+                {skill.bundled ? <span>{t("skills.bundled")}</span> : null}
+                {skill.disabled ? <span>{t("skills.backendDisabled")}</span> : null}
                 {browserCompatibilitySource ? (
-                  <span>兼容性：{compatibilityBadgeLabel}</span>
+                  <span>{t("skills.compatibility", { value: compatibilityBadgeLabel })}</span>
                 ) : null}
               </div>
               {browserUseHint ? (
                 <p className="mt-2 line-clamp-2 text-[11px] leading-5 text-white/46">
-                  浏览器使用：{browserUseHint}
+                  {t("skills.browserUsage", { value: browserUseHint })}
                 </p>
               ) : null}
               {browserCompatibilitySource === "sabrina-overlay" ? (
                 <p className="mt-2 line-clamp-2 text-[11px] leading-5 text-white/40">
-                  当前浏览器兼容性来自 Sabrina 侧 overlay，用于在 OpenClaw 尚未提供完整元数据前保持诚实执行。
+                  {t("skills.overlayNote")}
                 </p>
               ) : null}
               {skill.missingSummary ? (
                 <p className="mt-2 line-clamp-2 text-[11px] leading-5 text-amber-200/70">
-                  缺少依赖：{skill.missingSummary}
+                  {t("skills.missingDependencies", { value: skill.missingSummary })}
                 </p>
               ) : null}
             </>
@@ -247,7 +266,7 @@ function SkillCard(props: {
 
       <div className="flex items-center justify-between gap-3 border-t border-white/6 pt-2.5">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-white/40">最爱</span>
+          <span className="text-[10px] text-white/40">{t("skills.toggleFavorite")}</span>
           <button
             onClick={() => onTogglePinnedSkill(skill.name)}
             className={cn(
@@ -262,7 +281,9 @@ function SkillCard(props: {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-white/40">{isHidden ? "已隐藏" : "显示中"}</span>
+          <span className="text-[10px] text-white/40">
+            {isHidden ? t("skills.hidden") : t("skills.visible")}
+          </span>
           <div
             onClick={() => onToggleHiddenSkill(skill.name)}
             className={cn(

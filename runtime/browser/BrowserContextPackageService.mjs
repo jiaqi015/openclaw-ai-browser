@@ -228,37 +228,73 @@ function buildBrowserSourceExecutionDescriptor(params = {}) {
   let authBoundary = "none";
   let trustLevel = "private";
   let reproducibility = "not-guaranteed";
+  let executionReliability = "low";
+  let reachabilityConfidence = "low";
+  let authBoundaryConfidence = "medium";
+  let reproducibilityGuarantee = "weak";
+  let outsideBrowserExecutable = false;
+  let requiresBrowserSession = false;
+  let requiresFilesystemAccess = false;
 
   if (route.kind === "public-http") {
     reachability = "reachable";
     authBoundary = "none";
     trustLevel = "public";
     reproducibility = "replayable";
+    executionReliability = "high";
+    reachabilityConfidence = "high";
+    authBoundaryConfidence = "high";
+    reproducibilityGuarantee = "strong";
+    outsideBrowserExecutable = true;
   } else if (route.kind === "private-http") {
     reachability = "unknown";
     authBoundary = "private-origin";
     trustLevel = "private";
     reproducibility = "not-guaranteed";
+    executionReliability = "medium";
+    reachabilityConfidence = "medium";
+    authBoundaryConfidence = "medium";
+    reproducibilityGuarantee = "weak";
+    requiresBrowserSession = true;
   } else if (route.kind === "local-file") {
     reachability = "unknown";
     authBoundary = "none";
     trustLevel = "local";
     reproducibility = "not-guaranteed";
+    executionReliability = route.canExecute ? "medium" : "low";
+    reachabilityConfidence = route.canExecute ? "medium" : "low";
+    authBoundaryConfidence = "high";
+    reproducibilityGuarantee = route.canExecute ? "weak" : "none";
+    requiresFilesystemAccess = true;
   } else if (route.kind === "internal-surface") {
     reachability = "browser-only";
     authBoundary = "internal-only";
     trustLevel = "internal";
     reproducibility = "browser-only";
+    executionReliability = "none";
+    reachabilityConfidence = "high";
+    authBoundaryConfidence = "high";
+    reproducibilityGuarantee = "none";
+    requiresBrowserSession = true;
   } else if (route.kind === "non-http") {
     reachability = "browser-only";
     authBoundary = "none";
     trustLevel = "private";
     reproducibility = "browser-only";
+    executionReliability = "none";
+    reachabilityConfidence = "medium";
+    authBoundaryConfidence = "low";
+    reproducibilityGuarantee = "none";
+    requiresBrowserSession = true;
   } else if (route.kind === "missing-url") {
     reachability = "unknown";
     authBoundary = "none";
     trustLevel = "internal";
     reproducibility = "not-guaranteed";
+    executionReliability = "none";
+    reachabilityConfidence = "low";
+    authBoundaryConfidence = "low";
+    reproducibilityGuarantee = "none";
   }
 
   return {
@@ -275,6 +311,13 @@ function buildBrowserSourceExecutionDescriptor(params = {}) {
     authBoundary,
     trustLevel,
     reproducibility,
+    executionReliability,
+    reachabilityConfidence,
+    authBoundaryConfidence,
+    reproducibilityGuarantee,
+    outsideBrowserExecutable,
+    requiresBrowserSession,
+    requiresFilesystemAccess,
   };
 }
 
@@ -291,6 +334,10 @@ function buildBrowserExecutionSummary(descriptors = []) {
   let executableSourceCount = 0;
   let browserOnlySourceCount = 0;
   let replayableSourceCount = 0;
+  let outsideBrowserExecutableCount = 0;
+  let requiresBrowserSessionCount = 0;
+  let requiresFilesystemAccessCount = 0;
+  let deterministicReplayableCount = 0;
 
   for (const descriptor of descriptors) {
     if (!descriptor) {
@@ -307,6 +354,18 @@ function buildBrowserExecutionSummary(descriptors = []) {
     if (descriptor.reproducibility === "replayable") {
       replayableSourceCount += 1;
     }
+    if (descriptor.outsideBrowserExecutable) {
+      outsideBrowserExecutableCount += 1;
+    }
+    if (descriptor.requiresBrowserSession) {
+      requiresBrowserSessionCount += 1;
+    }
+    if (descriptor.requiresFilesystemAccess) {
+      requiresFilesystemAccessCount += 1;
+    }
+    if (descriptor.reproducibilityGuarantee === "strong") {
+      deterministicReplayableCount += 1;
+    }
   }
 
   return {
@@ -314,6 +373,10 @@ function buildBrowserExecutionSummary(descriptors = []) {
     executableSourceCount,
     browserOnlySourceCount,
     replayableSourceCount,
+    outsideBrowserExecutableCount,
+    requiresBrowserSessionCount,
+    requiresFilesystemAccessCount,
+    deterministicReplayableCount,
     sourceKindCounts,
   };
 }
@@ -355,6 +418,14 @@ export function buildBrowserContextExecution(
     authBoundary: primaryDescriptor?.authBoundary || "none",
     trustLevel: primaryDescriptor?.trustLevel || "private",
     reproducibility: primaryDescriptor?.reproducibility || "not-guaranteed",
+    executionReliability: primaryDescriptor?.executionReliability || "low",
+    reachabilityConfidence: primaryDescriptor?.reachabilityConfidence || "low",
+    authBoundaryConfidence: primaryDescriptor?.authBoundaryConfidence || "low",
+    reproducibilityGuarantee:
+      primaryDescriptor?.reproducibilityGuarantee || "weak",
+    outsideBrowserExecutable: Boolean(primaryDescriptor?.outsideBrowserExecutable),
+    requiresBrowserSession: Boolean(primaryDescriptor?.requiresBrowserSession),
+    requiresFilesystemAccess: Boolean(primaryDescriptor?.requiresFilesystemAccess),
     lossinessFlags,
     sources: sourceDescriptors,
     summary: buildBrowserExecutionSummary(sourceDescriptors),

@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { getCurrentUiLocale, translate } from "../../shared/localization.mjs";
 
 export function buildBindingSetupState(params) {
   const {
@@ -13,32 +14,33 @@ export function buildBindingSetupState(params) {
     transportLabel = "",
     sshTarget = "",
   } = params ?? {};
+  const locale = getCurrentUiLocale();
 
   const steps = [
     {
       id: "install-bridge",
-      title: "检查龙虾环境",
-      description: "确认 OpenClaw 可用。",
+      title: translate(locale, "binding.step.install.title"),
+      description: translate(locale, "binding.step.install.description"),
       status: configExists ? "completed" : "pending",
     },
     {
       id: "ensure-agent",
-      title: "准备浏览器代理",
-      description: "准备浏览器专用 agent。",
+      title: translate(locale, "binding.step.ensure.title"),
+      description: translate(locale, "binding.step.ensure.description"),
       status: hasAgent ? "completed" : configExists ? "in_progress" : "pending",
     },
     {
       id: "load-skills",
-      title: "读取技能能力",
+      title: translate(locale, "binding.step.load.title"),
       description: hasSkillCatalog
-        ? `已读取 ${skillCount} 项技能。`
-        : "同步当前可用技能。",
+        ? translate(locale, "binding.step.load.completed", { count: skillCount })
+        : translate(locale, "binding.step.load.description"),
       status: hasSkillCatalog ? "completed" : hasAgent ? "in_progress" : "pending",
     },
     {
       id: "pair-browser",
-      title: "授权 Sabrina 连接",
-      description: "确认 Sabrina 已接入。",
+      title: translate(locale, "binding.step.pair.title"),
+      description: translate(locale, "binding.step.pair.description"),
       status: gatewayReachable ? "completed" : hasAgent ? "in_progress" : "pending",
     },
   ];
@@ -53,14 +55,16 @@ export function buildBindingSetupState(params) {
         statusOverride ||
         (remoteReady ? "ready" : hasRemoteTarget ? "bootstrapping" : "degraded"),
       target,
-      title: remoteReady ? "远程 OpenClaw 已接入" : "连接远程 OpenClaw",
+      title: remoteReady
+        ? translate(locale, "binding.remote.readyTitle")
+        : translate(locale, "binding.remote.connectTitle"),
       description: hasRemoteTarget
-        ? "通过 SSH 复用远程 OpenClaw。"
-        : "通过 SSH 连接远程 OpenClaw。",
+        ? translate(locale, "binding.remote.description.ready")
+        : translate(locale, "binding.remote.description.connect"),
       note:
-        note || (hasRemoteTarget ? remoteLabel : "请先提供 SSH 目标。"),
-      primaryActionLabel: hasRemoteTarget ? "重新检查" : undefined,
-      secondaryActionLabel: "本机优先",
+        note || (hasRemoteTarget ? remoteLabel : translate(locale, "binding.remote.sshRequired")),
+      primaryActionLabel: hasRemoteTarget ? translate(locale, "binding.remote.recheck") : undefined,
+      secondaryActionLabel: translate(locale, "binding.default.remote.secondary"),
       steps,
     };
   }
@@ -76,14 +80,20 @@ export function buildBindingSetupState(params) {
   return {
     status,
     target,
-    title: gatewayReachable && hasAgent ? "本机 OpenClaw 已接入" : "连接本机 OpenClaw",
+    title: gatewayReachable && hasAgent
+      ? translate(locale, "binding.local.readyTitle")
+      : translate(locale, "binding.local.connectTitle"),
     description:
       gatewayReachable && hasAgent
-        ? "当前浏览器已接入这台机器上的 OpenClaw。"
-        : "接入后可直接复用模型、技能和记忆。",
+        ? translate(locale, "binding.local.readyDescription")
+        : translate(locale, "binding.local.connectDescription"),
     note,
-    primaryActionLabel: gatewayReachable && hasAgent ? "重新检查" : "开始连接",
-    secondaryActionLabel: gatewayReachable && hasAgent ? "断开连接" : "远程连接稍后开放",
+    primaryActionLabel: gatewayReachable && hasAgent
+      ? translate(locale, "binding.local.recheck")
+      : translate(locale, "binding.default.local.primary"),
+    secondaryActionLabel: gatewayReachable && hasAgent
+      ? translate(locale, "binding.local.disconnect")
+      : translate(locale, "binding.local.remoteLater"),
     steps,
   };
 }

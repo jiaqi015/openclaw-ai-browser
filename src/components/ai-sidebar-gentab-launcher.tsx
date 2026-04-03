@@ -4,10 +4,11 @@ import { Loader2 } from "lucide-react";
 import type { SabrinaTabReferenceCandidate } from "../application/sabrina-openclaw";
 import gentabIcon from "../assets/gentab-icon.svg";
 import {
-  genTabTypeLabels,
+  getGenTabTypeLabel,
   type GenTabPreferredType,
 } from "../lib/gentab-types";
 import { cn } from "../lib/utils";
+import { useUiPreferences } from "../application/use-ui-preferences";
 
 const GENTAB_TYPE_OPTIONS: GenTabPreferredType[] = [
   "auto",
@@ -44,6 +45,10 @@ export function AiSidebarGenTabLauncher(props: {
   const [genTabIntentDraft, setGenTabIntentDraft] = useState("");
   const [genTabPreferredType, setGenTabPreferredType] = useState<GenTabPreferredType>("auto");
   const [genTabInlineError, setGenTabInlineError] = useState("");
+  const {
+    preferences: { uiLocale },
+    t,
+  } = useUiPreferences();
 
   const canStartGenTab =
     hasConnectedLobster && selectedReferenceTabs.length >= 2 && !generatingGenTabId;
@@ -63,9 +68,9 @@ export function AiSidebarGenTabLauncher(props: {
     setGenTabIntentDraft((current) =>
       current.trim()
         ? current
-        : composerText.trim() || "把这些页面整理成一个可继续比较和追问的工作台",
+        : composerText.trim() || t("gentab.defaultIntent"),
     );
-  }, [composerText, genTabLauncherOpen]);
+  }, [composerText, genTabLauncherOpen, t]);
 
   useEffect(() => {
     if (selectedReferenceTabs.length >= 2 && hasConnectedLobster) {
@@ -99,7 +104,11 @@ export function AiSidebarGenTabLauncher(props: {
         )}
       >
         <img src={gentabIcon} className="w-4 h-4" alt="GenTab" />
-        <span>{genTabLauncherOpen ? "收起 GenTab 草案" : `生成 GenTab · ${selectedReferenceTabs.length} 页`}</span>
+        <span>
+          {genTabLauncherOpen
+            ? t("gentab.launcher.open")
+            : t("gentab.launcher.closed", { count: selectedReferenceTabs.length })}
+        </span>
       </button>
 
       <AnimatePresence initial={false}>
@@ -113,13 +122,13 @@ export function AiSidebarGenTabLauncher(props: {
           >
             <div className="mb-2 flex items-center justify-between gap-3">
               <div>
-                <div className="text-[11px] font-semibold text-white/78">GenTab 工作台草案</div>
+                <div className="text-[11px] font-semibold text-white/78">{t("gentab.launcher.draftTitle")}</div>
                 <div className="mt-1 text-[10px] text-white/38">
-                  让 Sabrina 先理解这组页面，再生成一个可以继续整理的任务面板。
+                  {t("gentab.launcher.draftDescription")}
                 </div>
               </div>
               <span className="rounded-full border border-white/8 bg-white/[0.04] px-2 py-1 text-[10px] text-white/45">
-                {selectedReferenceTabs.length} 页
+                {t("gentab.launcher.pageCount", { count: selectedReferenceTabs.length })}
               </span>
             </div>
 
@@ -132,13 +141,13 @@ export function AiSidebarGenTabLauncher(props: {
                 }
               }}
               rows={3}
-              placeholder="比如：比较这几家产品的价格、定位和适合场景，做成一个可继续追问的决策面板"
+              placeholder={t("gentab.launcher.placeholder")}
               className="w-full rounded-2xl border border-white/8 bg-black/20 px-3 py-2 text-[12px] leading-5 text-white/82 placeholder:text-white/28 focus:outline-none"
             />
 
             <div className="mt-3">
               <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.18em] text-white/28">
-                生成形态
+                {t("gentab.launcher.shape")}
               </div>
               <div className="flex flex-wrap gap-2">
                 {GENTAB_TYPE_OPTIONS.map((option) => (
@@ -156,7 +165,7 @@ export function AiSidebarGenTabLauncher(props: {
                       genTabPreferredType === option ? "surface-pill-active" : "text-white/52",
                     )}
                   >
-                    {genTabTypeLabels[option]}
+                    {getGenTabTypeLabel(uiLocale, option)}
                   </button>
                 ))}
               </div>
@@ -168,7 +177,7 @@ export function AiSidebarGenTabLauncher(props: {
 
             <div className="mt-3 flex items-center justify-between gap-3">
               <div className="text-[10px] text-white/30">
-                新标签页会生成一个可继续细化的内部工作台。
+                {t("gentab.launcher.newTabHint")}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -179,7 +188,7 @@ export function AiSidebarGenTabLauncher(props: {
                   }}
                   className="text-[11px] text-white/34 transition-colors hover:text-white/68"
                 >
-                  取消
+                  {t("common.cancel")}
                 </button>
                 <button
                   type="button"
@@ -190,7 +199,7 @@ export function AiSidebarGenTabLauncher(props: {
                       preferredType: genTabPreferredType,
                     });
                     if (!result.success) {
-                      setGenTabInlineError(result.error || "GenTab 暂时没能启动。");
+                      setGenTabInlineError(result.error || t("gentab.launcher.startError"));
                       return;
                     }
                     setGenTabLauncherOpen(false);
@@ -199,7 +208,7 @@ export function AiSidebarGenTabLauncher(props: {
                   className="surface-button-ai inline-flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {generatingGenTabId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                  <span>生成工作台</span>
+                  <span>{t("gentab.launcher.create")}</span>
                 </button>
               </div>
             </div>

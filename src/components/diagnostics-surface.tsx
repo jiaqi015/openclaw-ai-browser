@@ -1,5 +1,6 @@
 import { Activity, FolderOpen, HardDriveDownload } from "lucide-react";
 import { useDiagnosticsViewState } from "../application/use-diagnostics-view-state";
+import { useUiPreferences } from "../application/use-ui-preferences";
 import {
   DiagnosticsFocusRow,
   DiagnosticsLogEntryCard,
@@ -16,6 +17,10 @@ export function DiagnosticsSurface(props: {
 }) {
   const { state, onRefresh, onOpenLogDirectory, onRevealHumanLogFile } = props;
   const {
+    preferences: { uiLocale },
+    t,
+  } = useUiPreferences();
+  const {
     advancedOpen,
     failedNetworkEvents,
     filteredEntries,
@@ -27,14 +32,14 @@ export function DiagnosticsSurface(props: {
     setAdvancedOpen,
     setLevelFilter,
     setQuery,
-  } = useDiagnosticsViewState(state);
+  } = useDiagnosticsViewState(state, uiLocale);
 
   if (!state) {
     return (
       <div className="surface-screen absolute inset-0 p-10 overflow-y-auto">
         <div className="mx-auto max-w-5xl">
           <div className="surface-panel rounded-3xl border p-8 text-white/60">
-            正在加载诊断状态...
+            {t("diagnostics.loading")}
           </div>
         </div>
       </div>
@@ -49,9 +54,9 @@ export function DiagnosticsSurface(props: {
         <section className="surface-panel rounded-3xl border p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h1 className="text-3xl font-semibold text-white">诊断中心</h1>
+              <h1 className="text-3xl font-semibold text-white">{t("diagnostics.title")}</h1>
               <p className="mt-2 text-sm text-white/50">
-                默认只显示最重要的问题。详细日志可以按需展开。
+                {t("diagnostics.subtitle")}
               </p>
             </div>
 
@@ -61,21 +66,21 @@ export function DiagnosticsSurface(props: {
                 className="surface-button-system inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition"
               >
                 <Activity className="h-4 w-4" />
-                刷新
+                {t("common.refresh")}
               </button>
               <button
                 onClick={onOpenLogDirectory}
                 className="surface-button-system inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition"
               >
                 <FolderOpen className="h-4 w-4" />
-                日志目录
+                {t("diagnostics.logDirectory")}
               </button>
               <button
                 onClick={onRevealHumanLogFile}
                 className="surface-button-system inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition"
               >
                 <HardDriveDownload className="h-4 w-4" />
-                主日志文件
+                {t("diagnostics.mainLogFile")}
               </button>
             </div>
           </div>
@@ -86,17 +91,17 @@ export function DiagnosticsSurface(props: {
         <section className="rounded-3xl border border-white/10 bg-black/30 p-6 backdrop-blur-xl">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold text-white">最近问题</h2>
-              <p className="mt-1 text-sm text-white/45">先看这里，足够排查大多数问题。</p>
+              <h2 className="text-lg font-semibold text-white">{t("diagnostics.recentIssues")}</h2>
+              <p className="mt-1 text-sm text-white/45">{t("diagnostics.recentIssuesSubtitle")}</p>
             </div>
             <div className="text-xs text-white/35">
-              错误/告警 {focusEntries.length} 条
+              {t("diagnostics.issueCount", { count: focusEntries.length })}
             </div>
           </div>
 
           {!hasFocusIssues ? (
             <div className="mt-4 rounded-2xl border border-dashed border-white/10 bg-white/4 px-4 py-10 text-center text-sm text-white/45">
-              目前没有需要优先处理的问题。
+              {t("diagnostics.noPriorityIssues")}
             </div>
           ) : (
             <div className="mt-4 space-y-3">
@@ -116,13 +121,13 @@ export function DiagnosticsSurface(props: {
             className="flex w-full items-center justify-between text-left"
           >
             <div>
-              <h2 className="text-lg font-semibold text-white">详细诊断</h2>
+              <h2 className="text-lg font-semibold text-white">{t("diagnostics.advanced")}</h2>
               <p className="mt-1 text-sm text-white/45">
-                原始日志、搜索过滤、环境信息都在这里。
+                {t("diagnostics.advancedSubtitle")}
               </p>
             </div>
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/60">
-              {advancedOpen ? "收起" : "展开"}
+              {advancedOpen ? t("common.collapse") : t("common.expand")}
             </span>
           </button>
 
@@ -131,7 +136,7 @@ export function DiagnosticsSurface(props: {
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
-                    版本
+                    {t("diagnostics.version")}
                   </div>
                   <div className="mt-2 text-sm text-white/80">
                     App {summary.appVersion}
@@ -146,7 +151,7 @@ export function DiagnosticsSurface(props: {
 
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
-                    运行时
+                    {t("diagnostics.runtime")}
                   </div>
                   <div className="mt-2 text-sm text-white/80">
                     {summary.platform} · {summary.arch}
@@ -161,13 +166,13 @@ export function DiagnosticsSurface(props: {
 
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
-                    标签页
+                    {t("diagnostics.tabs")}
                   </div>
                   <div className="mt-2 text-sm text-white/80">
-                    当前 {summary.browser.tabCount} 个标签页
+                    {t("diagnostics.currentTabs", { count: summary.browser.tabCount })}
                   </div>
                   <div className="mt-1 truncate text-xs text-white/45">
-                    {summary.browser.activeTabUrl || "无活动标签页"}
+                    {summary.browser.activeTabUrl || t("diagnostics.noActiveTab")}
                   </div>
                 </div>
               </div>
@@ -183,7 +188,7 @@ export function DiagnosticsSurface(props: {
                 <div className="mt-4 space-y-3">
                   {filteredEntries.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-white/10 bg-white/4 px-4 py-10 text-center text-sm text-white/45">
-                      当前筛选下没有匹配的日志。
+                      {t("diagnostics.noLogsMatch")}
                     </div>
                   ) : (
                     filteredEntries

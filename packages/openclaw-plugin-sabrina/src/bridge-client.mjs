@@ -139,7 +139,8 @@ export function formatDoctorReport(report) {
   }
   if (Array.isArray(report.checks)) {
     for (const check of report.checks) {
-      const badge = check.ok ? "OK" : "FAIL";
+      const badge =
+        check.status === "pass" ? "OK" : check.status === "warn" ? "WARN" : "FAIL";
       lines.push(`${badge} ${check.label}: ${check.detail}`);
     }
   }

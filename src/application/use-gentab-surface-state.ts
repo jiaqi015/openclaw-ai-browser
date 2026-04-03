@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getSabrinaDesktop } from "../lib/sabrina-desktop";
+import { useUiPreferences } from "./use-ui-preferences";
 import { parseGenTabIdFromUrl } from "../lib/gentab-url";
 import {
   clearGenTabFromStorage,
@@ -19,6 +20,7 @@ import {
   type GenTabSource,
   type GenTabType,
 } from "../lib/gentab-types";
+import { translate } from "../../shared/localization.mjs";
 
 function createInitialGenTabState(genTabId: string | null): GenTabGenerationState {
   const saved = loadGenTabFromStorage(genTabId);
@@ -76,6 +78,9 @@ export function useGenTabSurfaceState(params: {
 }) {
   const { onCloseGenTab, url } = params;
   const desktop = getSabrinaDesktop();
+  const {
+    preferences: { uiLocale, assistantLocaleMode },
+  } = useUiPreferences();
   const genTabId = parseGenTabIdFromUrl(url);
   const [state, setState] = useState<GenTabGenerationState>(() =>
     createInitialGenTabState(genTabId),
@@ -99,27 +104,27 @@ export function useGenTabSurfaceState(params: {
     let cancelled = false;
 
     const doGenerate = async () => {
-      if (!genTabId) {
-        if (!cancelled) {
-          setState((current) => ({
-            ...current,
-            status: "error",
-            error: "无效的 GenTab ID",
-          }));
+        if (!genTabId) {
+          if (!cancelled) {
+            setState((current) => ({
+              ...current,
+              status: "error",
+              error: translate(uiLocale, "error.invalidGenTabId"),
+            }));
+          }
+          return;
         }
-        return;
-      }
 
-      if (!desktop?.gentab?.generate) {
-        if (!cancelled) {
-          setState((current) => ({
-            ...current,
-            status: "error",
-            error: "当前环境暂不支持 GenTab 生成。",
-          }));
+        if (!desktop?.gentab?.generate) {
+          if (!cancelled) {
+            setState((current) => ({
+              ...current,
+              status: "error",
+              error: translate(uiLocale, "error.gentabUnsupported"),
+            }));
+          }
+          return;
         }
-        return;
-      }
 
       try {
         const metadata = getPendingGenTabMetadata(genTabId);
@@ -128,7 +133,7 @@ export function useGenTabSurfaceState(params: {
             setState((current) => ({
               ...current,
               status: "error",
-              error: "找不到生成任务元数据",
+              error: translate(uiLocale, "error.gentabMetadataMissing"),
             }));
           }
           return;
@@ -143,6 +148,8 @@ export function useGenTabSurfaceState(params: {
           referenceTabIds: metadata.referenceTabIds,
           userIntent: metadata.userIntent,
           preferredType: metadata.preferredType,
+          uiLocale,
+          assistantLocaleMode,
         });
 
         if (cancelled) {
@@ -155,7 +162,7 @@ export function useGenTabSurfaceState(params: {
           setState((current) => ({
             ...current,
             status: "error",
-            error: result.error || "生成失败",
+            error: result.error || translate(uiLocale, "error.generationFailed"),
           }));
           return;
         }
@@ -164,7 +171,7 @@ export function useGenTabSurfaceState(params: {
           setState((current) => ({
             ...current,
             status: "error",
-            error: "返回数据格式不正确",
+            error: translate(uiLocale, "error.invalidResponseFormat"),
           }));
           return;
         }
@@ -194,7 +201,7 @@ export function useGenTabSurfaceState(params: {
     return () => {
       cancelled = true;
     };
-  }, [desktop, genTabId, state.status]);
+  }, [assistantLocaleMode, desktop, genTabId, state.status, uiLocale]);
 
   useEffect(() => {
     if (!state.gentab) {
@@ -226,14 +233,14 @@ export function useGenTabSurfaceState(params: {
       setState((current) => ({
         ...current,
         status: "error",
-        error: "缺少来源标签页，暂时无法继续生成。",
+        error: translate(uiLocale, "error.noSourceTabsForRegeneration"),
       }));
       return;
     }
 
     const userIntent =
       `${nextIntent ?? refineIntent ?? fallbackMetadata.userIntent}`.trim() ||
-      "整理这些页面为结构化工作台";
+      translate(uiLocale, "gentab.defaultIntent");
     const resolvedPreferredType = normalizeGenTabPreferredType(
       nextPreferredType ?? preferredType ?? fallbackMetadata.preferredType,
     );

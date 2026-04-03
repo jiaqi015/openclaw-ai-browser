@@ -4,6 +4,11 @@ import {
   type SabrinaChatMessage,
 } from "../application/sabrina-chat";
 import type { SabrinaComposerSkill } from "../state/useThreadComposerState";
+import {
+  translate,
+  type AssistantLocaleMode,
+  type UiLocale,
+} from "../../shared/localization.mjs";
 
 type SabrinaDesktop = NonNullable<Window["sabrinaDesktop"]>;
 
@@ -16,6 +21,7 @@ export function useChatCommands(params: {
   activeTab: SabrinaDesktopTab | null;
   activeThreadId: string | null;
   binding: SabrinaOpenClawBinding | null;
+  uiLocale: UiLocale;
   selectedModel: string;
   isModelSwitching: boolean;
   composerText: string;
@@ -38,6 +44,7 @@ export function useChatCommands(params: {
     composerText,
     desktop,
     isModelSwitching,
+    uiLocale,
     selectedModel,
     selectedComposerSkill,
     selectedReferenceIds,
@@ -88,31 +95,31 @@ export function useChatCommands(params: {
     clearSelectedSkill?: boolean;
   }) {
     if (!desktop) {
-      appendInlineError("桌面能力暂未就绪，请稍后再试。");
+      appendInlineError(translate(uiLocale, "error.desktopNotReady"));
       return;
     }
     if (!desktop.threads?.runAiTurn) {
-      appendInlineError("线程运行时暂未就绪，请稍后再试。");
+      appendInlineError(translate(uiLocale, "error.aiTurnUnavailable"));
       return;
     }
 
     if (!activeTab) {
-      appendInlineError("当前没有可用标签页，暂时无法执行这个技能。");
+      appendInlineError(translate(uiLocale, "error.noUsableTab"));
       return;
     }
 
     if (!activeThreadId) {
-      appendInlineError("当前对话线程还没准备好，请稍后再试。");
+      appendInlineError(translate(uiLocale, "error.threadNotReady"));
       return;
     }
 
     if (isModelSwitching) {
-      appendInlineError("正在切换模型，请稍后再试。");
+      appendInlineError(translate(uiLocale, "error.modelSwitchInProgress"));
       return;
     }
 
     if (!selectedModel) {
-      appendInlineError("当前还没有同步到可用模型，请稍后再试。");
+      appendInlineError(translate(uiLocale, "error.noSyncedModel"));
       return;
     }
 
@@ -131,12 +138,14 @@ export function useChatCommands(params: {
           agentId: binding?.agentId,
           model: selectedModel,
           prompt: params.prompt,
-          skillName: params.skillName,
-          skillMode: params.skillMode,
-          sessionId: getOpenClawSessionId(requestThreadId),
-          tabId: requestTabId,
-        },
-      });
+            skillName: params.skillName,
+            skillMode: params.skillMode,
+            sessionId: getOpenClawSessionId(requestThreadId),
+            tabId: requestTabId,
+            uiLocale,
+            assistantLocaleMode: "follow-ui" as AssistantLocaleMode,
+          },
+        });
 
       if (result.ok) {
         if (params.clearComposer) {
@@ -219,6 +228,8 @@ export function useChatCommands(params: {
           prompt,
           sessionId: getOpenClawSessionId(`${activeThreadId}:openclaw`),
           thinking: "low",
+          uiLocale,
+          assistantLocaleMode: "follow-ui" as AssistantLocaleMode,
         },
       });
 

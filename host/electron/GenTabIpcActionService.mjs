@@ -6,6 +6,8 @@ import {
 } from "../../runtime/browser/GenTabGenerationService.mjs";
 import { buildBrowserContextPackageFromTabSet } from "../../runtime/browser/BrowserContextPackageService.mjs";
 import { executeGenTabTurn } from "../../runtime/turns/TurnEngine.mjs";
+import { buildTurnJournalEntry } from "../../runtime/turns/TurnJournalService.mjs";
+import { recordTurnJournalEntry } from "../../runtime/turns/TurnJournalStore.mjs";
 import { runLocalAgentTurn } from "../../runtime/openclaw/OpenClawManager.mjs";
 
 function normalizeReferenceTabIds(value) {
@@ -18,6 +20,8 @@ export async function generateGenTab(payload = {}, dependencies = {}) {
   const referenceTabIds = normalizeReferenceTabIds(payload?.referenceTabIds);
   const userIntent = payload?.userIntent;
   const preferredType = payload?.preferredType;
+  const uiLocale = payload?.uiLocale;
+  const assistantLocaleMode = payload?.assistantLocaleMode;
   const buildContextPackage =
     typeof dependencies?.buildBrowserContextPackageFromTabSet === "function"
       ? dependencies.buildBrowserContextPackageFromTabSet
@@ -44,6 +48,8 @@ export async function generateGenTab(payload = {}, dependencies = {}) {
       referenceTabIds,
       userIntent,
       preferredType,
+      uiLocale,
+      assistantLocaleMode,
     },
     {
       buildBrowserContextPackageFromTabSet: buildContextPackage,
@@ -55,12 +61,25 @@ export async function generateGenTab(payload = {}, dependencies = {}) {
     },
   );
 
+  const journalEntry = await recordTurnJournalEntry(
+    buildTurnJournalEntry({
+      threadId: `${payload?.threadId ?? ""}`.trim(),
+      userText: typeof userIntent === "string" ? userIntent : "",
+      plan: turnResult?.executionPlan,
+      receipt: turnResult?.receipt,
+      contextPackage: turnResult?.contextPackage,
+      response: turnResult?.response,
+      error: turnResult?.error,
+    }),
+  );
+
   if (!turnResult.ok) {
     return {
       success: false,
       error: turnResult.receipt.userVisibleMessage,
       contextPackage: turnResult.contextPackage ?? null,
       executionPlan: turnResult.executionPlan ?? null,
+      journalEntryId: journalEntry.journalId,
     };
   }
 
@@ -69,5 +88,6 @@ export async function generateGenTab(payload = {}, dependencies = {}) {
     gentab: turnResult.gentab,
     contextPackage: turnResult.contextPackage,
     executionPlan: turnResult.executionPlan,
+    journalEntryId: journalEntry.journalId,
   };
 }

@@ -1,3 +1,5 @@
+import { translate } from "../../shared/localization.mjs";
+
 function normalizeNonEmptyString(value) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
 }
@@ -6,21 +8,30 @@ function getPlanEvidence(plan, contextPackage, executionAttempted) {
   return {
     executionAttempted: Boolean(executionAttempted),
     routeKind: normalizeNonEmptyString(contextPackage?.execution?.primarySourceKind),
-    sourceKind: normalizeNonEmptyString(contextPackage?.execution?.trustLevel),
+    trustLevel: normalizeNonEmptyString(contextPackage?.execution?.trustLevel),
     honestyConstraintsApplied:
-      plan?.policyDecision === "allow-with-honesty-constraints",
+      plan?.executionContract?.honestyMode === "explicit-failure-required",
+    requiredEvidence: Array.isArray(plan?.executionContract?.requiredEvidence)
+      ? [...plan.executionContract.requiredEvidence]
+      : [],
   };
 }
 
-function buildAiAssistantText(response, requestedSkillName) {
-  const finalMessage = `${response?.message || "模型没有返回可显示的文本。"}`.trim();
+function buildAiAssistantText(response, requestedSkillName, uiLocale) {
+  const finalMessage = `${response?.message || translate(uiLocale, "turn.modelNoVisibleText")}`.trim();
   if (!response?.skillFallback) {
     return finalMessage;
   }
 
   return [
-    `提示：技能 ${response.skillName || requestedSkillName || "请求技能"} 当前不可用，本次已切换为普通对话。`,
-    response.skillFailureReason ? `原因：${response.skillFailureReason}` : "",
+    translate(uiLocale, "turn.skillFallbackNotice", {
+      skillName: response.skillName || requestedSkillName || "skill",
+    }),
+    response.skillFailureReason
+      ? translate(uiLocale, "turn.reasonPrefix", {
+          reason: response.skillFailureReason,
+        })
+      : "",
     "",
     finalMessage,
   ]
@@ -28,21 +39,25 @@ function buildAiAssistantText(response, requestedSkillName) {
     .join("\n");
 }
 
-function buildOpenClawAssistantText(response, taskTitle) {
+function buildOpenClawAssistantText(response, taskTitle, uiLocale) {
   return [
-    "### 已交给龙虾异步处理",
-    `- 处理方式：**龙虾异步处理**`,
-    `- 当前页面：**${normalizeNonEmptyString(taskTitle) || "当前页面"}**`,
+    translate(uiLocale, "turn.openclawHandoffTitle"),
+    translate(uiLocale, "turn.openclawHandoffMode"),
+    translate(uiLocale, "turn.openclawHandoffPage", {
+      title: normalizeNonEmptyString(taskTitle) || translate(uiLocale, "common.currentPage"),
+    }),
     "",
-    `${response?.text || "龙虾没有返回可显示的文本。"}`.trim(),
+    `${response?.text || translate(uiLocale, "turn.openclawNoVisibleText")}`.trim(),
   ].join("\n");
 }
 
-function buildGenTabAssistantText(gentabTitle) {
+function buildGenTabAssistantText(gentabTitle, uiLocale) {
   return [
-    "### GenTab 已生成",
-    `- 工作台：**${normalizeNonEmptyString(gentabTitle) || "新的 GenTab 工作台"}**`,
-    "- 处理方式：**结构化工作台生成**",
+    translate(uiLocale, "turn.gentabGeneratedTitle"),
+    translate(uiLocale, "turn.gentabWorkbench", {
+      title: normalizeNonEmptyString(gentabTitle) || "GenTab",
+    }),
+    translate(uiLocale, "turn.gentabMode"),
   ].join("\n");
 }
 
@@ -53,18 +68,20 @@ export function buildCompletedTurnReceipt({
   requestedSkillName = "",
   taskTitle = "",
   gentabTitle = "",
+  uiLocale = "zh-CN",
 } = {}) {
   if (plan?.strategy === "background_task") {
     return {
       status: "completed",
       strategy: plan.strategy,
-      summary: "已交给 OpenClaw 异步处理",
-      userVisibleMessage: buildOpenClawAssistantText(response, taskTitle),
+      summary: translate(uiLocale, "turn.summary.background"),
+      userVisibleMessage: buildOpenClawAssistantText(response, taskTitle, uiLocale),
       trace: {
         model: response?.model || undefined,
         skillName: undefined,
         taskId: response?.taskId || undefined,
       },
+      contract: plan?.executionContract || null,
       evidence: getPlanEvidence(plan, contextPackage, true),
     };
   }
@@ -73,13 +90,14 @@ export function buildCompletedTurnReceipt({
     return {
       status: "completed",
       strategy: plan.strategy,
-      summary: "GenTab 已生成",
-      userVisibleMessage: buildGenTabAssistantText(gentabTitle),
+      summary: translate(uiLocale, "turn.summary.gentab"),
+      userVisibleMessage: buildGenTabAssistantText(gentabTitle, uiLocale),
       trace: {
         model: response?.model || undefined,
         skillName: undefined,
         taskId: undefined,
       },
+      contract: plan?.executionContract || null,
       evidence: getPlanEvidence(plan, contextPackage, true),
     };
   }
@@ -89,14 +107,17 @@ export function buildCompletedTurnReceipt({
     strategy: plan?.strategy || "chat_response",
     summary:
       plan?.strategy === "strict_skill_execution"
-        ? `技能 ${requestedSkillName || response?.skillName || "当前技能"} 已完成`
-        : "浏览器问答已完成",
-    userVisibleMessage: buildAiAssistantText(response, requestedSkillName),
+        ? translate(uiLocale, "turn.summary.skillDone", {
+            skillName: requestedSkillName || response?.skillName || "skill",
+          })
+        : translate(uiLocale, "turn.summary.askDone"),
+    userVisibleMessage: buildAiAssistantText(response, requestedSkillName, uiLocale),
     trace: {
       model: response?.model || undefined,
       skillName: requestedSkillName || response?.skillName || undefined,
       taskId: undefined,
     },
+    contract: plan?.executionContract || null,
     evidence: getPlanEvidence(plan, contextPackage, true),
   };
 }
@@ -106,19 +127,21 @@ export function buildFailedTurnReceipt({
   contextPackage,
   error,
   executionAttempted = false,
+  uiLocale = "zh-CN",
 } = {}) {
   const message = error instanceof Error ? error.message : String(error);
 
   return {
     status: "failed",
     strategy: plan?.strategy || "chat_response",
-    summary: "浏览器 turn 执行失败",
+    summary: translate(uiLocale, "turn.summary.failed"),
     userVisibleMessage: message,
     trace: {
       model: undefined,
       skillName: plan?.skillPolicy?.name || undefined,
       taskId: undefined,
     },
+    contract: plan?.executionContract || null,
     evidence: getPlanEvidence(plan, contextPackage, executionAttempted),
   };
 }
@@ -127,19 +150,22 @@ export function buildBlockedTurnReceipt({
   plan,
   contextPackage,
   message,
+  uiLocale = "zh-CN",
 } = {}) {
-  const normalizedMessage = normalizeNonEmptyString(message) || "当前 turn 被策略阻止。";
+  const normalizedMessage =
+    normalizeNonEmptyString(message) || translate(uiLocale, "turn.blockedDefault");
 
   return {
     status: "blocked",
     strategy: plan?.strategy || "chat_response",
-    summary: "浏览器 turn 被策略阻止",
+    summary: translate(uiLocale, "turn.summary.blocked"),
     userVisibleMessage: normalizedMessage,
     trace: {
       model: undefined,
       skillName: plan?.skillPolicy?.name || undefined,
       taskId: undefined,
     },
+    contract: plan?.executionContract || null,
     evidence: getPlanEvidence(plan, contextPackage, false),
   };
 }

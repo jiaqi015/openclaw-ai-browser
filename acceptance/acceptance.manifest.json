@@ -127,6 +127,24 @@
       "reason": "Browser skill compatibility should be explicit via registry or metadata, not heuristic only."
     },
     {
+      "id": "browser-skill-capability-service-exists",
+      "type": "path-exists",
+      "path": "runtime/openclaw/BrowserSkillCapabilityService.mjs",
+      "reason": "Declared browser capability schema should be parsed through a focused helper instead of drifting across policy and catalog layers."
+    },
+    {
+      "id": "openclaw-skill-payload-service-exists",
+      "type": "path-exists",
+      "path": "runtime/openclaw/OpenClawSkillPayloadService.mjs",
+      "reason": "OpenClaw skill payloads should be normalized into a canonical inbound contract before catalog projection."
+    },
+    {
+      "id": "turn-journal-store-exists",
+      "type": "path-exists",
+      "path": "runtime/turns/TurnJournalStore.mjs",
+      "reason": "Turn evidence should be journaled separately from user-visible thread messages."
+    },
+    {
       "id": "gentab-ipc-action-service-exists",
       "type": "path-exists",
       "path": "host/electron/GenTabIpcActionService.mjs",
@@ -537,6 +555,27 @@
       "file": "runtime/openclaw/BrowserSkillInputPolicyService.mjs",
       "pattern": "sourceRoute",
       "reason": "URL-native browser skills should resolve explicit source routing instead of only checking isHttpUrl."
+    },
+    {
+      "id": "skill-catalog-keeps-declared-capability",
+      "type": "file-contains",
+      "file": "runtime/openclaw/SkillCatalogService.mjs",
+      "pattern": "declaredBrowserCapability",
+      "reason": "Catalog normalization must keep OpenClaw-declared browser capability separate from resolved Sabrina-side compatibility."
+    },
+    {
+      "id": "turn-planner-has-execution-contract",
+      "type": "file-contains",
+      "file": "runtime/turns/TurnPlanner.mjs",
+      "pattern": "executionContract,",
+      "reason": "Execution planning should produce a stable execution contract, not only loose policy fields."
+    },
+    {
+      "id": "thread-turn-records-journal",
+      "type": "file-contains",
+      "file": "runtime/threads/ThreadTurnService.mjs",
+      "pattern": "recordTurnJournalEntry(",
+      "reason": "Turn evidence should be recorded in a dedicated journal instead of living only inside thread messages."
     },
     {
       "id": "page-context-service-no-inline-browser-ai-prompt",

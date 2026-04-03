@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { ArrowUpRight, Loader2, RefreshCw, Sparkles, X } from "lucide-react";
 import gentabIcon from "../assets/gentab-icon.svg";
 import {
-  genTabTypeLabels,
+  getGenTabTypeLabel,
   normalizeGenTabPreferredType,
   type GenTabPreferredType,
   type GenTabType,
@@ -10,6 +10,7 @@ import {
 import { getPendingGenTabMetadata } from "../lib/gentab-storage";
 import { cn } from "../lib/utils";
 import { useGenTabSurfaceState } from "../application/use-gentab-surface-state";
+import { useUiPreferences } from "../application/use-ui-preferences";
 import { gentabRenderers } from "./gentab-renderers";
 
 const genTabViewTypes: GenTabType[] = ["comparison", "table", "timeline", "list", "card-grid"];
@@ -19,6 +20,10 @@ export function GenTabSurface(props: {
   onCloseGenTab?: (genTabId: string) => void;
 }) {
   const { onCloseGenTab, url } = props;
+  const {
+    preferences: { uiLocale },
+    t,
+  } = useUiPreferences();
   const {
     activeView,
     beginGeneration,
@@ -54,22 +59,29 @@ export function GenTabSurface(props: {
                 </span>
                 {state.gentab ? (
                   <span className="rounded-full border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/52">
-                    {genTabTypeLabels[normalizeGenTabPreferredType(state.gentab.metadata.preferredType) === "auto" ? state.gentab.type : normalizeGenTabPreferredType(state.gentab.metadata.preferredType)]}
+                    {getGenTabTypeLabel(
+                      uiLocale,
+                      normalizeGenTabPreferredType(state.gentab.metadata.preferredType) === "auto"
+                        ? state.gentab.type
+                        : normalizeGenTabPreferredType(state.gentab.metadata.preferredType),
+                    )}
                   </span>
                 ) : null}
                 {state.gentab ? (
                   <span className="rounded-full border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/42">
-                    {state.gentab.metadata.sourceTabIds.length} 个来源页
+                    {t("gentab.sourceTabsCount", {
+                      count: state.gentab.metadata.sourceTabIds.length,
+                    })}
                   </span>
                 ) : null}
               </div>
               <h1 className="text-3xl font-semibold tracking-tight text-white">
-                {state.gentab?.title || "生成你的 GenTab 工作台"}
+                {state.gentab?.title || t("gentab.defaultTitle")}
               </h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-white/45">
                 {state.status === "done" && state.gentab?.description
                   ? state.gentab.description
-                  : "把多页浏览材料整理成一个可继续比较、追问和重组的内部工作面。"}
+                  : t("gentab.defaultDescription")}
               </p>
             </div>
           </div>
@@ -80,7 +92,7 @@ export function GenTabSurface(props: {
                 className="surface-button-system inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-colors"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
-                <span>重新生成</span>
+                <span>{t("gentab.regenerate")}</span>
               </button>
             ) : null}
             <button
@@ -88,7 +100,7 @@ export function GenTabSurface(props: {
               className="surface-button-system inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-colors"
             >
               <X className="h-3.5 w-3.5" />
-              <span>关闭</span>
+              <span>{t("common.close")}</span>
             </button>
           </div>
         </div>
@@ -99,10 +111,10 @@ export function GenTabSurface(props: {
               <Loader2 className="h-12 w-12 animate-spin text-apple-pink opacity-70" />
               <div className="space-y-3">
                 <div className="text-lg font-medium text-white/88">
-                  Sabrina 正在把这些页面编成一个工作台
+                  {t("gentab.generatingTitle")}
                 </div>
                 <p className="text-sm leading-6 text-white/42">
-                  它会先收集标签页内容，再根据你的目标组织出适合继续工作的结构，而不是只吐一段总结。
+                  {t("gentab.generatingDescription")}
                 </p>
               </div>
               <div className="w-full max-w-sm overflow-hidden rounded-full bg-white/8">
@@ -112,16 +124,16 @@ export function GenTabSurface(props: {
                 />
               </div>
               <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-left text-[12px] leading-6 text-white/44">
-                <div className="text-[10px] uppercase tracking-[0.18em] text-white/26">当前目标</div>
+                <div className="text-[10px] uppercase tracking-[0.18em] text-white/26">{t("gentab.currentGoal")}</div>
                 <div className="mt-1 text-white/62">
-                  {getPendingGenTabMetadata(genTabId ?? "")?.userIntent || "整理这些页面为结构化工作台"}
+                  {getPendingGenTabMetadata(genTabId ?? "")?.userIntent || t("gentab.defaultIntent")}
                 </div>
               </div>
               <button
                 onClick={handleCancel}
                 className="text-xs text-white/38 transition-colors hover:text-white/68"
               >
-                取消生成
+                {t("gentab.cancelGeneration")}
               </button>
             </div>
           </div>
@@ -134,7 +146,7 @@ export function GenTabSurface(props: {
                 <img src={gentabIcon} className="h-10 w-10" alt="GenTab" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-lg font-medium text-white">这次 GenTab 没有成功编出来</h3>
+                <h3 className="text-lg font-medium text-white">{t("gentab.errorTitle")}</h3>
                 <p className="text-sm leading-6 text-white/42">{state.error}</p>
               </div>
               <div className="flex items-center gap-3">
@@ -142,13 +154,13 @@ export function GenTabSurface(props: {
                   onClick={() => beginGeneration()}
                   className="surface-button-ai rounded-xl px-4 py-2 text-sm font-medium"
                 >
-                  再试一次
+                  {t("common.retry")}
                 </button>
                 <button
                   onClick={handleCancel}
                   className="surface-button-system rounded-xl border px-4 py-2 text-sm font-medium"
                 >
-                  关闭
+                  {t("common.close")}
                 </button>
               </div>
             </div>
@@ -161,11 +173,11 @@ export function GenTabSurface(props: {
               <div className="surface-panel rounded-[28px] border p-6">
                 <div className="mb-4 flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/28">
                   <Sparkles className="h-3.5 w-3.5 text-apple-pink/80" />
-                  工作摘要
+                  {t("gentab.summaryHeading")}
                 </div>
                 <div className="space-y-4">
                   <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-4">
-                    <div className="text-[11px] text-white/32">生成目标</div>
+                    <div className="text-[11px] text-white/32">{t("gentab.goalLabel")}</div>
                     <div className="mt-1 text-sm leading-6 text-white/72">
                       {state.gentab.metadata.userIntent}
                     </div>
@@ -190,14 +202,14 @@ export function GenTabSurface(props: {
 
               <div className="surface-panel rounded-[28px] border p-6">
                 <div className="mb-4 text-[10px] uppercase tracking-[0.18em] text-white/28">
-                  继续细化
+                  {t("gentab.refineHeading")}
                 </div>
                 <textarea
                   value={refineIntent}
                   onChange={(event) => setRefineIntent(event.target.value)}
                   rows={4}
                   className="min-h-[120px] w-full rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-[13px] leading-6 text-white/82 placeholder:text-white/28 focus:outline-none"
-                  placeholder="比如：改成更适合汇报的对比台，突出价格区间和推荐场景"
+                  placeholder={t("gentab.refinePlaceholder")}
                 />
                 <div className="mt-4 flex flex-wrap gap-2">
                   {(["auto", ...genTabViewTypes] as GenTabPreferredType[]).map((option) => (
@@ -210,13 +222,13 @@ export function GenTabSurface(props: {
                         preferredType === option ? "surface-pill-active" : "text-white/52",
                       )}
                     >
-                      {genTabTypeLabels[option]}
+                      {getGenTabTypeLabel(uiLocale, option)}
                     </button>
                   ))}
                 </div>
                 <div className="mt-4 flex items-center justify-between gap-3">
                   <div className="text-[11px] leading-5 text-white/34">
-                    这会保留同一组来源页，只重编当前工作台。
+                    {t("gentab.refineHint")}
                   </div>
                   <button
                     type="button"
@@ -225,13 +237,13 @@ export function GenTabSurface(props: {
                     className="surface-button-ai inline-flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-medium disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
-                    <span>重新编排</span>
+                    <span>{t("gentab.recompose")}</span>
                   </button>
                 </div>
                 {state.gentab.suggestedPrompts && state.gentab.suggestedPrompts.length > 0 ? (
                   <div className="mt-4 border-t border-white/6 pt-4">
                     <div className="mb-2 text-[10px] uppercase tracking-[0.18em] text-white/24">
-                      推荐下一步
+                      {t("gentab.suggestedNext")}
                     </div>
                     <div className="space-y-2">
                       {state.gentab.suggestedPrompts.slice(0, 3).map((prompt, index) => (
@@ -254,7 +266,7 @@ export function GenTabSurface(props: {
             {sourceCards.length > 0 ? (
               <div className="surface-panel rounded-[28px] border p-6">
                 <div className="mb-4 text-[10px] uppercase tracking-[0.18em] text-white/28">
-                  来源页面
+                  {t("gentab.sourcesHeading")}
                 </div>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {sourceCards.map((source) => (
@@ -311,9 +323,9 @@ export function GenTabSurface(props: {
             <div className="surface-panel rounded-[28px] border p-6">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-white/28">工作视图</div>
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-white/28">{t("gentab.workViewHeading")}</div>
                   <div className="mt-1 text-sm text-white/44">
-                    同一份材料，换不同视图继续判断，不需要重新打开一堆页面。
+                    {t("gentab.workViewDescription")}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -327,13 +339,14 @@ export function GenTabSurface(props: {
                         activeView === viewType ? "surface-pill-active" : "text-white/52",
                       )}
                     >
-                      {genTabTypeLabels[viewType]}
+                      {getGenTabTypeLabel(uiLocale, viewType)}
                     </button>
                   ))}
                 </div>
               </div>
               {activeRenderer.render({
                 gentab: state.gentab,
+                uiLocale,
                 onNavigate: (targetUrl) => {
                   window.sabrinaDesktop!.browser.openUrlInNewTab(targetUrl);
                 },
@@ -341,8 +354,10 @@ export function GenTabSurface(props: {
             </div>
 
             <div className="border-t border-white/5 px-1 pt-1 text-xs text-white/28">
-              基于 {state.gentab.metadata.sourceTabIds.length} 个标签页 · 生成于{" "}
-              {new Date(state.gentab.metadata.generatedAt).toLocaleString()}
+              {t("gentab.generatedMeta", {
+                count: state.gentab.metadata.sourceTabIds.length,
+                time: new Date(state.gentab.metadata.generatedAt).toLocaleString(uiLocale),
+              })}
             </div>
           </>
         ) : null}

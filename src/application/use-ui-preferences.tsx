@@ -1,4 +1,14 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { getSabrinaDesktop } from "../lib/sabrina-desktop";
+import {
+  DEFAULT_ASSISTANT_LOCALE_MODE,
+  DEFAULT_UI_LOCALE,
+  resolveAssistantLocale,
+  setCurrentUiLocale,
+  translate,
+  type AssistantLocaleMode,
+  type UiLocale,
+} from "../../shared/localization.mjs";
 
 export type GlassMode = "frosted" | "liquid";
 export type SearchEngine = "bing" | "google" | "duckduckgo" | "baidu";
@@ -6,6 +16,8 @@ export type SearchEngine = "bing" | "google" | "duckduckgo" | "baidu";
 export interface UiPreferences {
   glassMode: GlassMode;
   defaultSearchEngine: SearchEngine;
+  uiLocale: UiLocale;
+  assistantLocaleMode: AssistantLocaleMode;
 }
 
 const storageKey = "sabrina-ui-preferences-v1";
@@ -13,6 +25,8 @@ const storageKey = "sabrina-ui-preferences-v1";
 const defaultPreferences: UiPreferences = {
   glassMode: "frosted",
   defaultSearchEngine: "bing",
+  uiLocale: DEFAULT_UI_LOCALE,
+  assistantLocaleMode: DEFAULT_ASSISTANT_LOCALE_MODE,
 };
 
 function readSavedPreferences(): UiPreferences {
@@ -42,12 +56,24 @@ type UiPreferencesContextValue = {
   preferences: UiPreferences;
   setGlassMode: (mode: GlassMode) => void;
   setDefaultSearchEngine: (engine: SearchEngine) => void;
+  setUiLocale: (locale: UiLocale) => void;
+  assistantLocale: UiLocale;
+  t: (key: string, params?: Record<string, unknown>) => string;
 };
 
 const UiPreferencesContext = createContext<UiPreferencesContextValue | null>(null);
 
 export function UiPreferencesProvider({ children }: { children: React.ReactNode }) {
   const [preferences, setPreferences] = useState<UiPreferences>(readSavedPreferences);
+  const assistantLocale = resolveAssistantLocale(
+    preferences.uiLocale,
+    preferences.assistantLocaleMode,
+  );
+  const t = useMemo(
+    () => (key: string, params?: Record<string, unknown>) =>
+      translate(preferences.uiLocale, key, params),
+    [preferences.uiLocale],
+  );
 
   useEffect(() => {
     savePreferences(preferences);
@@ -59,7 +85,13 @@ export function UiPreferencesProvider({ children }: { children: React.ReactNode 
     }
 
     document.body.dataset.glassMode = preferences.glassMode;
-  }, [preferences.glassMode]);
+    document.documentElement.lang = preferences.uiLocale;
+    setCurrentUiLocale(preferences.uiLocale);
+  }, [preferences.glassMode, preferences.uiLocale]);
+
+  useEffect(() => {
+    void getSabrinaDesktop()?.setUiLocale?.(preferences.uiLocale);
+  }, [preferences.uiLocale]);
 
   const setGlassMode = (mode: GlassMode) => {
     setPreferences((prev) => ({ ...prev, glassMode: mode }));
@@ -69,8 +101,26 @@ export function UiPreferencesProvider({ children }: { children: React.ReactNode 
     setPreferences((prev) => ({ ...prev, defaultSearchEngine: engine }));
   };
 
+  const setUiLocale = (locale: UiLocale) => {
+    setPreferences((prev) => ({
+      ...prev,
+      uiLocale: locale,
+      assistantLocaleMode:
+        prev.assistantLocaleMode === "follow-ui" ? "follow-ui" : locale,
+    }));
+  };
+
   return (
-    <UiPreferencesContext.Provider value={{ preferences, setGlassMode, setDefaultSearchEngine }}>
+    <UiPreferencesContext.Provider
+      value={{
+        preferences,
+        setGlassMode,
+        setDefaultSearchEngine,
+        setUiLocale,
+        assistantLocale,
+        t,
+      }}
+    >
       {children}
     </UiPreferencesContext.Provider>
   );

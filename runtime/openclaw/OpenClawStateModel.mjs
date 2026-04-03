@@ -1,33 +1,99 @@
 import {
   SABRINA_LOCAL_CAPABILITIES,
+  createSabrinaRemoteSessionContract,
   normalizeOpenClawProfile,
   normalizeOpenClawStateDir,
+  normalizeSabrinaConnectCode,
+  normalizeSabrinaRelayUrl,
+  normalizeSabrinaRemoteDriver,
 } from "../../packages/sabrina-protocol/index.mjs";
 import { getOpenClawTransportLabel } from "./OpenClawTransportContext.mjs";
+
+import { getCurrentUiLocale, translate } from "../../shared/localization.mjs";
 
 export function normalizeTarget(target) {
   return `${target ?? "local"}`.trim() === "remote" ? "remote" : "local";
 }
 
+function normalizeDriver(driver, transport = "local") {
+  const normalizedRemoteDriver = normalizeSabrinaRemoteDriver(driver);
+  if (normalizedRemoteDriver) {
+    return normalizedRemoteDriver;
+  }
+  const normalized = `${driver ?? ""}`.trim();
+  if (normalized === "local-cli") {
+    return "local-cli";
+  }
+  return normalizeTarget(transport) === "remote" ? "ssh-cli" : "local-cli";
+}
+
+function normalizeSshTarget(value) {
+  const normalized = `${value ?? ""}`.trim();
+  return normalized || null;
+}
+
+function normalizeSshPort(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null;
+  }
+  return Math.trunc(numeric);
+}
+
+function normalizeLabel(value) {
+  const normalized = `${value ?? ""}`.trim();
+  return normalized || null;
+}
+
+function normalizeRelayUrl(value) {
+  return normalizeSabrinaRelayUrl(value);
+}
+
+function normalizeConnectCode(value) {
+  return normalizeSabrinaConnectCode(value);
+}
+
+function normalizeAgentId(value) {
+  const normalized = `${value ?? ""}`.trim();
+  return normalized || null;
+}
+
 export function createDefaultConnectionConfig(target = "local") {
+  const normalizedTarget = normalizeTarget(target);
   return {
     enabled: false,
-    transport: normalizeTarget(target),
+    transport: normalizedTarget,
+    driver: normalizeDriver(null, normalizedTarget),
     profile: null,
     stateDir: null,
+    sshTarget: null,
+    sshPort: null,
+    relayUrl: null,
+    connectCode: null,
+    label: null,
+    agentId: null,
   };
 }
 
 export function normalizeConnectionConfig(rawConfig = {}, fallbackTarget = "local") {
+  const transport = normalizeTarget(rawConfig?.transport ?? fallbackTarget);
   return {
     enabled: rawConfig?.enabled === true,
-    transport: normalizeTarget(rawConfig?.transport ?? fallbackTarget),
+    transport,
+    driver: normalizeDriver(rawConfig?.driver, transport),
     profile: normalizeOpenClawProfile(rawConfig?.profile),
     stateDir: normalizeOpenClawStateDir(rawConfig?.stateDir),
+    sshTarget: normalizeSshTarget(rawConfig?.sshTarget),
+    sshPort: normalizeSshPort(rawConfig?.sshPort),
+    relayUrl: normalizeRelayUrl(rawConfig?.relayUrl),
+    connectCode: normalizeConnectCode(rawConfig?.connectCode),
+    label: normalizeLabel(rawConfig?.label),
+    agentId: normalizeAgentId(rawConfig?.agentId),
   };
 }
 
 export function createConnectionState(params = {}) {
+  const locale = getCurrentUiLocale();
   const target = normalizeTarget(params?.target);
   const config = normalizeConnectionConfig(params?.connectionConfig, target);
   const binding = params?.binding ?? null;
@@ -43,25 +109,28 @@ export function createConnectionState(params = {}) {
     Array.isArray(binding?.capabilities) && binding.capabilities.length > 0
       ? binding.capabilities
       : [...SABRINA_LOCAL_CAPABILITIES];
-
-  if (target === "remote") {
-    return {
-      status: "attention",
-      target,
-      transport: target,
-      profile: config.profile,
-      stateDir: config.stateDir,
-      bindingId: null,
-      summary: "远程连接暂未开放",
-      detail: "远程连接稍后开放。",
-      commandHint: "openclaw sabrina connect --remote",
-      doctorHint: "运行 doctor 检查本机环境；远程能力接入后沿用同一绑定模型。",
-      transportLabel,
-      capabilities,
-      lastCheckedAt: checkedAt,
-      lastConnectedAt: null,
-    };
-  }
+  const remoteSessionContract = createSabrinaRemoteSessionContract({
+    transport: target,
+    driver: config.driver,
+    profile: config.profile,
+    stateDir: config.stateDir,
+    sshTarget: config.sshTarget,
+    sshPort: config.sshPort,
+    relayUrl: config.relayUrl,
+    agentId: binding?.agentId ?? config.agentId,
+    features: capabilities,
+  });
+  const isRemote = target === "remote";
+  const targetLabel = translate(
+    locale,
+    isRemote ? "openclaw.state.target.remote" : "openclaw.state.target.local",
+  );
+  const remoteConnectHint =
+    config.driver === "ssh-cli"
+      ? "openclaw sabrina connect --remote --driver ssh-cli --ssh-target <user@host>"
+      : config.driver === "relay-paired"
+        ? "openclaw sabrina connect --remote --driver relay-paired --relay-url <url> --connect-code <code>"
+        : "openclaw sabrina connect --remote --driver <driver>";
 
   if (binding?.status === "active" && gatewayStatus?.ok) {
     return {
@@ -71,12 +140,15 @@ export function createConnectionState(params = {}) {
       profile: config.profile,
       stateDir: config.stateDir,
       bindingId: binding.bindingId,
-      summary: `已连接 ${binding.displayName}`,
+      summary: translate(locale, "openclaw.state.connectedSummary", {
+        name: binding.displayName || targetLabel,
+      }),
       detail: `Agent ${binding.agentId} · ${transportLabel}`,
       commandHint: "openclaw sabrina status",
-      doctorHint: "如连接异常，请运行 doctor 或重新连接。",
+      doctorHint: translate(locale, "openclaw.state.connectedDoctorHint"),
       transportLabel,
       capabilities,
+      remoteSessionContract,
       lastCheckedAt: checkedAt,
       lastConnectedAt: binding.lastConnectedAt ?? checkedAt,
     };
@@ -91,16 +163,27 @@ export function createConnectionState(params = {}) {
       profile: config.profile,
       stateDir: config.stateDir,
       bindingId: binding?.bindingId ?? null,
-      summary: isConnecting ? "正在连接本机 OpenClaw" : "连接需要处理",
+      summary: isConnecting
+        ? translate(locale, "openclaw.state.connectingSummary", {
+            target: targetLabel,
+          })
+        : translate(locale, "openclaw.state.attentionSummary"),
       detail:
         detailError ||
         binding?.note ||
         gatewayStatus?.warnings?.[0] ||
-        "网关或浏览器代理还没准备好。",
-      commandHint: "openclaw sabrina doctor",
-      doctorHint: "优先检查 gateway、agent 和模型同步。",
+        translate(
+          locale,
+          isRemote ? "openclaw.state.remoteNotReady" : "openclaw.state.localNotReady",
+        ),
+      commandHint: isRemote ? "openclaw sabrina doctor --target remote" : "openclaw sabrina doctor",
+      doctorHint: translate(
+        locale,
+        isRemote ? "openclaw.state.remoteDoctor" : "openclaw.state.localDoctor",
+      ),
       transportLabel,
       capabilities,
+      remoteSessionContract,
       lastCheckedAt: checkedAt,
       lastConnectedAt: binding?.lastConnectedAt ?? null,
     };
@@ -113,55 +196,90 @@ export function createConnectionState(params = {}) {
     profile: config.profile,
     stateDir: config.stateDir,
     bindingId: null,
-    summary: "尚未连接本机 OpenClaw",
-    detail: `接入后会自动准备浏览器 agent。当前目标：${transportLabel}`,
-    commandHint: "openclaw sabrina connect",
-    doctorHint: "如果你已经装好了 OpenClaw，可以直接开始连接或先运行 doctor。",
+    summary: translate(locale, "openclaw.state.disconnectedSummary", {
+      target: targetLabel,
+    }),
+    detail: isRemote
+      ? config.driver === "relay-paired"
+        ? config.relayUrl && config.connectCode
+          ? translate(locale, "openclaw.state.remoteDetailWithTarget", {
+              target: transportLabel,
+            })
+          : translate(locale, "openclaw.state.remoteRelayDetailWithoutTarget")
+        : config.sshTarget || config.label
+          ? translate(locale, "openclaw.state.remoteDetailWithTarget", {
+              target: transportLabel,
+            })
+          : translate(locale, "openclaw.state.remoteDetailWithoutTarget")
+      : translate(locale, "openclaw.state.localDetail", {
+          target: transportLabel,
+        }),
+    commandHint: isRemote
+      ? remoteConnectHint
+      : "openclaw sabrina connect",
+    doctorHint: translate(
+      locale,
+      isRemote
+        ? "openclaw.state.remoteDoctorDisconnected"
+        : "openclaw.state.localDoctorDisconnected",
+    ),
     transportLabel,
     capabilities,
+    remoteSessionContract,
     lastCheckedAt: checkedAt,
     lastConnectedAt: null,
   };
 }
 
 export function createDefaultBindingSetupState(target = "local") {
+  const normalizedTarget = normalizeTarget(target);
+  const locale = getCurrentUiLocale();
   return {
-    status: target === "remote" ? "degraded" : "idle",
-    target,
-    title: target === "remote" ? "连接远程龙虾" : "连接本机 OpenClaw",
+    status: normalizedTarget === "remote" ? "degraded" : "idle",
+    target: normalizedTarget,
+    title:
+      normalizedTarget === "remote"
+        ? translate(locale, "binding.default.remote.title")
+        : translate(locale, "binding.default.local.title"),
     description:
-      target === "remote"
-        ? "远程连接稍后开放。"
-        : "接入后可直接复用模型、技能和记忆。",
+      normalizedTarget === "remote"
+        ? translate(locale, "binding.default.remote.description")
+        : translate(locale, "binding.default.local.description"),
     note:
-      target === "remote"
-        ? "先完成本机连接即可。"
-        : "浏览器会继续保持独立可用。",
-    primaryActionLabel: target === "remote" ? undefined : "开始连接",
-    secondaryActionLabel: target === "remote" ? "本机优先" : "远程连接稍后开放",
+      normalizedTarget === "remote"
+        ? translate(locale, "binding.default.remote.note")
+        : translate(locale, "binding.default.local.note"),
+    primaryActionLabel:
+      normalizedTarget === "remote"
+        ? undefined
+        : translate(locale, "binding.default.local.primary"),
+    secondaryActionLabel:
+      normalizedTarget === "remote"
+        ? translate(locale, "binding.default.remote.secondary")
+        : translate(locale, "binding.default.local.secondary"),
     steps: [
       {
         id: "install-bridge",
-        title: "检查龙虾环境",
-        description: "确认 OpenClaw 可用。",
+        title: translate(locale, "binding.step.install.title"),
+        description: translate(locale, "binding.step.install.description"),
         status: "pending",
       },
       {
         id: "ensure-agent",
-        title: "准备浏览器代理",
-        description: "准备浏览器专用 agent。",
+        title: translate(locale, "binding.step.ensure.title"),
+        description: translate(locale, "binding.step.ensure.description"),
         status: "pending",
       },
       {
         id: "load-skills",
-        title: "读取技能能力",
-        description: "同步当前可用技能。",
+        title: translate(locale, "binding.step.load.title"),
+        description: translate(locale, "binding.step.load.description"),
         status: "pending",
       },
       {
         id: "pair-browser",
-        title: "授权 Sabrina 连接",
-        description: "确认 Sabrina 已接入。",
+        title: translate(locale, "binding.step.pair.title"),
+        description: translate(locale, "binding.step.pair.description"),
         status: "pending",
       },
     ],

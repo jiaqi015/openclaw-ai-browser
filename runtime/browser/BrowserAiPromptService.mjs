@@ -1,3 +1,8 @@
+import {
+  getAssistantLanguageInstruction,
+  getPromptMarkdownInstruction,
+} from "../../shared/localization.mjs";
+
 export function buildBrowserAiPrompt({
   action,
   prompt,
@@ -5,6 +10,7 @@ export function buildBrowserAiPrompt({
   context = null,
   attachments = [],
   primaryMemory = null,
+  assistantLocale = "zh-CN",
 }) {
   const primaryContext = contextPackage?.primary ?? context ?? null;
   const references = Array.isArray(contextPackage?.references)
@@ -62,7 +68,8 @@ export function buildBrowserAiPrompt({
     : null;
 
   return [
-    "你是一个内置在桌面浏览器里的 AI 助手。请始终使用中文回答，并保持简洁、可靠。",
+    "你是一个内置在桌面浏览器里的 AI 助手。",
+    getAssistantLanguageInstruction(assistantLocale),
     actionInstruction,
     memoryBlock,
     `页面标题：${primaryContext?.title || "当前页面"}`,
@@ -78,7 +85,7 @@ export function buildBrowserAiPrompt({
       ? `本轮额外引用了 ${attachmentBlocks.length} 个页面，请一并纳入判断：\n\n${attachmentBlocks.join("\n\n---\n\n")}`
       : "",
     prompt ? `用户请求：\n${prompt}` : "",
-    "请使用 Markdown 输出，避免编造页面中不存在的事实。",
+    getPromptMarkdownInstruction(assistantLocale),
   ]
     .filter(Boolean)
     .join("\n\n");

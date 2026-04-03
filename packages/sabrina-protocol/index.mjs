@@ -4,6 +4,11 @@ import path from "node:path";
 
 export const SABRINA_PROTOCOL_VERSION = "1";
 export const SABRINA_CONNECTOR_BRIDGE_VERSION = "1";
+export const SABRINA_BROWSER_CAPABILITY_SCHEMA_VERSION = "1";
+export const SABRINA_MEMORY_RECORD_SCHEMA_VERSION = "2";
+export const SABRINA_REMOTE_SESSION_CONTRACT_VERSION = "1";
+export const SABRINA_PAIRING_SESSION_SCHEMA_VERSION = "1";
+export const SABRINA_REMOTE_ENVELOPE_SCHEMA_VERSION = "1";
 export const SABRINA_CONNECTOR_HOST = "127.0.0.1";
 export const SABRINA_CONNECTOR_DEFAULT_PORT = 44718;
 export const SABRINA_CONNECTOR_DIRNAME = ".sabrina";
@@ -17,8 +22,60 @@ export const SABRINA_LOCAL_CAPABILITIES = Object.freeze([
   "memory.search",
 ]);
 
+export const SABRINA_CONNECTOR_FEATURES = Object.freeze([
+  `browser-capability-schema-v${SABRINA_BROWSER_CAPABILITY_SCHEMA_VERSION}`,
+  `browser-memory-schema-v${SABRINA_MEMORY_RECORD_SCHEMA_VERSION}`,
+  `remote-session-contract-v${SABRINA_REMOTE_SESSION_CONTRACT_VERSION}`,
+  "turn-journal-v1",
+]);
+
+export const SABRINA_BROWSER_CAPABILITY_INPUT_MODES = Object.freeze([
+  "page-snapshot",
+  "source-url",
+]);
+
+export const SABRINA_BROWSER_CAPABILITY_SOURCE_KINDS = Object.freeze([
+  "public-url",
+  "private-url",
+  "local-file",
+]);
+
+export const SABRINA_REMOTE_DRIVERS = Object.freeze([
+  "ssh-cli",
+  "relay-paired",
+]);
+
 export function normalizeSabrinaTransport(value) {
   return `${value ?? "local"}`.trim() === "remote" ? "remote" : "local";
+}
+
+export function normalizeSabrinaCapabilitySource(value) {
+  const normalized = `${value ?? ""}`.trim();
+  if (
+    normalized === "skill-metadata" ||
+    normalized === "sabrina-overlay" ||
+    normalized === "heuristic"
+  ) {
+    return normalized;
+  }
+
+  return "skill-metadata";
+}
+
+export function normalizeSabrinaBrowserCapabilityInputMode(value) {
+  return SABRINA_BROWSER_CAPABILITY_INPUT_MODES.includes(`${value ?? ""}`.trim())
+    ? `${value}`.trim()
+    : "";
+}
+
+export function normalizeSabrinaBrowserCapabilitySourceKinds(values) {
+  return Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((entry) => `${entry ?? ""}`.trim())
+        .filter((entry) => SABRINA_BROWSER_CAPABILITY_SOURCE_KINDS.includes(entry)),
+    ),
+  );
 }
 
 export function normalizeOpenClawProfile(value) {
@@ -28,6 +85,21 @@ export function normalizeOpenClawProfile(value) {
 
 export function normalizeOpenClawStateDir(value) {
   const normalized = `${value ?? ""}`.trim();
+  return normalized || null;
+}
+
+export function normalizeSabrinaRemoteDriver(value) {
+  const normalized = `${value ?? ""}`.trim();
+  return SABRINA_REMOTE_DRIVERS.includes(normalized) ? normalized : null;
+}
+
+export function normalizeSabrinaRelayUrl(value) {
+  const normalized = `${value ?? ""}`.trim();
+  return normalized || null;
+}
+
+export function normalizeSabrinaConnectCode(value) {
+  const normalized = `${value ?? ""}`.trim().toUpperCase();
   return normalized || null;
 }
 
@@ -57,6 +129,10 @@ export function createSabrinaConnectorManifest(input = {}) {
     app: "sabrina",
     bridgeVersion: SABRINA_CONNECTOR_BRIDGE_VERSION,
     protocolVersion: SABRINA_PROTOCOL_VERSION,
+    browserCapabilitySchemaVersion: SABRINA_BROWSER_CAPABILITY_SCHEMA_VERSION,
+    memoryRecordSchemaVersion: SABRINA_MEMORY_RECORD_SCHEMA_VERSION,
+    remoteSessionContractVersion: SABRINA_REMOTE_SESSION_CONTRACT_VERSION,
+    features: [...SABRINA_CONNECTOR_FEATURES],
     transport: normalizeSabrinaTransport(input.transport),
     endpoint: buildSabrinaConnectorEndpoint({
       host: input.host,
@@ -82,9 +158,39 @@ export function stripSabrinaConnectorSecret(manifest) {
 
 export function createSabrinaConnectCode(input = {}) {
   return {
-    code: `${input.code ?? ""}`.trim(),
+    code: normalizeSabrinaConnectCode(input.code) ?? "",
     deviceId: `${input.deviceId ?? ""}`.trim(),
     transport: normalizeSabrinaTransport(input.transport),
+    driver: normalizeSabrinaRemoteDriver(input.driver),
+    relayUrl: normalizeSabrinaRelayUrl(input.relayUrl),
+    pairingId: `${input.pairingId ?? ""}`.trim() || null,
+    expiresAt:
+      typeof input.expiresAt === "string" && input.expiresAt.trim()
+        ? input.expiresAt.trim()
+        : new Date(Date.now() + 2 * 60_000).toISOString(),
+  };
+}
+
+export function createSabrinaPairingSession(input = {}) {
+  return {
+    schemaVersion: SABRINA_PAIRING_SESSION_SCHEMA_VERSION,
+    pairingId: `${input.pairingId ?? ""}`.trim(),
+    transport: normalizeSabrinaTransport(input.transport),
+    driver: normalizeSabrinaRemoteDriver(input.driver),
+    relayUrl: normalizeSabrinaRelayUrl(input.relayUrl),
+    connectCode: normalizeSabrinaConnectCode(input.connectCode),
+    status:
+      input.status === "active" ||
+      input.status === "expired" ||
+      input.status === "rejected"
+        ? input.status
+        : "pending",
+    browserDeviceId: `${input.browserDeviceId ?? ""}`.trim() || null,
+    openclawDeviceId: `${input.openclawDeviceId ?? ""}`.trim() || null,
+    requestedAt:
+      typeof input.requestedAt === "string" && input.requestedAt.trim()
+        ? input.requestedAt.trim()
+        : new Date().toISOString(),
     expiresAt:
       typeof input.expiresAt === "string" && input.expiresAt.trim()
         ? input.expiresAt.trim()
@@ -120,8 +226,44 @@ export function createSabrinaBinding(input = {}) {
   };
 }
 
-export function createSabrinaMemoryRecord(input = {}) {
+export function createSabrinaRemoteSessionContract(input = {}) {
   return {
+    contractVersion: SABRINA_REMOTE_SESSION_CONTRACT_VERSION,
+    transport: normalizeSabrinaTransport(input.transport),
+    driver: normalizeSabrinaRemoteDriver(input.driver),
+    profile: normalizeOpenClawProfile(input.openclawProfile ?? input.profile),
+    stateDir: normalizeOpenClawStateDir(input.openclawStateDir ?? input.stateDir),
+    sshTarget: `${input.sshTarget ?? ""}`.trim() || null,
+    sshPort: Number.isFinite(Number(input.sshPort)) ? Number(input.sshPort) : null,
+    relayUrl: normalizeSabrinaRelayUrl(input.relayUrl),
+    agentId: `${input.agentId ?? ""}`.trim() || null,
+    features: Array.isArray(input.features)
+      ? input.features.map((entry) => `${entry ?? ""}`.trim()).filter(Boolean)
+      : [],
+  };
+}
+
+export function createSabrinaRemoteEnvelope(input = {}) {
+  return {
+    schemaVersion: SABRINA_REMOTE_ENVELOPE_SCHEMA_VERSION,
+    sessionId: `${input.sessionId ?? ""}`.trim(),
+    seq: Number.isFinite(Number(input.seq)) ? Number(input.seq) : 0,
+    type: `${input.type ?? "message"}`.trim() || "message",
+    ciphertext: `${input.ciphertext ?? ""}`.trim(),
+    nonce: `${input.nonce ?? ""}`.trim(),
+    sentAt:
+      typeof input.sentAt === "string" && input.sentAt.trim()
+        ? input.sentAt.trim()
+        : new Date().toISOString(),
+  };
+}
+
+export function createSabrinaMemoryRecord(input = {}) {
+  const metadata =
+    input.metadata && typeof input.metadata === "object" ? { ...input.metadata } : {};
+
+  return {
+    schemaVersion: SABRINA_MEMORY_RECORD_SCHEMA_VERSION,
     id: `${input.id ?? ""}`.trim(),
     kind: `${input.kind ?? "page-summary"}`.trim() || "page-summary",
     url: `${input.url ?? ""}`.trim(),
@@ -143,6 +285,18 @@ export function createSabrinaMemoryRecord(input = {}) {
       typeof input.updatedAt === "string" && input.updatedAt.trim()
         ? input.updatedAt.trim()
         : new Date().toISOString(),
-    metadata: input.metadata && typeof input.metadata === "object" ? input.metadata : {},
+    metadata: {
+      ...metadata,
+      threadId: `${input.threadId ?? metadata.threadId ?? ""}`.trim() || undefined,
+      turnId: `${input.turnId ?? metadata.turnId ?? ""}`.trim() || undefined,
+      sourceKind: `${input.sourceKind ?? metadata.sourceKind ?? ""}`.trim() || undefined,
+      trustLevel: `${input.trustLevel ?? metadata.trustLevel ?? ""}`.trim() || undefined,
+      provenance:
+        metadata.provenance && typeof metadata.provenance === "object"
+          ? { ...metadata.provenance }
+          : input.provenance && typeof input.provenance === "object"
+            ? { ...input.provenance }
+            : undefined,
+    },
   };
 }

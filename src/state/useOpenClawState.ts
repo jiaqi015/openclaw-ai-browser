@@ -28,6 +28,7 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
   });
 
   const binding = runtimeState.binding;
+  const connectionConfig = runtimeState.connectionConfig;
   const connectionState = runtimeState.connectionState;
   const bindingSetupState = runtimeState.bindingSetupState;
   const skillCatalog = runtimeState.skillCatalog;
@@ -109,17 +110,35 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     target?: "local" | "remote";
     profile?: string;
     stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
   }) {
     const openclaw = desktop?.openclaw;
     if (!openclaw?.connect) {
       return null;
     }
 
-    const target = params?.target ?? runtimeState.selectedTarget;
+    const target =
+      params?.target ??
+      ((params?.driver && params.driver !== "local-cli") || params?.sshTarget || params?.relayUrl
+        ? "remote"
+        : runtimeState.selectedTarget);
     const nextState = await openclaw.connect({
       target,
       profile: params?.profile,
       stateDir: params?.stateDir,
+      driver: params?.driver,
+      sshTarget: params?.sshTarget,
+      sshPort: params?.sshPort,
+      relayUrl: params?.relayUrl,
+      connectCode: params?.connectCode,
+      label: params?.label,
+      agentId: params?.agentId,
     });
     applyRuntimeState(nextState);
     return nextState;
@@ -129,6 +148,13 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     target?: "local" | "remote";
     profile?: string;
     stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
   }) {
     const openclaw = desktop?.openclaw;
     if (!openclaw?.disconnect) {
@@ -136,21 +162,55 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     }
 
     const nextState = await openclaw.disconnect({
-      target: params?.target ?? runtimeState.selectedTarget,
+      target:
+        params?.target ??
+        ((params?.driver && params.driver !== "local-cli") || params?.sshTarget
+          || params?.relayUrl
+          ? "remote"
+          : runtimeState.selectedTarget),
       profile: params?.profile,
       stateDir: params?.stateDir,
+      driver: params?.driver,
+      sshTarget: params?.sshTarget,
+      sshPort: params?.sshPort,
+      relayUrl: params?.relayUrl,
+      connectCode: params?.connectCode,
+      label: params?.label,
+      agentId: params?.agentId,
     });
     applyRuntimeState(nextState);
     return nextState;
   }
 
-  async function doctorOpenClaw(target = runtimeState.selectedTarget) {
+  async function doctorOpenClaw(params?: {
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+  }) {
     const openclaw = desktop?.openclaw;
     if (!openclaw?.doctor) {
       return null;
     }
 
-    return openclaw.doctor({ target });
+    return openclaw.doctor({
+      target: params?.target ?? runtimeState.selectedTarget,
+      profile: params?.profile,
+      stateDir: params?.stateDir,
+      driver: params?.driver,
+      sshTarget: params?.sshTarget,
+      sshPort: params?.sshPort,
+      relayUrl: params?.relayUrl,
+      connectCode: params?.connectCode,
+      label: params?.label,
+      agentId: params?.agentId,
+    });
   }
 
   async function approvePairingRequest(
@@ -200,6 +260,7 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
 
   return {
     binding,
+    connectionConfig,
     connectionState,
     bindingSetupState,
     modelState,

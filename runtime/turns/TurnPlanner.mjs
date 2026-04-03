@@ -2,6 +2,14 @@ function normalizeNonEmptyString(value) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
 }
 
+function createTurnId() {
+  return `turn-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function createIsoTimestamp(input = Date.now()) {
+  return new Date(input).toISOString();
+}
+
 function normalizeStringArray(values) {
   return Array.from(
     new Set(
@@ -36,11 +44,26 @@ function buildBrowserContextPlan(contextPackage) {
     authBoundary: normalizeNonEmptyString(execution?.authBoundary),
     trustLevel: normalizeNonEmptyString(execution?.trustLevel),
     reproducibility: normalizeNonEmptyString(execution?.reproducibility),
+    executionReliability: normalizeNonEmptyString(execution?.executionReliability),
+    reachabilityConfidence: normalizeNonEmptyString(execution?.reachabilityConfidence),
+    authBoundaryConfidence: normalizeNonEmptyString(execution?.authBoundaryConfidence),
+    reproducibilityGuarantee: normalizeNonEmptyString(
+      execution?.reproducibilityGuarantee,
+    ),
+    outsideBrowserExecutable: Boolean(execution?.outsideBrowserExecutable),
+    requiresBrowserSession: Boolean(execution?.requiresBrowserSession),
+    requiresFilesystemAccess: Boolean(execution?.requiresFilesystemAccess),
     selectionState: contextPackage?.selectionState === "selection" ? "selection" : "page",
     totalSourceCount: Number(summary?.totalSourceCount) || 0,
     executableSourceCount: Number(summary?.executableSourceCount) || 0,
     browserOnlySourceCount: Number(summary?.browserOnlySourceCount) || 0,
     replayableSourceCount: Number(summary?.replayableSourceCount) || 0,
+    outsideBrowserExecutableCount: Number(summary?.outsideBrowserExecutableCount) || 0,
+    requiresBrowserSessionCount: Number(summary?.requiresBrowserSessionCount) || 0,
+    requiresFilesystemAccessCount:
+      Number(summary?.requiresFilesystemAccessCount) || 0,
+    deterministicReplayableCount:
+      Number(summary?.deterministicReplayableCount) || 0,
     lossinessFlags: normalizeStringArray(execution?.lossinessFlags),
   };
 }
@@ -61,9 +84,21 @@ function buildSkillPolicy(intent, capability) {
     mode: capability?.skillMode === "assist" ? "assist" : "strict",
     ready: skill?.ready !== false,
     missingSummary: normalizeNonEmptyString(skill?.missingSummary),
+    browserCapabilityDeclared: Boolean(skill?.browserCapabilityDeclared),
     compatibilitySource: normalizeNonEmptyString(inputPlan?.compatibilitySource),
     inputMode: normalizeNonEmptyString(inputPlan?.inputMode),
     supportedSourceKinds: normalizeStringArray(inputPlan?.supportedSourceKinds),
+    declaredBrowserCapability: skill?.declaredBrowserCapability
+      ? {
+          inputMode: normalizeNonEmptyString(skill.declaredBrowserCapability.inputMode),
+          sourceKinds: normalizeStringArray(skill.declaredBrowserCapability.sourceKinds),
+          useHint: normalizeNonEmptyString(skill.declaredBrowserCapability.useHint),
+          source:
+            normalizeNonEmptyString(skill.declaredBrowserCapability.source) ||
+            "skill-metadata",
+          overlay: Boolean(skill.declaredBrowserCapability.overlay),
+        }
+      : null,
     browserCapability: skill?.browserCapability
       ? {
           inputMode: normalizeNonEmptyString(skill.browserCapability.inputMode),
@@ -148,6 +183,63 @@ function getPolicyDecision(strategy, contextPackage, inputPolicy) {
   return "allow";
 }
 
+function buildExecutionContract(strategy, browserContext, skillPolicy, inputPolicy, policyDecision) {
+  const capabilitySource = normalizeNonEmptyString(
+    skillPolicy?.declaredBrowserCapability?.source ||
+      skillPolicy?.browserCapability?.source ||
+      skillPolicy?.compatibilitySource,
+  );
+  const requiredEvidence =
+    strategy === "strict_skill_execution"
+      ? ["skill-receipt", "skill-trace"]
+      : strategy === "background_task"
+        ? ["task-record"]
+        : strategy === "artifact_generation"
+          ? ["artifact"]
+          : ["assistant-message"];
+
+  return {
+    contractVersion: 1,
+    browserContextContract: "browser-context-package",
+    resultContract:
+      strategy === "strict_skill_execution"
+        ? "skill-result"
+        : strategy === "background_task"
+          ? "task-record"
+          : strategy === "artifact_generation"
+            ? "artifact"
+            : "assistant-message",
+    capabilitySource,
+    capabilityDeclared: Boolean(
+      skillPolicy?.browserCapabilityDeclared || skillPolicy?.declaredBrowserCapability,
+    ),
+    overlayUsed: capabilitySource === "sabrina-overlay",
+    honestyMode:
+      policyDecision === "allow-with-honesty-constraints"
+        ? "explicit-failure-required"
+        : strategy === "strict_skill_execution"
+          ? "strict-skill-receipt"
+          : strategy === "background_task"
+            ? "task-record-required"
+            : strategy === "artifact_generation"
+              ? "artifact-required"
+              : "assistant-message",
+    blockingMode:
+      strategy === "strict_skill_execution" ? "reject-before-execution" : "none",
+    requiredEvidence,
+    sourceRoute: normalizeNonEmptyString(
+      inputPolicy?.sourceRoute || browserContext?.primarySourceKind,
+    ),
+    outsideBrowserExecutable: Boolean(browserContext?.outsideBrowserExecutable),
+    requiresBrowserSession: Boolean(browserContext?.requiresBrowserSession),
+    requiresFilesystemAccess: Boolean(browserContext?.requiresFilesystemAccess),
+    reproducibilityGuarantee: normalizeNonEmptyString(
+      browserContext?.reproducibilityGuarantee,
+    ),
+    executionReliability: normalizeNonEmptyString(browserContext?.executionReliability),
+  };
+}
+
 function getPlanNotes(strategy, contextPackage, inputPolicy) {
   const notes = [];
   const sourceKind = normalizeNonEmptyString(
@@ -198,14 +290,24 @@ export function planTurnExecution({ intent, contextPackage, capability } = {}) {
     capability,
   );
   const policyDecision = getPolicyDecision(strategy, contextPackage, inputPolicy);
+  const executionContract = buildExecutionContract(
+    strategy,
+    browserContext,
+    skillPolicy,
+    inputPolicy,
+    policyDecision,
+  );
 
   return {
+    turnId: createTurnId(),
+    createdAt: createIsoTimestamp(),
     turnType: normalizedIntentType,
     strategy,
     policyDecision,
     browserContext,
     skillPolicy,
     inputPolicy,
+    executionContract,
     notes: getPlanNotes(strategy, contextPackage, inputPolicy),
   };
 }

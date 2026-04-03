@@ -20,6 +20,8 @@ import {
   getSerializedOpenClawState,
   refreshOpenClawRuntimeState,
   saveOpenClawBrowserMemory,
+  getOpenClawTurnJournal,
+  searchOpenClawTurnJournal,
   searchOpenClawBrowserMemory,
   selectOpenClawBindingTarget,
   setOpenClawLocalModel,
@@ -71,6 +73,12 @@ export function registerOpenClawIpcHandlers() {
   );
   ipcMain.handle("openclaw:search-memory", (_e, payload) =>
     searchOpenClawBrowserMemory(payload ?? {}),
+  );
+  ipcMain.handle("openclaw:get-turn-journal", (_e, payload) =>
+    getOpenClawTurnJournal(payload ?? {}),
+  );
+  ipcMain.handle("openclaw:search-turn-journal", (_e, payload) =>
+    searchOpenClawTurnJournal(payload ?? {}),
   );
   ipcMain.handle("openclaw:run-local-agent", (_e, payload) =>
     runLocalAgentTurn(payload ?? {}),

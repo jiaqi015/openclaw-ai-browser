@@ -2,38 +2,43 @@ import { Clock3, Globe2, MessageSquareText, Search } from "lucide-react";
 import { useState, useMemo } from "react";
 import type { SabrinaThreadSummary } from "../application/sabrina-openclaw";
 import { cn } from "../lib/utils";
+import { useUiPreferences } from "../application/use-ui-preferences";
+import { translate } from "../../shared/localization.mjs";
 
 type GroupedThreads = Record<string, {
   am: SabrinaThreadSummary[];
   pm: SabrinaThreadSummary[];
 }>;
 
-function getDateKey(date: Date): string {
+function getDateKey(date: Date, uiLocale: "zh-CN" | "en-US"): string {
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
   if (date.toDateString() === today.toDateString()) {
-    return "今天";
+    return translate(uiLocale, "history.today");
   }
   if (date.toDateString() === yesterday.toDateString()) {
-    return "昨天";
+    return translate(uiLocale, "history.yesterday");
   }
 
-  return date.toLocaleDateString("zh-CN", {
+  return date.toLocaleDateString(uiLocale, {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
 }
 
-function groupThreadsByDate(threads: SabrinaThreadSummary[]): GroupedThreads {
+function groupThreadsByDate(
+  threads: SabrinaThreadSummary[],
+  uiLocale: "zh-CN" | "en-US",
+): GroupedThreads {
   const grouped: GroupedThreads = {};
 
   threads.forEach((thread) => {
     const date = new Date(thread.updatedAt);
     const resolvedDate = Number.isNaN(date.getTime()) ? new Date() : date;
-    const dateKey = getDateKey(resolvedDate);
+    const dateKey = getDateKey(resolvedDate, uiLocale);
     const isAm = resolvedDate.getHours() < 12;
     const period = isAm ? "am" : "pm";
 
@@ -51,6 +56,9 @@ export function ChatHistoryPanel(props: {
   onSelectThread?: (threadId: string) => void;
 }) {
   const { onSelectThread, threads } = props;
+  const {
+    preferences: { uiLocale },
+  } = useUiPreferences();
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLowerCase();
 
@@ -69,14 +77,14 @@ export function ChatHistoryPanel(props: {
   }, [threads, normalizedQuery]);
 
   const groupedThreads = useMemo(() => {
-    return groupThreadsByDate(visibleThreads);
-  }, [visibleThreads]);
+    return groupThreadsByDate(visibleThreads, uiLocale);
+  }, [uiLocale, visibleThreads]);
 
   return (
     <aside className="surface-panel border rounded-[26px] p-3 flex min-h-0 flex-col">
       <div className="px-2 pb-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/34">
-          历史对话
+          {translate(uiLocale, "history.title")}
         </p>
       </div>
 
@@ -86,7 +94,7 @@ export function ChatHistoryPanel(props: {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索历史对话..."
+            placeholder={translate(uiLocale, "history.searchPlaceholder")}
             className="w-full bg-transparent text-sm text-white/80 placeholder:text-white/30 focus:outline-none"
           />
         </label>
@@ -96,9 +104,11 @@ export function ChatHistoryPanel(props: {
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-6 text-center text-white/34">
           <MessageSquareText className="h-8 w-8" />
           <div className="space-y-0.5">
-            <p className="text-sm font-medium text-white/58">还没有保存的对话</p>
+            <p className="text-sm font-medium text-white/58">
+              {translate(uiLocale, "history.emptyTitle")}
+            </p>
             <p className="text-[12px] leading-4 text-white/34">
-              每个对话会自动保存，这里可以快速找回。
+              {translate(uiLocale, "history.emptyDescription")}
             </p>
           </div>
         </div>
@@ -114,17 +124,21 @@ export function ChatHistoryPanel(props: {
               {am.length > 0 && (
                 <div className="space-y-1.5">
                   <div className="px-2">
-                    <span className="text-[9px] text-white/30">上午</span>
+                    <span className="text-[9px] text-white/30">
+                      {translate(uiLocale, "common.morning")}
+                    </span>
                   </div>
-                  {am.map((thread) => renderThreadCard(thread, onSelectThread))}
+                  {am.map((thread) => renderThreadCard(thread, uiLocale, onSelectThread))}
                 </div>
               )}
               {pm.length > 0 && (
                 <div className="space-y-1.5">
                   <div className="px-2">
-                    <span className="text-[9px] text-white/30">下午</span>
+                    <span className="text-[9px] text-white/30">
+                      {translate(uiLocale, "common.afternoon")}
+                    </span>
                   </div>
-                  {pm.map((thread) => renderThreadCard(thread, onSelectThread))}
+                  {pm.map((thread) => renderThreadCard(thread, uiLocale, onSelectThread))}
                 </div>
               )}
             </div>
@@ -137,6 +151,7 @@ export function ChatHistoryPanel(props: {
 
 function renderThreadCard(
   thread: SabrinaThreadSummary,
+  uiLocale: "zh-CN" | "en-US",
   onSelectThread?: (threadId: string) => void,
 ) {
   return (
@@ -157,8 +172,8 @@ function renderThreadCard(
             </p>
             {thread.status === "error" ? (
               <span className="rounded-full bg-rose-500/14 px-2 py-0.5 text-[10px] text-rose-200 flex-shrink-0">
-                异常
-              </span>
+                  {translate(uiLocale, "common.error")}
+                </span>
             ) : null}
           </div>
           {thread.preview ? (

@@ -7,6 +7,12 @@ import {
   buildOpenClawExecOptions,
   getOpenClawTransportContext,
 } from "./OpenClawTransportContext.mjs";
+import {
+  getOpenClawDriverId,
+  probeOpenClawDriverTransport,
+  supportsOpenClawGatewayHttpManagement,
+  supportsOpenClawRemoteCliExecution,
+} from "./drivers/OpenClawDriverRegistry.mjs";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -56,12 +62,52 @@ async function getHealthSummary() {
 }
 
 export async function getGatewayHealthOk(config) {
-  const gateway = config.getGatewayEndpoint();
+  const transportContext = getOpenClawTransportContext();
+  if (supportsOpenClawRemoteCliExecution(transportContext)) {
+    try {
+      const [statusPayload, healthPayload] = await Promise.all([
+        execOpenClawJson(["gateway", "status", "--json"], {
+          timeout: 12000,
+          maxBuffer: 1024 * 1024,
+          retries: 0,
+        }),
+        execOpenClawJson(["gateway", "health", "--json"], {
+          timeout: 12000,
+          maxBuffer: 1024 * 1024,
+          retries: 0,
+        }).catch(() => null),
+      ]);
+
+      const ok =
+        Boolean(statusPayload?.rpc?.ok) &&
+        (typeof healthPayload?.ok === "boolean" ? healthPayload.ok : true);
+      return {
+        ok,
+        detail: ok
+          ? ""
+          : formatGatewayCommandSummary(statusPayload) ||
+            formatGatewayCommandSummary(healthPayload) ||
+            "远程 OpenClaw Gateway 未就绪。",
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        detail: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  if (!supportsOpenClawGatewayHttpManagement(transportContext)) {
+    return probeOpenClawDriverTransport({ timeout: 5000 }, transportContext);
+  }
+
+  const resolvedConfig = config ?? (await getOpenClawConfig());
+  const gateway = resolvedConfig.getGatewayEndpoint();
   const url = gateway.url;
 
   let headers = {};
   try {
-    headers = config.getGatewayAuthHeaders();
+    headers = resolvedConfig.getGatewayAuthHeaders();
   } catch (error) {
     return {
       ok: false,
@@ -170,7 +216,8 @@ async function spawnDetachedGateway(config) {
   return waitForGatewayReachable(config, 12000);
 }
 
-export async function recoverLocalGateway(config) {
+export async function recoverLocalGateway(config = null) {
+  const transportContext = getOpenClawTransportContext();
   const currentHealth = await getGatewayHealthOk(config);
   if (currentHealth.ok) {
     return {
@@ -205,8 +252,21 @@ export async function recoverLocalGateway(config) {
     };
   }
 
+  if (!supportsOpenClawGatewayHttpManagement(transportContext)) {
+    const probe = await probeOpenClawDriverTransport({ timeout: 5000 }, transportContext);
+    return {
+      ok: false,
+      mode: "unreachable",
+      note:
+        attempts.filter(Boolean).join("；") ||
+        probe.detail ||
+        `无法恢复远程 OpenClaw Gateway，请检查 ${getOpenClawDriverId(transportContext)} 目标和服务状态。`,
+    };
+  }
+
   try {
-    const detachedStarted = await spawnDetachedGateway(config);
+    const resolvedConfig = config ?? (await getOpenClawConfig());
+    const detachedStarted = await spawnDetachedGateway(resolvedConfig);
     if (detachedStarted && (await getGatewayHealthOk(config)).ok) {
       return {
         ok: true,
@@ -227,12 +287,16 @@ export async function recoverLocalGateway(config) {
   };
 }
 
-export async function restartLocalGateway(config) {
+export async function restartLocalGateway(config = null) {
   const recovery = await recoverLocalGateway(config);
   return recovery.ok;
 }
 
 export async function ensureChatCompletionsEndpoint() {
+  if (!supportsOpenClawGatewayHttpManagement(getOpenClawTransportContext())) {
+    return getOpenClawConfig();
+  }
+
   const config = await getOpenClawConfig();
   if (config.isChatCompletionsEnabled()) {
     return config;
@@ -285,8 +349,8 @@ function extractChatCompletionText(payload) {
 }
 
 export async function runGatewayChatCompletion(params, options = {}) {
-  const config = await ensureChatCompletionsEndpoint();
-  const gateway = config.getGatewayEndpoint();
+  const transportContext = getOpenClawTransportContext();
+  const driverId = getOpenClawDriverId(transportContext);
   const model = typeof params?.model === "string" ? params.model.trim() : "";
   const sessionKey =
     typeof params?.sessionKey === "string" && params.sessionKey.trim()
@@ -301,6 +365,39 @@ export async function runGatewayChatCompletion(params, options = {}) {
   if (!message) {
     throw new Error("消息不能为空");
   }
+
+  if (supportsOpenClawRemoteCliExecution(transportContext)) {
+    const command = ["agent", "--agent", agentId];
+    if (sessionKey) {
+      command.push("--session-id", sessionKey);
+    }
+    command.push("--message", message, "--thinking", "low", "--json");
+
+    const payload = await execOpenClawJson(command, {
+      timeout: 1000 * 60 * 5,
+      maxBuffer: 1024 * 1024 * 2,
+    });
+    const result = payload?.result ?? {};
+    const text = (Array.isArray(result.payloads) ? result.payloads : [])
+      .map((entry) => (typeof entry?.text === "string" ? entry.text.trim() : ""))
+      .filter(Boolean)
+      .join("\n\n");
+
+    return {
+      text: text || "OpenClaw 没有返回可显示的文本。",
+      sessionId: result?.meta?.agentMeta?.sessionId ?? sessionKey ?? null,
+      model: result?.meta?.agentMeta?.model ?? model ?? null,
+      provider: result?.meta?.agentMeta?.provider ?? null,
+      durationMs: result?.meta?.durationMs ?? null,
+    };
+  }
+
+  if (!supportsOpenClawGatewayHttpManagement(transportContext)) {
+    throw new Error(`当前远程 driver ${driverId} 尚未实现聊天执行。`);
+  }
+
+  const config = await ensureChatCompletionsEndpoint();
+  const gateway = config.getGatewayEndpoint();
 
   const headers = {
     "Content-Type": "application/json",

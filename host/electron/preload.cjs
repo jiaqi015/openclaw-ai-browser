@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld("sabrinaDesktop", {
   goForward: () => ipcRenderer.invoke("browser:go-forward"),
   reload: () => ipcRenderer.invoke("browser:reload"),
   setBrowserBounds: (bounds) => ipcRenderer.invoke("browser:set-bounds", bounds),
+  setUiLocale: (locale) => ipcRenderer.invoke("browser:set-ui-locale", { locale }),
   showBrowserMenu: (position) => ipcRenderer.invoke("browser:show-menu", position),
   openExternal: (url) => ipcRenderer.invoke("browser:open-external", { url }),
   toggleBookmark: (payload) => ipcRenderer.invoke("browser:toggle-bookmark", payload),
@@ -86,6 +87,10 @@ contextBridge.exposeInMainWorld("sabrinaDesktop", {
       ipcRenderer.invoke("openclaw:save-memory", payload),
     searchMemory: (payload) =>
       ipcRenderer.invoke("openclaw:search-memory", payload),
+    getTurnJournal: (payload) =>
+      ipcRenderer.invoke("openclaw:get-turn-journal", payload),
+    searchTurnJournal: (payload) =>
+      ipcRenderer.invoke("openclaw:search-turn-journal", payload),
     runLocalAgent: (params) =>
       ipcRenderer.invoke("openclaw:run-local-agent", params),
     onState: (listener) => {

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  getPendingNavigationTitle,
   normalizeBrowserInput,
   normalizeNewTabChatPrompt,
   resolveInternalSurfaceFromMenuCommand,
   shouldRouteNewTabInputToChat,
-  tabSurfaceMeta,
   type BrowserMenuCommand,
   type InternalSurface,
   type PendingNavigation,
@@ -18,11 +18,13 @@ import {
   pruneTabSurfaceModes,
 } from "./tab-surface-state-helpers";
 import type { SearchEngine } from "./use-ui-preferences";
+import type { UiLocale } from "../../shared/localization.mjs";
 
 export function useTabSurfaceState(params: {
   tabs: SabrinaDesktopTab[];
   activeTab: SabrinaDesktopTab | null;
   searchEngine: SearchEngine;
+  uiLocale: UiLocale;
   createTab: (input?: string) => Promise<SabrinaDesktopTab | undefined>;
   navigateCurrentTab: (input: string) => Promise<void>;
   clearHistory: () => Promise<void>;
@@ -38,6 +40,7 @@ export function useTabSurfaceState(params: {
     createTab,
     navigateCurrentTab,
     searchEngine,
+    uiLocale,
     sendMessage,
     sendNewTabChatMessage,
     subscribeBrowserMenuCommand,
@@ -56,8 +59,8 @@ export function useTabSurfaceState(params: {
   const surfaceMode: SurfaceMode = activeTabSurface ?? "browser";
 
   const displayTabs = useMemo(
-    () => buildDisplayTabs({ pendingNavigations, tabSurfaceModes, tabs }),
-    [pendingNavigations, tabSurfaceModes, tabs],
+    () => buildDisplayTabs({ pendingNavigations, tabSurfaceModes, tabs, uiLocale }),
+    [pendingNavigations, tabSurfaceModes, tabs, uiLocale],
   );
 
   const activeDisplayTab = useMemo(
@@ -173,7 +176,7 @@ export function useTabSurfaceState(params: {
     setPendingNavigations((current) => ({
       ...current,
       [nextTabId]: {
-        title: "加载中...",
+        title: getPendingNavigationTitle(uiLocale),
         url: normalizeBrowserInput(nextUrl, searchEngine),
       },
     }));
@@ -194,7 +197,7 @@ export function useTabSurfaceState(params: {
         setPendingNavigations((current) => ({
           ...current,
           [targetTabId]: {
-            title: "加载中...",
+            title: getPendingNavigationTitle(uiLocale),
             url: normalizedUrl,
           },
         }));

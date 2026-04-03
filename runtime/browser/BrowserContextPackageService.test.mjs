@@ -63,6 +63,13 @@ test("buildBrowserContextPackage packages primary context, deduped references, a
   assert.equal(contextPackage.execution.authBoundary, "private-origin");
   assert.equal(contextPackage.execution.trustLevel, "private");
   assert.equal(contextPackage.execution.reproducibility, "not-guaranteed");
+  assert.equal(contextPackage.execution.executionReliability, "medium");
+  assert.equal(contextPackage.execution.reachabilityConfidence, "medium");
+  assert.equal(contextPackage.execution.authBoundaryConfidence, "medium");
+  assert.equal(contextPackage.execution.reproducibilityGuarantee, "weak");
+  assert.equal(contextPackage.execution.outsideBrowserExecutable, false);
+  assert.equal(contextPackage.execution.requiresBrowserSession, true);
+  assert.equal(contextPackage.execution.requiresFilesystemAccess, false);
   assert.equal(contextPackage.execution.sources.length, 3);
   assert.equal(contextPackage.execution.sources[0].role, "primary");
   assert.equal(contextPackage.execution.sources[1].role, "reference");
@@ -70,6 +77,10 @@ test("buildBrowserContextPackage packages primary context, deduped references, a
   assert.equal(contextPackage.execution.summary.totalSourceCount, 3);
   assert.equal(contextPackage.execution.summary.executableSourceCount, 3);
   assert.equal(contextPackage.execution.summary.replayableSourceCount, 2);
+  assert.equal(contextPackage.execution.summary.outsideBrowserExecutableCount, 2);
+  assert.equal(contextPackage.execution.summary.requiresBrowserSessionCount, 1);
+  assert.equal(contextPackage.execution.summary.requiresFilesystemAccessCount, 0);
+  assert.equal(contextPackage.execution.summary.deterministicReplayableCount, 2);
   assert.deepEqual(contextPackage.execution.summary.sourceKindCounts, {
     publicHttp: 2,
     privateHttp: 1,
@@ -127,6 +138,9 @@ test("buildBrowserContextPackage records file execution facts for safe local pat
   assert.equal(contextPackage.execution.trustLevel, "local");
   assert.equal(contextPackage.execution.sourceProtocol, "file:");
   assert.match(contextPackage.execution.sourceFilePath, /package\.json$/);
+  assert.equal(contextPackage.execution.requiresFilesystemAccess, true);
+  assert.equal(contextPackage.execution.outsideBrowserExecutable, false);
   assert.equal(contextPackage.execution.summary.sourceKindCounts.localFile, 1);
+  assert.equal(contextPackage.execution.summary.requiresFilesystemAccessCount, 1);
   assert.equal(contextPackage.execution.sources[0].canExecute, true);
 });

@@ -1,18 +1,31 @@
+import { DEFAULT_UI_LOCALE, normalizeUiLocale, translate } from "../../shared/localization.mjs";
+
 export type SabrinaChatMessage = SabrinaChatMessageRecord;
 
 export function createChatMessageId() {
   return `msg-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function getRendererLocale() {
+  if (typeof document === "undefined") {
+    return DEFAULT_UI_LOCALE;
+  }
+
+  return normalizeUiLocale(document.documentElement.lang || DEFAULT_UI_LOCALE);
+}
+
 export function buildWelcomeMessage(tab: SabrinaDesktopTab): SabrinaChatMessage {
+  const locale = getRendererLocale();
   return {
     messageId: createChatMessageId(),
     role: "system",
     text: [
-      "### Sabrina 已接入真实网页",
-      `- 当前标签页：**${tab.title || "新标签页"}**`,
-      "- 右侧可以直接总结网页、提取要点，或者基于当前页面继续追问。",
-      "- 如果你先在网页里划词，AI 会优先使用选中的文本作为上下文。",
+      translate(locale, "thread.welcomeTitle"),
+      translate(locale, "thread.welcomeCurrentTab", {
+        title: tab.title || translate(locale, "common.newTab"),
+      }),
+      translate(locale, "thread.welcomeSummary"),
+      translate(locale, "thread.welcomeSelection"),
     ].join("\n"),
   };
 }
@@ -22,5 +35,5 @@ export function normalizeChatError(error: unknown) {
     return error.message;
   }
 
-  return "请求失败了，请稍后再试。";
+  return translate(getRendererLocale(), "error.requestFailed");
 }

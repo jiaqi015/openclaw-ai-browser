@@ -7,6 +7,8 @@ import type {
   SidebarComposerSkill,
   SidebarModelOption,
 } from "./ai-sidebar-types";
+import { useUiPreferences } from "../application/use-ui-preferences";
+import { translate } from "../../shared/localization.mjs";
 
 export function AiSidebarComposerCard(props: {
   composerText: string;
@@ -50,6 +52,9 @@ export function AiSidebarComposerCard(props: {
     selectedReferenceIds,
     selectedReferenceTabs,
   } = props;
+  const {
+    preferences: { uiLocale },
+  } = useUiPreferences();
   const canSendToBackground =
     hasConnectedLobster && !isThinking && !isModelSwitching && !selectedComposerSkill;
 
@@ -71,7 +76,7 @@ export function AiSidebarComposerCard(props: {
           )}
         >
           <AtSign className="h-3 w-3" />
-          引用
+          {translate(uiLocale, "sidebar.references")}
           {selectedReferenceIds.length > 0 ? (
             <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] text-white/60">
               {selectedReferenceIds.length}
@@ -84,7 +89,7 @@ export function AiSidebarComposerCard(props: {
             onClick={onClearReferences}
             className="text-[10px] text-white/30 hover:text-white/60 transition-colors"
           >
-            清空引用
+            {translate(uiLocale, "sidebar.clearReferences")}
           </button>
         ) : null}
       </div>
@@ -117,8 +122,8 @@ export function AiSidebarComposerCard(props: {
             <button
               onClick={onClearSelectedSkill}
               className="ml-0.5 hover:text-white transition-colors"
-              aria-label="移除技能"
-              title="移除技能"
+              aria-label={translate(uiLocale, "sidebar.removeSkill")}
+              title={translate(uiLocale, "sidebar.removeSkill")}
             >
               <X className="h-2.5 w-2.5" />
             </button>
@@ -129,7 +134,7 @@ export function AiSidebarComposerCard(props: {
       {genTabLauncher}
 
       <textarea
-        placeholder="给 Sabrina 发送消息..."
+        placeholder={translate(uiLocale, "sidebar.sendMessage")}
         value={composerText}
         onChange={(event) => onComposerChange(event.target.value)}
         onKeyDown={handleComposerKeyDown}
@@ -159,7 +164,7 @@ export function AiSidebarComposerCard(props: {
           {isModelSwitching ? (
             <div className="flex items-center gap-1.5 text-[11px] text-white/45">
               <Loader2 className="w-3 h-3 animate-spin" />
-              正在切换模型...
+              {translate(uiLocale, "sidebar.switchingModel")}
             </div>
           ) : null}
         </div>
@@ -169,8 +174,16 @@ export function AiSidebarComposerCard(props: {
             type="button"
             onClick={onSendToOpenClaw}
             disabled={!canSendToBackground}
-            aria-label={selectedComposerSkill ? "已选择技能，请直接发送" : "交给龙虾后台处理"}
-            title={selectedComposerSkill ? "已选择技能，请使用发送按钮" : "交给龙虾后台处理"}
+            aria-label={
+              selectedComposerSkill
+                ? translate(uiLocale, "sidebar.skillSelectedSend")
+                : translate(uiLocale, "sidebar.sendToOpenClaw")
+            }
+            title={
+              selectedComposerSkill
+                ? translate(uiLocale, "sidebar.skillSelectedSend")
+                : translate(uiLocale, "sidebar.sendToOpenClaw")
+            }
             className="surface-button-system inline-flex h-8 w-8 items-center justify-center rounded-lg border text-white/62 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
           >
             <LobsterHandoffIcon className="h-4 w-4" />

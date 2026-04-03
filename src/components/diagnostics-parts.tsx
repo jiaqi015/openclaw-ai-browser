@@ -3,6 +3,7 @@ import {
   formatDiagnosticsAgo,
   formatDiagnosticsDuration,
 } from "../application/use-diagnostics-view-state";
+import { useUiPreferences } from "../application/use-ui-preferences";
 import { cn } from "../lib/utils";
 
 export function DiagnosticsStatusCard(props: {
@@ -31,6 +32,9 @@ export function DiagnosticsFocusRow(props: {
   entry: SabrinaDiagnosticsEntry;
 }) {
   const { entry } = props;
+  const {
+    preferences: { uiLocale },
+  } = useUiPreferences();
   const levelClass =
     entry.level === "error"
       ? "bg-red-500/15 text-red-200"
@@ -50,7 +54,7 @@ export function DiagnosticsFocusRow(props: {
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-white">{entry.message}</div>
           <div className="mt-1 text-xs text-white/45">
-            {entry.scope} · {entry.source} · {formatDiagnosticsAgo(entry.timestamp)}
+            {entry.scope} · {entry.source} · {formatDiagnosticsAgo(entry.timestamp, uiLocale)}
           </div>
           {entry.url ? (
             <div className="mt-2 truncate text-xs text-white/35">{entry.url}</div>
@@ -65,6 +69,10 @@ export function DiagnosticsNetworkRow(props: {
   event: SabrinaNetworkEvent;
 }) {
   const { event } = props;
+  const {
+    preferences: { uiLocale },
+    t,
+  } = useUiPreferences();
   const toneClass =
     event.phase === "failed" || (event.statusCode ?? 0) >= 500
       ? "bg-red-500/15 text-red-200"
@@ -85,8 +93,8 @@ export function DiagnosticsNetworkRow(props: {
           <div className="truncate text-sm font-medium text-white">{event.url}</div>
           <div className="mt-1 text-xs text-white/45">
             {event.method} · {event.resourceType} ·{" "}
-            {event.statusCode ? `HTTP ${event.statusCode}` : event.error || "无状态码"} ·{" "}
-            {formatDiagnosticsAgo(event.timestamp)}
+            {event.statusCode ? `HTTP ${event.statusCode}` : event.error || t("diagnostics.noStatusCode")} ·{" "}
+            {formatDiagnosticsAgo(event.timestamp, uiLocale)}
           </div>
         </div>
       </div>
@@ -98,6 +106,9 @@ export function DiagnosticsLogEntryCard(props: {
   entry: SabrinaDiagnosticsEntry;
 }) {
   const { entry } = props;
+  const {
+    preferences: { uiLocale },
+  } = useUiPreferences();
 
   return (
     <details className="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -120,7 +131,7 @@ export function DiagnosticsLogEntryCard(props: {
               {entry.message}
             </div>
             <div className="mt-1 text-xs text-white/45">
-              {entry.scope} · {entry.source} · {formatDiagnosticsAgo(entry.timestamp)}
+              {entry.scope} · {entry.source} · {formatDiagnosticsAgo(entry.timestamp, uiLocale)}
             </div>
           </div>
         </div>
@@ -150,6 +161,7 @@ export function DiagnosticsSummarySection(props: {
   summary: SabrinaDiagnosticsState["summary"];
 }) {
   const { healthTone, summary } = props;
+  const { t } = useUiPreferences();
 
   return (
     <section className="surface-panel rounded-3xl border p-6">
@@ -166,29 +178,32 @@ export function DiagnosticsSummarySection(props: {
           <p className="mt-3 text-sm text-white/55">{healthTone.description}</p>
         </div>
 
-        <div className="text-sm text-white/40">
-          已运行 {Math.round(summary.uptimeSec / 60)} 分钟
-        </div>
+        <div className="text-sm text-white/40">{t("diagnostics.uptime", { minutes: Math.round(summary.uptimeSec / 60) })}</div>
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-3">
         <DiagnosticsStatusCard
           icon={TriangleAlert}
-          label="浏览器"
+          label={t("diagnostics.browser")}
           value={`${summary.counters.error}`}
-          note={`错误 ${summary.counters.error} · 告警 ${summary.counters.warn}`}
+          note={t("diagnostics.browserNote", {
+            error: summary.counters.error,
+            warn: summary.counters.warn,
+          })}
         />
         <DiagnosticsStatusCard
           icon={Wifi}
-          label="网络"
+          label={t("diagnostics.network")}
           value={`${summary.counters.networkFailures}`}
-          note={`失败请求 ${summary.counters.networkFailures} 次`}
+          note={t("diagnostics.networkNote", { count: summary.counters.networkFailures })}
         />
         <DiagnosticsStatusCard
           icon={Bot}
-          label="AI"
+          label={t("diagnostics.ai")}
           value={`${summary.ai.failure}`}
-          note={`平均耗时 ${formatDiagnosticsDuration(summary.ai.avgDurationMs)}`}
+          note={t("diagnostics.aiNote", {
+            duration: formatDiagnosticsDuration(summary.ai.avgDurationMs),
+          })}
         />
       </div>
     </section>
@@ -202,6 +217,7 @@ export function DiagnosticsLogFilters(props: {
   query: string;
 }) {
   const { levelFilter, onChangeLevelFilter, onChangeQuery, query } = props;
+  const { t } = useUiPreferences();
 
   return (
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -217,7 +233,7 @@ export function DiagnosticsLogFilters(props: {
                 : "border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white",
             )}
           >
-            {level === "all" ? "全部" : level.toUpperCase()}
+            {level === "all" ? t("skills.filter.all") : level.toUpperCase()}
           </button>
         ))}
       </div>
@@ -227,7 +243,7 @@ export function DiagnosticsLogFilters(props: {
         <input
           value={query}
           onChange={(event) => onChangeQuery(event.target.value)}
-          placeholder="搜索日志"
+          placeholder={t("diagnostics.searchLogs")}
           className="h-11 w-full rounded-2xl border border-white/10 bg-white/5 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-white/20 focus:bg-white/8"
         />
       </div>

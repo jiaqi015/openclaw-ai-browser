@@ -250,11 +250,13 @@ Current first step:
 - skill metadata now carries `browserInputMode`
 - normalized catalog/detail objects now also expose a structured `browserCapability` descriptor
 - normalized skill metadata separates `declaredBrowserCapability` from final resolved `browserCapability`
+- catalog summary now reports capability provenance counts and browser capability schema version
 - runtime uses explicit input policy for strict skill execution
 - Sabrina-side registry is treated as an explicit overlay, not as the long-term truth source
 
 Current implementation:
 
+- [OpenClawSkillPayloadService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/openclaw/OpenClawSkillPayloadService.mjs)
 - [BrowserSkillCapabilityService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/openclaw/BrowserSkillCapabilityService.mjs)
 - [BrowserSkillInputPolicyService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/openclaw/BrowserSkillInputPolicyService.mjs)
 - [SkillCatalogService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/openclaw/SkillCatalogService.mjs)
@@ -323,9 +325,13 @@ Current implementation now also includes:
 
 - short-lived extraction cache in [PageContextService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/browser/PageContextService.mjs)
 - Browser Context Package execution source descriptors and execution summary in [BrowserContextPackageService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/browser/BrowserContextPackageService.mjs)
-- thin turn-layer planning and receipt normalization in [TurnEngine.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/turns/TurnEngine.mjs), [TurnPlanner.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/turns/TurnPlanner.mjs), and [TurnReceiptService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/turns/TurnReceiptService.mjs), including preflight `blocked` turns for incompatible strict skill routes
+- Browser Context Package now also carries execution-grade facts such as `executionReliability`, `reachabilityConfidence`, `requiresBrowserSession`, `requiresFilesystemAccess`, and `reproducibilityGuarantee`
+- thin turn-layer planning and receipt normalization in [TurnEngine.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/turns/TurnEngine.mjs), [TurnPlanner.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/turns/TurnPlanner.mjs), and [TurnReceiptService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/turns/TurnReceiptService.mjs), including explicit `executionContract` planning and preflight `blocked` turns for incompatible strict skill routes
+- separate turn journaling in [TurnJournalService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/turns/TurnJournalService.mjs) and [TurnJournalStore.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/turns/TurnJournalStore.mjs), so Sabrina keeps its own durable turn evidence without collapsing it into thread messages
+- turn journal is now queryable through the OpenClaw runtime boundary and included in doctor diagnostics
 - GenTab artifact generation routed through the same turn boundary in [GenTabIpcActionService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/host/electron/GenTabIpcActionService.mjs)
 - host-level smoke coverage in [ThreadIpcActionService.test.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/host/electron/ThreadIpcActionService.test.mjs) and [GenTabIpcActionService.test.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/host/electron/GenTabIpcActionService.test.mjs)
+- thread-to-turn-to-host P0 smoke in [ThreadTurnSmoke.test.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/host/electron/ThreadTurnSmoke.test.mjs)
 - implementation-facing turn design in [TURN_ENGINE_DESIGN.md](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/docs/TURN_ENGINE_DESIGN.md)
 
 ## Plugin Boundary
@@ -351,6 +357,7 @@ Current local bridge baseline:
 - Sabrina desktop now writes a loopback discovery file at `~/.sabrina/connector.json`
 - Electron host exposes a narrow HTTP bridge for `health / status / connect / disconnect / doctor`
 - the OpenClaw plugin package consumes that bridge through `openclaw sabrina ...` CLI commands
+- connector manifest now explicitly advertises browser capability, browser memory, and remote session contract schema versions
 
 Current implementation:
 
@@ -359,15 +366,42 @@ Current implementation:
 - [packages/openclaw-plugin-sabrina/src/index.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/packages/openclaw-plugin-sabrina/src/index.mjs)
 - [packages/openclaw-plugin-sabrina/src/bridge-client.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/packages/openclaw-plugin-sabrina/src/bridge-client.mjs)
 
+## Remote Control Planes
+
+Remote OpenClaw support must not be modeled as "local bridge, but farther away".
+It should be modeled as a remote control-plane driver.
+
+That means:
+
+- product can still stay single-active: Sabrina talks to one OpenClaw at a time
+- protocol should carry `transport` and `driver`
+- SSH is only the first implemented remote driver, not the definition of remote
+- future remote drivers such as relay pairing should plug into the same control-plane boundary
+- browser/runtime UI should stay generic even when the current driver is `ssh-cli`
+
+Current implementation baseline:
+
+- remote connection config now carries a `driver` alongside optional SSH-specific fields
+- runtime transport probing fails fast for unsupported remote drivers instead of pretending every remote target is SSH-capable
+- plugin CLI exposes `--driver`, while `ssh-target` remains a driver-specific option for the current `ssh-cli` path
+
+Current implementation:
+
+- [OpenClawTransportContext.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/openclaw/OpenClawTransportContext.mjs)
+- [OpenClawClient.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/openclaw/OpenClawClient.mjs)
+- [OpenClawRuntimeService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/openclaw/OpenClawRuntimeService.mjs)
+- [packages/openclaw-plugin-sabrina/src/index.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/packages/openclaw-plugin-sabrina/src/index.mjs)
+
 ## Current Gaps
 
 The repo is now materially better, but not "done". The biggest remaining architecture work is:
 
 1. Add a real connect-code UX for the local fallback and future remote pairing path.
-2. Decide whether Sabrina should keep a local browser-skill registry long-term or switch entirely to OpenClaw-provided explicit metadata.
+2. Continue pushing browser capability truth into explicit OpenClaw metadata so Sabrina overlay rules can shrink over time.
 3. Expand host-level smoke from current service-boundary checks into a fuller desktop/Electron P0 flow when CI ergonomics allow.
-4. Decide whether Sabrina should support richer local file capability metadata beyond the current safe absolute-path handoff.
-5. Decide how strict plugin trust should be when `plugins.allow` is empty and local linked plugins can auto-load.
+4. Expand Browser Context Package execution facts from route safety into richer execution facts such as reachability confidence and reproducibility guarantees.
+5. Add a second remote driver before productizing remote broadly, so "remote" is proven not to be SSH-shaped by accident.
+6. Decide how strict plugin trust should be when `plugins.allow` is empty and local linked plugins can auto-load.
 
 ## Architectural Rule Of Thumb
 

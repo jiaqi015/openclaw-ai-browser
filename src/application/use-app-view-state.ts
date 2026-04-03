@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { translate, type UiLocale } from "../../shared/localization.mjs";
 import type {
   SidebarComposerSkill,
   SidebarMessage,
@@ -27,6 +28,7 @@ export function useAppViewState(params: {
   skillCatalog: SabrinaOpenClawSkillCatalog | null;
   surfaceMode: string;
   toggleBookmark: () => void;
+  uiLocale: UiLocale;
 }) {
   const {
     activeMessages,
@@ -49,6 +51,7 @@ export function useAppViewState(params: {
     skillCatalog,
     surfaceMode,
     toggleBookmark,
+    uiLocale,
   } = params;
   const lobsterStatus: "connected" | "disconnected" =
     connectionState?.status === "connected" || binding?.status === "active"
@@ -67,7 +70,13 @@ export function useAppViewState(params: {
 
   const models = useMemo<SidebarModelOption[]>(() => {
     if (!hasConnectedLobster) {
-      return [{ id: "__no-model__", label: "暂无模型", desc: "请先连接龙虾" }];
+      return [
+        {
+          id: "__no-model__",
+          label: translate(uiLocale, "models.none"),
+          desc: translate(uiLocale, "models.connectFirst"),
+        },
+      ];
     }
 
     const normalized = modelOptions.map((model) => ({
@@ -77,12 +86,22 @@ export function useAppViewState(params: {
     }));
 
     if (normalized.length === 0) {
-      return [{ id: "__no-model__", label: "同步模型中", desc: "正在读取龙虾可用模型" }];
+      return [
+        {
+          id: "__no-model__",
+          label: translate(uiLocale, "models.syncing"),
+          desc: translate(uiLocale, "models.loadingAvailable"),
+        },
+      ];
     }
 
     if (!selectedModel) {
       return [
-        { id: "__no-model__", label: "同步模型中", desc: "正在等待龙虾确认当前模型" },
+        {
+          id: "__no-model__",
+          label: translate(uiLocale, "models.syncing"),
+          desc: translate(uiLocale, "models.waitingCurrent"),
+        },
         ...normalized,
       ];
     }
@@ -92,10 +111,14 @@ export function useAppViewState(params: {
     }
 
     return [
-      { id: selectedModel, label: selectedModel, desc: "当前已选模型" },
+      {
+        id: selectedModel,
+        label: selectedModel,
+        desc: translate(uiLocale, "models.currentlySelected"),
+      },
       ...normalized,
     ];
-  }, [hasConnectedLobster, modelOptions, selectedModel]);
+  }, [hasConnectedLobster, modelOptions, selectedModel, uiLocale]);
 
   const visibleMessages = useMemo<SidebarMessage[]>(
     () => activeMessages.filter((message) => message.role !== "system"),

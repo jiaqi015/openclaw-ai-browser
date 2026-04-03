@@ -77,6 +77,7 @@ export class OpenClawConfig {
 }
 
 let cachedConfig = null;
+let cachedConfigPath = "";
 let lastReadAt = 0;
 const CACHE_TTL = 5000;
 
@@ -88,13 +89,18 @@ export function resolveOpenClawStateDir() {
   return resolveOpenClawStateDirFromContext(getOpenClawTransportContext());
 }
 
-export async function getOpenClawConfig(forceRefresh = false) {
+export async function getOpenClawConfig(forceRefresh = false, context = getOpenClawTransportContext()) {
   const now = Date.now();
-  if (!forceRefresh && cachedConfig && now - lastReadAt < CACHE_TTL) {
+  const configPath = resolveOpenClawConfigPathFromContext(context);
+  if (
+    !forceRefresh &&
+    cachedConfig &&
+    cachedConfigPath === configPath &&
+    now - lastReadAt < CACHE_TTL
+  ) {
     return cachedConfig;
   }
 
-  const configPath = resolveOpenClawConfigPath();
   let raw = null;
   try {
     const content = await fs.readFile(configPath, "utf8");
@@ -104,13 +110,25 @@ export async function getOpenClawConfig(forceRefresh = false) {
   }
 
   cachedConfig = new OpenClawConfig(raw);
+  cachedConfigPath = configPath;
   lastReadAt = now;
   return cachedConfig;
 }
 
-export async function invalidateConfigCache() {
-  cachedConfig = null;
-  lastReadAt = 0;
+export async function invalidateConfigCache(context = null) {
+  if (!context) {
+    cachedConfig = null;
+    cachedConfigPath = "";
+    lastReadAt = 0;
+    return;
+  }
+
+  const targetPath = resolveOpenClawConfigPathFromContext(context);
+  if (cachedConfigPath === targetPath) {
+    cachedConfig = null;
+    cachedConfigPath = "";
+    lastReadAt = 0;
+  }
 }
 
 export async function writeOpenClawConfig(config) {

@@ -3,14 +3,18 @@ import path from "node:path";
 import {
   normalizeOpenClawProfile,
   normalizeOpenClawStateDir,
+  normalizeSabrinaConnectCode,
+  normalizeSabrinaRelayUrl,
+  normalizeSabrinaRemoteDriver,
   normalizeSabrinaTransport,
 } from "../../packages/sabrina-protocol/index.mjs";
 
 function normalizeOpenClawDriver(value, transportHint = "local") {
-  const normalized = `${value ?? ""}`.trim();
-  if (normalized === "ssh-cli") {
-    return "ssh-cli";
+  const normalizedRemoteDriver = normalizeSabrinaRemoteDriver(value);
+  if (normalizedRemoteDriver) {
+    return normalizedRemoteDriver;
   }
+  const normalized = `${value ?? ""}`.trim();
   if (normalized === "local-cli") {
     return "local-cli";
   }
@@ -35,6 +39,14 @@ function normalizeOpenClawLabel(value) {
   return normalized || null;
 }
 
+function normalizeRelayUrl(value) {
+  return normalizeSabrinaRelayUrl(value);
+}
+
+function normalizeConnectCode(value) {
+  return normalizeSabrinaConnectCode(value);
+}
+
 function normalizeOpenClawAgentId(value) {
   const normalized = `${value ?? ""}`.trim();
   return normalized || null;
@@ -47,6 +59,8 @@ let transportContext = Object.freeze({
   stateDir: normalizeOpenClawStateDir(process.env.OPENCLAW_STATE_DIR),
   sshTarget: null,
   sshPort: null,
+  relayUrl: null,
+  connectCode: null,
   label: null,
   agentId: null,
 });
@@ -64,6 +78,8 @@ export function setOpenClawTransportContext(nextContext = {}) {
     stateDir: normalizeOpenClawStateDir(nextContext.stateDir ?? transportContext.stateDir),
     sshTarget: normalizeSshTarget(nextContext.sshTarget ?? transportContext.sshTarget),
     sshPort: normalizeSshPort(nextContext.sshPort ?? transportContext.sshPort),
+    relayUrl: normalizeRelayUrl(nextContext.relayUrl ?? transportContext.relayUrl),
+    connectCode: normalizeConnectCode(nextContext.connectCode ?? transportContext.connectCode),
     label: normalizeOpenClawLabel(nextContext.label ?? transportContext.label),
     agentId: normalizeOpenClawAgentId(nextContext.agentId ?? transportContext.agentId),
   });
@@ -81,7 +97,7 @@ export function resolveOpenClawStateDirFromContext(context = transportContext) {
     return normalizedEnvStateDir;
   }
 
-  if (normalizeOpenClawDriver(context?.driver, context?.transport) === "ssh-cli") {
+  if (isOpenClawRemoteTransportContext(context)) {
     const normalizedProfile = normalizeOpenClawProfile(
       context?.profile ?? process.env.OPENCLAW_PROFILE,
     );
@@ -122,7 +138,7 @@ export function buildOpenClawExecOptions(options = {}, context = transportContex
 
   if (
     normalizedStateDir &&
-    normalizeOpenClawDriver(context?.driver, context?.transport) !== "ssh-cli"
+    !isOpenClawRemoteTransportContext(context)
   ) {
     env.OPENCLAW_STATE_DIR = normalizedStateDir;
   }
@@ -144,6 +160,11 @@ export function getOpenClawTransportLabel(context = transportContext) {
     return sshTarget;
   }
 
+  const relayUrl = normalizeRelayUrl(context?.relayUrl);
+  if (relayUrl) {
+    return relayUrl;
+  }
+
   const normalizedProfile = normalizeOpenClawProfile(context?.profile);
   if (normalizedProfile) {
     return `profile:${normalizedProfile}`;
@@ -153,6 +174,26 @@ export function getOpenClawTransportLabel(context = transportContext) {
   return path.basename(resolvedStateDir) || resolvedStateDir;
 }
 
+export function getOpenClawRemoteDriver(context = transportContext) {
+  const driver = normalizeOpenClawDriver(context?.driver, context?.transport);
+  return driver === "local-cli" ? null : driver;
+}
+
+export function getOpenClawRemoteTargetRef(context = transportContext) {
+  const driver = getOpenClawRemoteDriver(context);
+  if (driver === "ssh-cli") {
+    return normalizeSshTarget(context?.sshTarget);
+  }
+  if (driver === "relay-paired") {
+    return normalizeRelayUrl(context?.relayUrl);
+  }
+  return null;
+}
+
+export function isOpenClawRemoteTransportContext(context = transportContext) {
+  return Boolean(getOpenClawRemoteDriver(context));
+}
+
 export function isOpenClawSshTransportContext(context = transportContext) {
-  return normalizeOpenClawDriver(context?.driver, context?.transport) === "ssh-cli";
+  return getOpenClawRemoteDriver(context) === "ssh-cli";
 }

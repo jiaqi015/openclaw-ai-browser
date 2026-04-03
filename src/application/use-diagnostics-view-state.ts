@@ -1,27 +1,8 @@
 import { useMemo, useState } from "react";
+import { formatRelativeTimeAgo, translate, type UiLocale } from "../../shared/localization.mjs";
 
-export function formatDiagnosticsAgo(timestamp: string) {
-  const deltaMs = Date.now() - new Date(timestamp).getTime();
-  if (!Number.isFinite(deltaMs)) {
-    return "刚刚";
-  }
-
-  const seconds = Math.max(0, Math.round(deltaMs / 1000));
-  if (seconds < 60) {
-    return `${seconds}s 前`;
-  }
-
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) {
-    return `${minutes}m 前`;
-  }
-
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) {
-    return `${hours}h 前`;
-  }
-
-  return `${Math.round(hours / 24)}d 前`;
+export function formatDiagnosticsAgo(timestamp: string, locale: UiLocale) {
+  return formatRelativeTimeAgo(timestamp, locale);
 }
 
 export function formatDiagnosticsDuration(durationMs: number | null | undefined) {
@@ -61,31 +42,34 @@ export function getDiagnosticsHealthTone(props: {
   warnCount: number;
   networkFailures: number;
   aiFailures: number;
-}) {
+}, locale: UiLocale) {
   if (props.errorCount > 0 || props.networkFailures > 0 || props.aiFailures > 0) {
     return {
-      title: "有异常",
-      description: "先看下面“最近问题”里的前几条。",
+      title: translate(locale, "diagnostics.health.error.title"),
+      description: translate(locale, "diagnostics.health.error.description"),
       badgeClass: "bg-red-500/15 text-red-200 border-red-400/20",
     };
   }
 
   if (props.warnCount > 0) {
     return {
-      title: "需要关注",
-      description: "没有明显错误，但有一些告警。",
+      title: translate(locale, "diagnostics.health.warn.title"),
+      description: translate(locale, "diagnostics.health.warn.description"),
       badgeClass: "bg-amber-500/15 text-amber-200 border-amber-400/20",
     };
   }
 
   return {
-    title: "运行正常",
-    description: "目前没有发现明显异常。",
+    title: translate(locale, "diagnostics.health.ok.title"),
+    description: translate(locale, "diagnostics.health.ok.description"),
     badgeClass: "bg-emerald-500/15 text-emerald-200 border-emerald-400/20",
   };
 }
 
-export function useDiagnosticsViewState(state: SabrinaDiagnosticsState | null) {
+export function useDiagnosticsViewState(
+  state: SabrinaDiagnosticsState | null,
+  locale: UiLocale,
+) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [levelFilter, setLevelFilter] = useState<"all" | "error" | "warn" | "info">("all");
   const [query, setQuery] = useState("");
@@ -139,7 +123,7 @@ export function useDiagnosticsViewState(state: SabrinaDiagnosticsState | null) {
         warnCount: summary.counters.warn,
         networkFailures: summary.counters.networkFailures,
         aiFailures: summary.counters.aiFailures,
-      })
+      }, locale)
     : null;
 
   return {

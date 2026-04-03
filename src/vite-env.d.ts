@@ -216,12 +216,19 @@ declare global {
 
   interface SabrinaOpenClawSkillCatalog {
     summary: {
+      browserCapabilitySchemaVersion: string;
       total: number;
       eligible: number;
       ready: number;
       disabled: number;
       blockedByAllowlist: number;
       missingRequirements: number;
+      capabilitySourceCounts: {
+        declared: number;
+        overlay: number;
+        heuristic: number;
+        metadata: number;
+      };
     };
     skills: SabrinaOpenClawSkillEntry[];
   }
@@ -259,8 +266,15 @@ declare global {
   interface SabrinaOpenClawConnectionConfig {
     enabled: boolean;
     transport: "local" | "remote";
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
     profile: string | null;
     stateDir: string | null;
+    sshTarget?: string | null;
+    sshPort?: number | null;
+    relayUrl?: string | null;
+    connectCode?: string | null;
+    label?: string | null;
+    agentId?: string | null;
   }
 
   interface SabrinaOpenClawConnectionState {
@@ -276,6 +290,18 @@ declare global {
     doctorHint: string;
     transportLabel: string;
     capabilities: string[];
+    remoteSessionContract: {
+      contractVersion: string;
+      transport: "local" | "remote";
+      driver: string | null;
+      profile: string | null;
+      stateDir: string | null;
+      sshTarget: string | null;
+      sshPort: number | null;
+      relayUrl: string | null;
+      agentId: string | null;
+      features: string[];
+    };
     lastCheckedAt: string | null;
     lastConnectedAt: string | null;
   }
@@ -417,6 +443,7 @@ declare global {
   }
 
   interface SabrinaBrowserMemoryRecord {
+    schemaVersion: string;
     id: string;
     kind: string;
     url: string;
@@ -429,6 +456,32 @@ declare global {
     capturedAt: string;
     updatedAt: string;
     metadata: Record<string, unknown>;
+  }
+
+  interface SabrinaTurnJournalEntry {
+    journalId: string;
+    turnId: string;
+    createdAt: string;
+    threadId: string;
+    userText: string;
+    turnType: string;
+    strategy: string;
+    policyDecision: string;
+    summary: string;
+    browserContext: Record<string, unknown> | null;
+    skill: Record<string, unknown> | null;
+    inputPolicy: Record<string, unknown> | null;
+    executionContract: Record<string, unknown> | null;
+    receipt: {
+      status?: string;
+      summary?: string;
+      userVisibleMessage?: string;
+      trace?: Record<string, unknown> | null;
+      evidence?: Record<string, unknown> | null;
+    } | null;
+    response: Record<string, unknown> | null;
+    errorMessage: string;
+    contextPackageSummary: Record<string, unknown> | null;
   }
 
   interface SabrinaDiagnosticsEntry {
@@ -595,6 +648,7 @@ declare global {
         width: number;
         height: number;
       }>;
+      setUiLocale: (locale: "zh-CN" | "en-US") => Promise<"zh-CN" | "en-US">;
       showBrowserMenu: (position: {
         x: number;
         y: number;
@@ -627,6 +681,8 @@ declare global {
             skillMode?: "strict" | "assist";
             sessionId?: string;
             tabId?: string;
+            uiLocale?: "zh-CN" | "en-US";
+            assistantLocaleMode?: "follow-ui" | "zh-CN" | "en-US";
           };
         }) => Promise<SabrinaThreadTurnResult>;
         runOpenClawTaskTurn: (payload: {
@@ -639,6 +695,8 @@ declare global {
             prompt?: string;
             sessionId?: string;
             thinking?: string;
+            uiLocale?: "zh-CN" | "en-US";
+            assistantLocaleMode?: "follow-ui" | "zh-CN" | "en-US";
           };
         }) => Promise<SabrinaThreadTurnResult>;
         selectThread: (payload: {
@@ -680,14 +738,37 @@ declare global {
           target?: "local" | "remote";
           profile?: string;
           stateDir?: string;
+          driver?: "local-cli" | "ssh-cli" | "relay-paired";
+          sshTarget?: string;
+          sshPort?: number;
+          relayUrl?: string;
+          connectCode?: string;
+          label?: string;
+          agentId?: string;
         }) => Promise<SabrinaOpenClawState>;
         disconnect: (params?: {
           target?: "local" | "remote";
           profile?: string;
           stateDir?: string;
+          driver?: "local-cli" | "ssh-cli" | "relay-paired";
+          sshTarget?: string;
+          sshPort?: number;
+          relayUrl?: string;
+          connectCode?: string;
+          label?: string;
+          agentId?: string;
         }) => Promise<SabrinaOpenClawState>;
         doctor: (params?: {
           target?: "local" | "remote";
+          driver?: "local-cli" | "ssh-cli" | "relay-paired";
+          profile?: string;
+          stateDir?: string;
+          sshTarget?: string;
+          sshPort?: number;
+          relayUrl?: string;
+          connectCode?: string;
+          label?: string;
+          agentId?: string;
         }) => Promise<SabrinaOpenClawDoctorReport>;
         setBindingTarget: (target: "local" | "remote") => Promise<SabrinaOpenClawState>;
         getLocalBinding: () => Promise<SabrinaOpenClawBinding>;
@@ -746,6 +827,40 @@ declare global {
             latestCapturedAt: string | null;
           };
         }>;
+        getTurnJournal: (payload?: {
+          limit?: number;
+          threadId?: string;
+          status?: string;
+        }) => Promise<{
+          ok: boolean;
+          entries: SabrinaTurnJournalEntry[];
+          stats: {
+            path: string;
+            count: number;
+            latestCreatedAt: string | null;
+            latestThreadId: string | null;
+            latestTurnId: string | null;
+            latestStatus: string | null;
+            statusCounts: Record<string, number>;
+          };
+        }>;
+        searchTurnJournal: (payload: {
+          query?: string;
+          limit?: number;
+        }) => Promise<{
+          ok: boolean;
+          query: string;
+          entries: SabrinaTurnJournalEntry[];
+          stats: {
+            path: string;
+            count: number;
+            latestCreatedAt: string | null;
+            latestThreadId: string | null;
+            latestTurnId: string | null;
+            latestStatus: string | null;
+            statusCounts: Record<string, number>;
+          };
+        }>;
         runLocalAgent: (params: {
           agentId?: string;
           message: string;
@@ -777,6 +892,8 @@ declare global {
           referenceTabIds: string[];
           userIntent: string;
           preferredType?: "auto" | "table" | "list" | "timeline" | "comparison" | "card-grid";
+          uiLocale?: "zh-CN" | "en-US";
+          assistantLocaleMode?: "follow-ui" | "zh-CN" | "en-US";
         }) => Promise<GenTabGenerateResult>;
         closeGenTab: (genId: string) => Promise<{ success: boolean }>;
         markGenerationCompleted: (genId: string) => void;

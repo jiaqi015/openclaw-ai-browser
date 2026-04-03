@@ -15,6 +15,7 @@ type AppMainSurfaceProps = {
   lobsterStatus: "connected" | "disconnected";
   lobsterLabel: string;
   binding: SabrinaOpenClawBinding | null;
+  connectionConfig: SabrinaOpenClawConnectionConfig;
   connectionState: SabrinaOpenClawConnectionState | null;
   bindingSetupState: SabrinaOpenClawBindingSetupState;
   gatewayStatus?: SabrinaOpenClawGatewayStatus | null;
@@ -29,7 +30,31 @@ type AppMainSurfaceProps = {
   onTogglePinnedSkill: (skillName: string) => void;
   onToggleHiddenSkill: (skillName: string) => void;
   onBeginBindingSetup: (target: "local" | "remote") => void;
+  onConnectOpenClaw: (params?: {
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+  }) => void;
   onDisconnectOpenClaw: (target?: "local" | "remote") => void;
+  onDoctorOpenClaw: (params?: {
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+  }) => void;
   onCloseGenTab: (genTabId: string) => void;
   onApprovePairingRequest: (
     request: SabrinaOpenClawPairingStatus["requests"][number],
@@ -73,6 +98,7 @@ export function AppMainSurface(props: AppMainSurfaceProps) {
       lobsterStatus={props.lobsterStatus}
       lobsterLabel={props.lobsterLabel}
       binding={props.binding}
+      connectionConfig={props.connectionConfig}
       connectionState={props.connectionState}
       bindingSetupState={props.bindingSetupState}
       gatewayStatus={props.gatewayStatus}
@@ -82,7 +108,9 @@ export function AppMainSurface(props: AppMainSurfaceProps) {
       approvingPairingRequestId={props.approvingPairingRequestId}
       isApprovingLatestDevice={props.isApprovingLatestDevice}
       onBeginBindingSetup={props.onBeginBindingSetup}
+      onConnectOpenClaw={props.onConnectOpenClaw}
       onDisconnectOpenClaw={props.onDisconnectOpenClaw}
+      onDoctorOpenClaw={props.onDoctorOpenClaw}
       onCloseGenTab={props.onCloseGenTab}
       onApprovePairingRequest={props.onApprovePairingRequest}
       onApproveLatestDeviceRequest={props.onApproveLatestDeviceRequest}

@@ -4,6 +4,7 @@ import {
   normalizePageKey,
   shouldReuseThreadOnNavigation,
 } from "./ThreadMetadata.mjs";
+import { getCurrentUiLocale, translate } from "../../shared/localization.mjs";
 
 export { normalizePageKey } from "./ThreadMetadata.mjs";
 
@@ -16,14 +17,17 @@ function createMessageId() {
 }
 
 function createWelcomeMessage(tab) {
+  const locale = getCurrentUiLocale();
+  const title = tab?.title || translate(locale, "common.newTab");
+
   return {
     messageId: createMessageId(),
     role: "system",
     text: [
-      "### Sabrina 已接入真实网页",
-      `- 当前标签页：**${tab?.title || "新标签页"}**`,
-      "- 右侧可以直接总结网页、提取要点，或者基于当前页面继续追问。",
-      "- 如果你先在网页里划词，AI 会优先使用选中的文本作为上下文。",
+      translate(locale, "thread.welcomeTitle"),
+      translate(locale, "thread.welcomeCurrentTab", { title }),
+      translate(locale, "thread.welcomeSummary"),
+      translate(locale, "thread.welcomeSelection"),
     ].join("\n"),
   };
 }
@@ -33,7 +37,11 @@ function createIsoTimestamp(input = Date.now()) {
 }
 
 function getFallbackThreadTitle(tab) {
-  return tab?.title || getThreadSiteLabel(tab?.url) || "当前页面";
+  return (
+    tab?.title ||
+    getThreadSiteLabel(tab?.url) ||
+    translate(getCurrentUiLocale(), "common.currentPage")
+  );
 }
 
 function touchThreadOrder(order, threadId) {

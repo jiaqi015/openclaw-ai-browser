@@ -1,4 +1,5 @@
 import type { SearchEngine } from "./use-ui-preferences";
+import { getSurfaceTitle, translate, type UiLocale } from "../../shared/localization.mjs";
 
 export type PendingNavigation = {
   title: string;
@@ -31,16 +32,28 @@ export type BrowserMenuCommand =
   | "settings"
   | "download-latest";
 
-export const tabSurfaceMeta: Record<TabSurface, { title: string; url: string; icon: SystemEntryIconName }> = {
-  newtab: { title: "新标签页", url: "internal://newtab", icon: "newtab" },
-  history: { title: "历史浏览", url: "internal://history", icon: "history" },
-  bookmarks: { title: "书签", url: "internal://bookmarks", icon: "bookmarks" },
-  downloads: { title: "下载内容", url: "internal://downloads", icon: "downloads" },
-  diagnostics: { title: "诊断中心", url: "internal://diagnostics", icon: "diagnostics" },
-  "general-settings": { title: "设置", url: "internal://general-settings", icon: "general-settings" },
-  settings: { title: "龙虾连接", url: "internal://settings", icon: "settings" },
-  skills: { title: "技能馆", url: "internal://skills", icon: "skills" },
-};
+export function getTabSurfaceMeta(
+  locale: UiLocale,
+): Record<TabSurface, { title: string; url: string; icon: SystemEntryIconName }> {
+  return {
+    newtab: { title: getSurfaceTitle("newtab", locale), url: "internal://newtab", icon: "newtab" },
+    history: { title: getSurfaceTitle("history", locale), url: "internal://history", icon: "history" },
+    bookmarks: { title: getSurfaceTitle("bookmarks", locale), url: "internal://bookmarks", icon: "bookmarks" },
+    downloads: { title: getSurfaceTitle("downloads", locale), url: "internal://downloads", icon: "downloads" },
+    diagnostics: { title: getSurfaceTitle("diagnostics", locale), url: "internal://diagnostics", icon: "diagnostics" },
+    "general-settings": {
+      title: getSurfaceTitle("general-settings", locale),
+      url: "internal://general-settings",
+      icon: "general-settings",
+    },
+    settings: { title: getSurfaceTitle("settings", locale), url: "internal://settings", icon: "settings" },
+    skills: { title: getSurfaceTitle("skills", locale), url: "internal://skills", icon: "skills" },
+  };
+}
+
+export function getPendingNavigationTitle(locale: UiLocale) {
+  return translate(locale, "common.loading");
+}
 
 const strongChatPrefixes = [
   /^@?(龙虾|sabrina)(?:[\s,:，：-]|$)/iu,

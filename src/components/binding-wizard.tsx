@@ -1,3 +1,4 @@
+import { useUiPreferences } from "../application/use-ui-preferences";
 import {
   BindingNextStepPanel,
   BindingRemoteStatusPanel,
@@ -10,6 +11,7 @@ import type { BindingWizardProps } from "./binding-wizard-types";
 export function BindingWizard(props: BindingWizardProps) {
   const { state } = props;
   const showLocalRuntimeStatus = state.target !== "remote";
+  const { t } = useUiPreferences();
 
   return (
     <section className="surface-panel flex flex-col gap-6 rounded-[28px] border p-6">
@@ -24,7 +26,7 @@ export function BindingWizard(props: BindingWizardProps) {
                   : "h-1.5 w-1.5 rounded-full bg-white/35"
             }
           />
-          连接
+          {t("binding.badge")}
         </div>
         <div className="space-y-1">
           <h2 className="text-2xl leading-tight font-semibold tracking-[-0.03em]">{state.title}</h2>
@@ -52,7 +54,12 @@ export function BindingWizard(props: BindingWizardProps) {
             lastError={props.lastError}
           />
         ) : (
-          <BindingRemoteStatusPanel />
+          <BindingRemoteStatusPanel
+            connectionConfig={props.connectionConfig}
+            connectionState={props.connectionState}
+            onConnectRemote={props.onConnectRemote}
+            onDoctorRemote={props.onDoctorRemote}
+          />
         )}
 
         <div className="xl:col-span-2">

@@ -1,13 +1,19 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import {
-  buildOpenClawExecArgs,
-  buildOpenClawExecOptions,
   getOpenClawTransportContext,
-  isOpenClawSshTransportContext,
+  getOpenClawRemoteTargetRef,
+  isOpenClawRemoteTransportContext,
 } from "./OpenClawTransportContext.mjs";
+import {
+  buildOpenClawDriverInvocation,
+  getOpenClawDriverId,
+  probeOpenClawDriverTransport,
+} from "./drivers/OpenClawDriverRegistry.mjs";
 
 const execFileAsync = promisify(execFile);
+const transportProbeCache = new Map();
+const TRANSPORT_PROBE_TTL_MS = 10_000;
 
 function parseCliJson(stdout) {
   const raw = `${stdout ?? ""}`;
@@ -44,69 +50,15 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function shellEscape(value) {
-  return `'${`${value ?? ""}`.replace(/'/g, `'\\''`)}'`;
-}
-
-function buildSshRemoteCommand(args, context) {
-  const commandArgs = buildOpenClawExecArgs(args, context);
-  const commandParts = [];
-  if (context?.stateDir) {
-    commandParts.push(`OPENCLAW_STATE_DIR=${shellEscape(context.stateDir)}`);
+function getTransportProbeCacheKey(context) {
+  if (!isOpenClawRemoteTransportContext(context)) {
+    return "local-cli";
   }
-  commandParts.push("openclaw");
-  for (const entry of commandArgs) {
-    commandParts.push(shellEscape(entry));
-  }
-  return commandParts.join(" ");
-}
-
-function buildSshInvocation(args, options, context) {
-  const sshArgs = [
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "ConnectTimeout=8",
-  ];
-
-  if (Number.isFinite(context?.sshPort) && Number(context.sshPort) > 0) {
-    sshArgs.push("-p", `${Math.trunc(Number(context.sshPort))}`);
-  }
-
-  if (!context?.sshTarget) {
-    throw new Error("远程 OpenClaw 缺少 SSH 目标。");
-  }
-
-  sshArgs.push(context.sshTarget, buildSshRemoteCommand(args, context));
-
-  return {
-    command: "ssh",
-    args: sshArgs,
-    options: {
-      ...options,
-      env: {
-        ...process.env,
-        ...(options?.env ?? {}),
-      },
-    },
-  };
+  return `${getOpenClawDriverId(context)}:${getOpenClawRemoteTargetRef(context) ?? ""}:${context?.sshPort ?? ""}:${context?.connectCode ?? ""}:${context?.label ?? ""}`;
 }
 
 function buildOpenClawInvocation(args, options = {}, context = getOpenClawTransportContext()) {
-  if (isOpenClawSshTransportContext(context)) {
-    return buildSshInvocation(args, options, context);
-  }
-
-  return {
-    command: "openclaw",
-    args: buildOpenClawExecArgs(args, context),
-    options: buildOpenClawExecOptions(
-      {
-        ...options,
-      },
-      context,
-    ),
-  };
+  return buildOpenClawDriverInvocation(args, options, context);
 }
 
 export async function execOpenClawJson(args, options = {}) {
@@ -162,6 +114,32 @@ export async function execOpenClawCommand(args, options = {}) {
     context,
   );
   return execFileAsync(invocation.command, invocation.args, invocation.options);
+}
+
+export async function probeOpenClawTransport(options = {}) {
+  const context = options?.context ?? getOpenClawTransportContext();
+  if (!isOpenClawRemoteTransportContext(context)) {
+    return {
+      ok: true,
+      detail: "",
+    };
+  }
+
+  const cacheKey = getTransportProbeCacheKey(context);
+  const now = Date.now();
+  const cached = transportProbeCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return cached.result;
+  }
+
+  let result = null;
+  result = await probeOpenClawDriverTransport(options, context);
+
+  transportProbeCache.set(cacheKey, {
+    expiresAt: now + TRANSPORT_PROBE_TTL_MS,
+    result,
+  });
+  return result;
 }
 
 export async function execGatewayMethodJson(method, params = {}, options = {}) {

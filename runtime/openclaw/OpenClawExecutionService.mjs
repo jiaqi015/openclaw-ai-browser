@@ -162,6 +162,7 @@ export async function runLocalSkillTurn(params, deps) {
     skill,
     inputPlan,
     requestId,
+    assistantLocale: params?.assistantLocale,
   });
 
   const response = await runLocalAgentTurn(

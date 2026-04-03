@@ -1,3 +1,9 @@
+import {
+  formatThreadTimestampLabel as formatLocalizedThreadTimestampLabel,
+  getCurrentUiLocale,
+  translate,
+} from "../../shared/localization.mjs";
+
 export function normalizePageKey(url) {
   const raw = `${url ?? ""}`.trim();
   if (!raw || raw === "about:blank" || raw.startsWith("internal://")) {
@@ -23,7 +29,7 @@ export function getUrlHostLabel(url) {
 
 export function getThreadSiteLabel(url) {
   const host = getUrlHostLabel(url);
-  return host || "当前页面";
+  return host || translate(getCurrentUiLocale(), "common.currentPage");
 }
 
 export function shouldReuseThreadOnNavigation(previousUrl, nextUrl) {
@@ -36,17 +42,6 @@ export function shouldReuseThreadOnNavigation(previousUrl, nextUrl) {
   }
 }
 
-export function formatThreadTimestampLabel(input) {
-  const date = new Date(input);
-  if (Number.isNaN(date.getTime())) {
-    return "刚刚";
-  }
-
-  return date.toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+export function formatThreadTimestampLabel(input, locale = getCurrentUiLocale()) {
+  return formatLocalizedThreadTimestampLabel(input, locale);
 }

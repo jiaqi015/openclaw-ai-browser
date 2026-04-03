@@ -1,15 +1,18 @@
 import {
-  tabSurfaceMeta,
+  getTabSurfaceMeta,
   type PendingNavigation,
   type TabSurface,
 } from "./browser-surface";
+import type { UiLocale } from "../../shared/localization.mjs";
 
 export function buildDisplayTabs(params: {
   pendingNavigations: Record<string, PendingNavigation>;
   tabSurfaceModes: Record<string, TabSurface>;
   tabs: SabrinaDesktopTab[];
+  uiLocale: UiLocale;
 }) {
-  const { pendingNavigations, tabSurfaceModes, tabs } = params;
+  const { pendingNavigations, tabSurfaceModes, tabs, uiLocale } = params;
+  const tabSurfaceMeta = getTabSurfaceMeta(uiLocale);
 
   return tabs.map((tab) => {
     const pendingNavigation = pendingNavigations[tab.tabId];

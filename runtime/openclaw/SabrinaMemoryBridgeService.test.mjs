@@ -35,6 +35,8 @@ test("memory bridge stores and recalls browser records in the selected state dir
     const stats = await getBrowserMemoryStats();
 
     assert.equal(record.url, "https://example.com/docs");
+    assert.equal(record.schemaVersion, "2");
+    assert.equal(record.metadata.threadId, undefined);
     assert.equal(matches.length, 1);
     assert.equal(matches[0].id, record.id);
     assert.equal(stats.count, 1);
@@ -43,4 +45,3 @@ test("memory bridge stores and recalls browser records in the selected state dir
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
-

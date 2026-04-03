@@ -1,3 +1,5 @@
+import { translate, type UiLocale } from "../../shared/localization.mjs";
+
 export type GenTabType = "table" | "list" | "timeline" | "comparison" | "card-grid";
 export type GenTabPreferredType = GenTabType | "auto";
 
@@ -9,6 +11,10 @@ export const genTabTypeLabels: Record<GenTabPreferredType, string> = {
   comparison: "对比台",
   "card-grid": "卡片墙",
 };
+
+export function getGenTabTypeLabel(locale: UiLocale, type: GenTabPreferredType): string {
+  return translate(locale, `gentab.type.${type}`);
+}
 
 export function normalizeGenTabPreferredType(value: unknown): GenTabPreferredType {
   if (
