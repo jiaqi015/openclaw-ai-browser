@@ -1,40 +1,14 @@
 import { normalizeBrowserSourceRoute as normalizeSourceRoute } from "../browser/BrowserContextPackageService.mjs";
 import {
-  getBrowserSkillRegistryEntry,
-  normalizeBrowserInputMode,
-  normalizeBrowserSourceKinds,
-} from "./BrowserSkillRegistry.mjs";
+  getDeclaredBrowserSkillCompatibility,
+  getDefaultBrowserSourceKinds,
+  getDefaultBrowserUseHint,
+  normalizeNonEmptyString,
+} from "./BrowserSkillCapabilityService.mjs";
+import { getBrowserSkillRegistryEntry } from "./BrowserSkillRegistry.mjs";
 
 const SOURCE_URL_DESCRIPTION_HINT =
   /\b(urls?|youtube|podcasts?|transcripts?|local files?)\b/i;
-
-function normalizeNonEmptyString(value) {
-  return typeof value === "string" && value.trim() ? value.trim() : "";
-}
-
-function getDefaultSourceKinds(inputMode) {
-  return inputMode === "source-url" ? ["public-url", "private-url"] : [];
-}
-
-function getDefaultUseHint(inputMode, sourceKinds = []) {
-  if (inputMode !== "source-url") {
-    return "这类 skill 可以直接消费 Sabrina 提供的页面快照、选区和引用页材料。";
-  }
-
-  const labels = [];
-  if (sourceKinds.includes("public-url")) {
-    labels.push("公开链接");
-  }
-  if (sourceKinds.includes("private-url")) {
-    labels.push("本机/私有链接");
-  }
-  if (sourceKinds.includes("local-file")) {
-    labels.push("本地文件");
-  }
-
-  const supportText = labels.length > 0 ? labels.join("、") : "URL 输入";
-  return `这类 skill 主要处理可直接访问的 URL 或文件输入。当前浏览器策略会把 ${supportText} 当成主输入；遇到 internal surface、非 HTTP 页面或未声明支持的输入类型时，会显式拒绝，而不是把正文快照伪装成原始材料。`;
-}
 
 function getRequiredSourceKindForRoute(routeKind) {
   if (routeKind === "public-http") {
@@ -93,33 +67,6 @@ function buildSourceRouteNote(sourceRoute) {
   return "当前页面没有可交给 URL-native skill 的来源地址。";
 }
 
-function getSkillDeclaredCompatibility(skill) {
-  const capability = skill?.browserCapability ?? null;
-  const inputMode = normalizeBrowserInputMode(
-    capability?.inputMode ?? skill?.browserInputMode,
-  );
-  if (!inputMode) {
-    return null;
-  }
-
-  const sourceKinds = normalizeBrowserSourceKinds(
-    capability?.sourceKinds ?? skill?.browserSourceKinds ?? skill?.sourceKinds,
-  );
-  const normalizedSourceKinds =
-    inputMode === "source-url" && sourceKinds.length > 0
-      ? sourceKinds
-      : getDefaultSourceKinds(inputMode);
-
-  return {
-    inputMode,
-    sourceKinds: normalizedSourceKinds,
-    useHint:
-      `${capability?.useHint ?? skill?.browserUseHint ?? ""}`.trim() ||
-      getDefaultUseHint(inputMode, normalizedSourceKinds),
-    source: normalizeNonEmptyString(capability?.source) || "skill-metadata",
-  };
-}
-
 function inferBrowserSkillInputModeHeuristic(skill) {
   const description = `${skill?.description ?? ""}`.trim();
   if (description && SOURCE_URL_DESCRIPTION_HINT.test(description)) {
@@ -130,7 +77,7 @@ function inferBrowserSkillInputModeHeuristic(skill) {
 }
 
 export function describeBrowserSkillCompatibility(skill) {
-  const declaredCompatibility = getSkillDeclaredCompatibility(skill);
+  const declaredCompatibility = getDeclaredBrowserSkillCompatibility(skill);
   if (declaredCompatibility) {
     return declaredCompatibility;
   }
@@ -140,24 +87,24 @@ export function describeBrowserSkillCompatibility(skill) {
     const normalizedSourceKinds =
       registryEntry.inputMode === "source-url" && registryEntry.sourceKinds.length > 0
         ? registryEntry.sourceKinds
-        : getDefaultSourceKinds(registryEntry.inputMode);
+        : getDefaultBrowserSourceKinds(registryEntry.inputMode);
     return {
       inputMode: registryEntry.inputMode,
       sourceKinds: normalizedSourceKinds,
       useHint:
         registryEntry.useHint ||
-        getDefaultUseHint(registryEntry.inputMode, normalizedSourceKinds),
+        getDefaultBrowserUseHint(registryEntry.inputMode, normalizedSourceKinds),
       source: registryEntry.source,
     };
   }
 
   const inputMode = inferBrowserSkillInputModeHeuristic(skill);
-  const sourceKinds = getDefaultSourceKinds(inputMode);
+  const sourceKinds = getDefaultBrowserSourceKinds(inputMode);
 
   return {
     inputMode,
     sourceKinds,
-    useHint: getDefaultUseHint(inputMode, sourceKinds),
+    useHint: getDefaultBrowserUseHint(inputMode, sourceKinds),
     source: "heuristic",
   };
 }

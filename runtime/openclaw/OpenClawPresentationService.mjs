@@ -120,3 +120,39 @@ export function buildLocalBindingRecord(params = {}) {
     lastConnectedAt: gatewayReachable ? formatLocalTimestamp(Date.now()) : undefined,
   };
 }
+
+export function buildRemoteBindingRecord(params = {}) {
+  const agentId = `${params?.agentId ?? ""}`.trim() || "main";
+  const remoteLabel = `${params?.displayLabel ?? params?.sshTarget ?? "remote-openclaw"}`.trim();
+  const sshTarget = `${params?.sshTarget ?? remoteLabel}`.trim();
+  const gatewayReachable = params?.gatewayReachable === true;
+  const agentRecord = params?.agentRecord ?? null;
+
+  return {
+    bindingId: `binding-remote-${sshTarget.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
+    protocolVersion: SABRINA_PROTOCOL_VERSION,
+    agentId,
+    lobsterId: `remote:${sshTarget}`,
+    displayName: `${getAgentLabel(agentRecord)} @ ${remoteLabel}`,
+    mode: "remote",
+    status: gatewayReachable ? "active" : "disconnected",
+    gatewayUrl: `ssh://${sshTarget}`,
+    deviceId: `ssh:${sshTarget}`,
+    hostLabel: remoteLabel,
+    openclawProfile: normalizeOpenClawProfile(params?.openclawProfile),
+    openclawStateDir: normalizeOpenClawStateDir(params?.openclawStateDir),
+    capabilities: [...SABRINA_LOCAL_CAPABILITIES],
+    note: gatewayReachable
+      ? `已连接远程 OpenClaw。浏览器通过 SSH 复用代理 ${agentId}。`
+      : `已读取远程 OpenClaw 配置，但当前无法通过 SSH 验证网关。`,
+    scopes: [
+      {
+        id: "ssh.control",
+        label: "SSH Control",
+        description: "通过 SSH 复用远程 OpenClaw 控制面。",
+      },
+    ],
+    pairedAt: formatLocalTimestamp(Date.now()),
+    lastConnectedAt: gatewayReachable ? formatLocalTimestamp(Date.now()) : undefined,
+  };
+}

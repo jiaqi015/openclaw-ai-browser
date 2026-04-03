@@ -386,6 +386,8 @@ Rule:
 - prefer OpenClaw capability metadata when present
 - allow Sabrina overlay only when OpenClaw has no explicit browser capability
 - surface provenance in diagnostics
+- keep `declaredBrowserCapability` separate from resolved `browserCapability` so overlay and heuristic inference never masquerade as OpenClaw truth
+- keep explicit capability schema parsing in a dedicated helper instead of coupling catalog normalization to turn policy
 
 ## Memory And Continuity
 

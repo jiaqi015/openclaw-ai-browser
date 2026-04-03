@@ -249,11 +249,13 @@ Current first step:
 
 - skill metadata now carries `browserInputMode`
 - normalized catalog/detail objects now also expose a structured `browserCapability` descriptor
+- normalized skill metadata separates `declaredBrowserCapability` from final resolved `browserCapability`
 - runtime uses explicit input policy for strict skill execution
 - Sabrina-side registry is treated as an explicit overlay, not as the long-term truth source
 
 Current implementation:
 
+- [BrowserSkillCapabilityService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/openclaw/BrowserSkillCapabilityService.mjs)
 - [BrowserSkillInputPolicyService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/openclaw/BrowserSkillInputPolicyService.mjs)
 - [SkillCatalogService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/openclaw/SkillCatalogService.mjs)
 - [BrowserSkillRegistry.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/openclaw/BrowserSkillRegistry.mjs)

@@ -191,6 +191,14 @@ declare global {
     bundled: boolean;
     emoji?: string;
     homepage?: string;
+    declaredBrowserCapability?: {
+      inputMode: "page-snapshot" | "source-url";
+      sourceKinds: Array<"public-url" | "private-url" | "local-file">;
+      useHint: string;
+      source: "skill-metadata" | "sabrina-overlay" | "heuristic";
+      overlay: boolean;
+    } | null;
+    browserCapabilityDeclared?: boolean;
     browserCapability?: {
       inputMode: "page-snapshot" | "source-url";
       sourceKinds: Array<"public-url" | "private-url" | "local-file">;

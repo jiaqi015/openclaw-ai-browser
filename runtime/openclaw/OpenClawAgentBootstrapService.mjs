@@ -8,6 +8,7 @@ import {
 import { readLocalModelState } from "./ModelStateService.mjs";
 import {
   buildLocalBindingRecord,
+  buildRemoteBindingRecord,
   simplifyHostLabel,
 } from "./OpenClawPresentationService.mjs";
 import {
@@ -15,7 +16,12 @@ import {
   getHealthSummary,
   restartLocalGateway as restartLocalGatewayViaService,
 } from "./OpenClawGatewayService.mjs";
-import { execOpenClawCommand } from "./OpenClawClient.mjs";
+import { execOpenClawCommand, execOpenClawJson } from "./OpenClawClient.mjs";
+import {
+  getOpenClawTransportContext,
+  isOpenClawSshTransportContext,
+  resolveOpenClawStateDirFromContext,
+} from "./OpenClawTransportContext.mjs";
 
 export const sabrinaBrowserAgentId = "saburina-browser";
 export const sabrinaBrowserAgentName = "Saburina Browser";
@@ -52,12 +58,98 @@ async function resolveSabrinaBootstrapModel(config) {
   );
 }
 
+export async function listOpenClawAgents() {
+  const payload = await execOpenClawJson(["agents", "list", "--json"], {
+    timeout: 8000,
+    maxBuffer: 1024 * 512,
+  });
+  return Array.isArray(payload) ? payload : [];
+}
+
+function findAgentRecord(agentRecords, agentId) {
+  const normalizedAgentId = `${agentId ?? ""}`.trim();
+  if (!normalizedAgentId) {
+    return null;
+  }
+  return (
+    (Array.isArray(agentRecords) ? agentRecords : []).find(
+      (entry) => `${entry?.id ?? ""}`.trim() === normalizedAgentId,
+    ) ?? null
+  );
+}
+
+function inferStateDirFromAgentRecord(agentRecord, fallbackStateDir) {
+  const workspace = `${agentRecord?.workspace ?? ""}`.trim();
+  if (workspace) {
+    if (workspace.endsWith("/workspace")) {
+      return workspace.slice(0, -"/workspace".length) || fallbackStateDir;
+    }
+    if (workspace.includes("/workspaces/")) {
+      return workspace.split("/workspaces/")[0] || fallbackStateDir;
+    }
+  }
+
+  const agentDir = `${agentRecord?.agentDir ?? ""}`.trim();
+  if (agentDir.includes("/agents/")) {
+    return agentDir.split("/agents/")[0] || fallbackStateDir;
+  }
+
+  return fallbackStateDir;
+}
+
+function resolveRemoteAgentRecord(agentRecords, context) {
+  const explicitAgentId = `${context?.agentId ?? ""}`.trim();
+  if (explicitAgentId) {
+    const explicitRecord = findAgentRecord(agentRecords, explicitAgentId);
+    if (!explicitRecord) {
+      throw new Error(`远程 OpenClaw 中未找到 agent: ${explicitAgentId}`);
+    }
+    return explicitRecord;
+  }
+
+  const sabrinaRecord = findAgentRecord(agentRecords, sabrinaBrowserAgentId);
+  if (sabrinaRecord) {
+    return sabrinaRecord;
+  }
+
+  const defaultRecord =
+    (Array.isArray(agentRecords) ? agentRecords : []).find((entry) => entry?.isDefault === true) ?? null;
+  if (defaultRecord) {
+    return defaultRecord;
+  }
+
+  const firstRecord = Array.isArray(agentRecords) && agentRecords.length > 0 ? agentRecords[0] : null;
+  if (firstRecord) {
+    return firstRecord;
+  }
+
+  throw new Error("远程 OpenClaw 当前没有可用的 agent。");
+}
+
 export async function ensureSabrinaBrowserAgent() {
   if (ensureSabrinaAgentPromise) {
     return ensureSabrinaAgentPromise;
   }
 
   ensureSabrinaAgentPromise = (async () => {
+    const transportContext = getOpenClawTransportContext();
+    if (isOpenClawSshTransportContext(transportContext)) {
+      const agentRecords = await listOpenClawAgents();
+      const agentRecord = resolveRemoteAgentRecord(agentRecords, transportContext);
+      const stateDir = inferStateDirFromAgentRecord(
+        agentRecord,
+        resolveOpenClawStateDirFromContext(transportContext),
+      );
+
+      return {
+        agentId: `${agentRecord?.id ?? ""}`.trim() || sabrinaBrowserAgentId,
+        agentRecord,
+        created: false,
+        config: null,
+        stateDir,
+      };
+    }
+
     const config = await getOpenClawConfig();
     const stateDir = resolveOpenClawStateDir();
     const existingAgent = config.getAgentRecord(sabrinaBrowserAgentId);
@@ -135,8 +227,33 @@ export async function ensureSabrinaBrowserAgent() {
 }
 
 export async function buildLocalOpenClawBinding() {
+  const transportContext = getOpenClawTransportContext();
   const ensuredAgent = await ensureSabrinaBrowserAgent();
   const { stateDir, config, agentId, agentRecord } = ensuredAgent;
+
+  if (isOpenClawSshTransportContext(transportContext)) {
+    const gatewayStatus = await execOpenClawJson(["gateway", "status", "--json"], {
+      timeout: 12000,
+      maxBuffer: 1024 * 1024,
+      retries: 0,
+    }).catch(() => null);
+    const gatewayReachable = Boolean(gatewayStatus?.rpc?.ok);
+    const remoteLabel =
+      `${transportContext.label ?? ""}`.trim() ||
+      `${transportContext.sshTarget ?? ""}`.trim() ||
+      "remote-openclaw";
+
+    return buildRemoteBindingRecord({
+      agentId,
+      agentRecord,
+      sshTarget: transportContext.sshTarget,
+      displayLabel: remoteLabel,
+      gatewayReachable,
+      openclawProfile: transportContext.profile,
+      openclawStateDir: transportContext.stateDir ?? stateDir,
+    });
+  }
+
   const device = await readJsonFile(path.join(stateDir, "identity", "device.json"));
   const deviceAuth = await readJsonFile(
     path.join(stateDir, "identity", "device-auth.json"),

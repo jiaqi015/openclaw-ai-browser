@@ -1,4 +1,7 @@
-import { describeBrowserSkillCompatibility } from "./BrowserSkillInputPolicyService.mjs";
+import {
+  describeBrowserSkillCompatibility,
+} from "./BrowserSkillInputPolicyService.mjs";
+import { getDeclaredBrowserSkillCompatibility } from "./BrowserSkillCapabilityService.mjs";
 
 function flattenMissingReasons(missing) {
   const labels = [];
@@ -21,6 +24,8 @@ function flattenMissingReasons(missing) {
 export function normalizeSkillMetadata(rawSkill) {
   const missingReasons = flattenMissingReasons(rawSkill?.missing);
   const blockedByAllowlist = Boolean(rawSkill?.blockedByAllowlist);
+  const declaredBrowserCapability =
+    getDeclaredBrowserSkillCompatibility(rawSkill);
   const browserCompatibility = describeBrowserSkillCompatibility(rawSkill);
   const browserCapability = {
     inputMode: browserCompatibility.inputMode,
@@ -46,6 +51,8 @@ export function normalizeSkillMetadata(rawSkill) {
     bundled: Boolean(rawSkill?.bundled),
     emoji: `${rawSkill?.emoji ?? ""}`.trim() || undefined,
     homepage: `${rawSkill?.homepage ?? ""}`.trim() || undefined,
+    declaredBrowserCapability,
+    browserCapabilityDeclared: Boolean(declaredBrowserCapability),
     browserCapability,
     browserInputMode: browserCapability.inputMode,
     browserSourceKinds: browserCapability.sourceKinds,
@@ -86,6 +93,8 @@ export function toCatalogSkillEntry(rawSkill) {
     bundled: normalized.bundled,
     emoji: normalized.emoji,
     homepage: normalized.homepage,
+    declaredBrowserCapability: normalized.declaredBrowserCapability,
+    browserCapabilityDeclared: normalized.browserCapabilityDeclared,
     browserCapability: normalized.browserCapability,
     browserInputMode: normalized.browserInputMode,
     browserSourceKinds: normalized.browserSourceKinds,

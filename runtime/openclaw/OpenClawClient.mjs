@@ -4,6 +4,7 @@ import {
   buildOpenClawExecArgs,
   buildOpenClawExecOptions,
   getOpenClawTransportContext,
+  isOpenClawSshTransportContext,
 } from "./OpenClawTransportContext.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -43,6 +44,71 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function shellEscape(value) {
+  return `'${`${value ?? ""}`.replace(/'/g, `'\\''`)}'`;
+}
+
+function buildSshRemoteCommand(args, context) {
+  const commandArgs = buildOpenClawExecArgs(args, context);
+  const commandParts = [];
+  if (context?.stateDir) {
+    commandParts.push(`OPENCLAW_STATE_DIR=${shellEscape(context.stateDir)}`);
+  }
+  commandParts.push("openclaw");
+  for (const entry of commandArgs) {
+    commandParts.push(shellEscape(entry));
+  }
+  return commandParts.join(" ");
+}
+
+function buildSshInvocation(args, options, context) {
+  const sshArgs = [
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "ConnectTimeout=8",
+  ];
+
+  if (Number.isFinite(context?.sshPort) && Number(context.sshPort) > 0) {
+    sshArgs.push("-p", `${Math.trunc(Number(context.sshPort))}`);
+  }
+
+  if (!context?.sshTarget) {
+    throw new Error("远程 OpenClaw 缺少 SSH 目标。");
+  }
+
+  sshArgs.push(context.sshTarget, buildSshRemoteCommand(args, context));
+
+  return {
+    command: "ssh",
+    args: sshArgs,
+    options: {
+      ...options,
+      env: {
+        ...process.env,
+        ...(options?.env ?? {}),
+      },
+    },
+  };
+}
+
+function buildOpenClawInvocation(args, options = {}, context = getOpenClawTransportContext()) {
+  if (isOpenClawSshTransportContext(context)) {
+    return buildSshInvocation(args, options, context);
+  }
+
+  return {
+    command: "openclaw",
+    args: buildOpenClawExecArgs(args, context),
+    options: buildOpenClawExecOptions(
+      {
+        ...options,
+      },
+      context,
+    ),
+  };
+}
+
 export async function execOpenClawJson(args, options = {}) {
   const {
     timeout = 8000,
@@ -53,18 +119,19 @@ export async function execOpenClawJson(args, options = {}) {
 
   let attempt = 0;
   let lastError = null;
-  const commandArgs = buildOpenClawExecArgs(args, context);
-  const commandOptions = buildOpenClawExecOptions(
-    {
-      timeout,
-      maxBuffer,
-    },
-    context,
-  );
+  const commandOptions = {
+    timeout,
+    maxBuffer,
+  };
 
   while (attempt <= retries) {
     try {
-      const { stdout } = await execFileAsync("openclaw", commandArgs, commandOptions);
+      const invocation = buildOpenClawInvocation(args, commandOptions, context);
+      const { stdout } = await execFileAsync(
+        invocation.command,
+        invocation.args,
+        invocation.options,
+      );
       return parseCliJson(stdout);
     } catch (error) {
       lastError = error;
@@ -86,17 +153,15 @@ export async function execOpenClawCommand(args, options = {}) {
     context = getOpenClawTransportContext(),
   } = options;
 
-  return execFileAsync(
-    "openclaw",
-    buildOpenClawExecArgs(args, context),
-    buildOpenClawExecOptions(
-      {
-        timeout,
-        maxBuffer,
-      },
-      context,
-    ),
+  const invocation = buildOpenClawInvocation(
+    args,
+    {
+      timeout,
+      maxBuffer,
+    },
+    context,
   );
+  return execFileAsync(invocation.command, invocation.args, invocation.options);
 }
 
 export async function execGatewayMethodJson(method, params = {}, options = {}) {

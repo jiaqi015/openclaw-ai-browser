@@ -6,10 +6,49 @@ import {
   normalizeSabrinaTransport,
 } from "../../packages/sabrina-protocol/index.mjs";
 
+function normalizeOpenClawDriver(value, transportHint = "local") {
+  const normalized = `${value ?? ""}`.trim();
+  if (normalized === "ssh-cli") {
+    return "ssh-cli";
+  }
+  if (normalized === "local-cli") {
+    return "local-cli";
+  }
+  return normalizeSabrinaTransport(transportHint) === "remote" ? "ssh-cli" : "local-cli";
+}
+
+function normalizeSshTarget(value) {
+  const normalized = `${value ?? ""}`.trim();
+  return normalized || null;
+}
+
+function normalizeSshPort(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null;
+  }
+  return Math.trunc(numeric);
+}
+
+function normalizeOpenClawLabel(value) {
+  const normalized = `${value ?? ""}`.trim();
+  return normalized || null;
+}
+
+function normalizeOpenClawAgentId(value) {
+  const normalized = `${value ?? ""}`.trim();
+  return normalized || null;
+}
+
 let transportContext = Object.freeze({
   transport: "local",
+  driver: "local-cli",
   profile: normalizeOpenClawProfile(process.env.OPENCLAW_PROFILE),
   stateDir: normalizeOpenClawStateDir(process.env.OPENCLAW_STATE_DIR),
+  sshTarget: null,
+  sshPort: null,
+  label: null,
+  agentId: null,
 });
 
 export function getOpenClawTransportContext() {
@@ -17,10 +56,16 @@ export function getOpenClawTransportContext() {
 }
 
 export function setOpenClawTransportContext(nextContext = {}) {
+  const transport = normalizeSabrinaTransport(nextContext.transport ?? transportContext.transport);
   transportContext = Object.freeze({
-    transport: normalizeSabrinaTransport(nextContext.transport ?? transportContext.transport),
+    transport,
+    driver: normalizeOpenClawDriver(nextContext.driver ?? transportContext.driver, transport),
     profile: normalizeOpenClawProfile(nextContext.profile ?? transportContext.profile),
     stateDir: normalizeOpenClawStateDir(nextContext.stateDir ?? transportContext.stateDir),
+    sshTarget: normalizeSshTarget(nextContext.sshTarget ?? transportContext.sshTarget),
+    sshPort: normalizeSshPort(nextContext.sshPort ?? transportContext.sshPort),
+    label: normalizeOpenClawLabel(nextContext.label ?? transportContext.label),
+    agentId: normalizeOpenClawAgentId(nextContext.agentId ?? transportContext.agentId),
   });
   return getOpenClawTransportContext();
 }
@@ -34,6 +79,16 @@ export function resolveOpenClawStateDirFromContext(context = transportContext) {
   const normalizedEnvStateDir = normalizeOpenClawStateDir(process.env.OPENCLAW_STATE_DIR);
   if (normalizedEnvStateDir) {
     return normalizedEnvStateDir;
+  }
+
+  if (normalizeOpenClawDriver(context?.driver, context?.transport) === "ssh-cli") {
+    const normalizedProfile = normalizeOpenClawProfile(
+      context?.profile ?? process.env.OPENCLAW_PROFILE,
+    );
+    if (normalizedProfile) {
+      return `~/.openclaw-${normalizedProfile}`;
+    }
+    return "~/.openclaw";
   }
 
   const normalizedProfile = normalizeOpenClawProfile(context?.profile ?? process.env.OPENCLAW_PROFILE);
@@ -65,7 +120,10 @@ export function buildOpenClawExecOptions(options = {}, context = transportContex
     ...(options?.env ?? {}),
   };
 
-  if (normalizedStateDir) {
+  if (
+    normalizedStateDir &&
+    normalizeOpenClawDriver(context?.driver, context?.transport) !== "ssh-cli"
+  ) {
     env.OPENCLAW_STATE_DIR = normalizedStateDir;
   }
 
@@ -76,6 +134,16 @@ export function buildOpenClawExecOptions(options = {}, context = transportContex
 }
 
 export function getOpenClawTransportLabel(context = transportContext) {
+  const normalizedLabel = normalizeOpenClawLabel(context?.label);
+  if (normalizedLabel) {
+    return normalizedLabel;
+  }
+
+  const sshTarget = normalizeSshTarget(context?.sshTarget);
+  if (sshTarget) {
+    return sshTarget;
+  }
+
   const normalizedProfile = normalizeOpenClawProfile(context?.profile);
   if (normalizedProfile) {
     return `profile:${normalizedProfile}`;
@@ -83,4 +151,8 @@ export function getOpenClawTransportLabel(context = transportContext) {
 
   const resolvedStateDir = resolveOpenClawStateDirFromContext(context);
   return path.basename(resolvedStateDir) || resolvedStateDir;
+}
+
+export function isOpenClawSshTransportContext(context = transportContext) {
+  return normalizeOpenClawDriver(context?.driver, context?.transport) === "ssh-cli";
 }

@@ -1,11 +1,8 @@
-import {
-  getOpenClawConfig,
-  invalidateConfigCache,
-} from "./OpenClawConfigCache.mjs";
+import { invalidateConfigCache } from "./OpenClawConfigCache.mjs";
 import { readLocalModelState } from "./ModelStateService.mjs";
 import { restartLocalGateway as restartLocalGatewayViaService } from "./OpenClawGatewayService.mjs";
 import { ensureSabrinaBrowserAgent } from "./OpenClawAgentBootstrapService.mjs";
-import { execOpenClawCommand } from "./OpenClawClient.mjs";
+import { execOpenClawCommand, execOpenClawJson } from "./OpenClawClient.mjs";
 
 export async function getLocalModelState(agentId = "main") {
   const resolvedAgentId =
@@ -25,9 +22,12 @@ export async function setLocalModel(params) {
     throw new Error("缺少模型 id");
   }
 
-  const config = await getOpenClawConfig();
-  const agents = config.getConfiguredAgents();
-  const agentIndex = agents.findIndex((entry) => entry?.id === agentId);
+  const agents = await execOpenClawJson(["agents", "list", "--json"], {
+    timeout: 5000,
+    maxBuffer: 1024 * 512,
+  });
+  const agentList = Array.isArray(agents) ? agents : [];
+  const agentIndex = agentList.findIndex((entry) => `${entry?.id ?? ""}`.trim() === agentId);
   if (agentIndex < 0) {
     throw new Error(`未找到 OpenClaw agent: ${agentId}`);
   }
@@ -38,7 +38,7 @@ export async function setLocalModel(params) {
   );
 
   await invalidateConfigCache();
-  await restartLocalGatewayViaService(config);
+  await restartLocalGatewayViaService();
 
   return getLocalModelState(agentId);
 }

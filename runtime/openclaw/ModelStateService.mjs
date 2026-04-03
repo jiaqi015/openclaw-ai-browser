@@ -1,4 +1,3 @@
-import { getOpenClawConfig } from "./OpenClawConfigCache.mjs";
 import { execOpenClawJson } from "./OpenClawClient.mjs";
 
 function getModelDisplayLabel(modelId, aliasByModelId) {
@@ -15,36 +14,17 @@ function getModelDisplayLabel(modelId, aliasByModelId) {
   return modelId;
 }
 
-function resolveConfiguredAgentModel(agentRecord) {
-  if (typeof agentRecord?.model === "string" && agentRecord.model.trim()) {
-    return agentRecord.model.trim();
-  }
-
-  if (
-    agentRecord?.model &&
-    typeof agentRecord.model === "object" &&
-    typeof agentRecord.model.primary === "string" &&
-    agentRecord.model.primary.trim()
-  ) {
-    return agentRecord.model.primary.trim();
-  }
-
-  return "";
-}
-
 export async function readLocalModelState(agentId) {
   const resolvedAgentId = `${agentId ?? ""}`.trim();
   if (!resolvedAgentId) {
     throw new Error("缺少 OpenClaw agent id");
   }
 
-  const config = await getOpenClawConfig();
-  const configuredAgent = config
-    .getConfiguredAgents()
-    .find((entry) => entry?.id === resolvedAgentId);
-  const desiredModel = resolveConfiguredAgentModel(configuredAgent) || null;
-
-  const [listPayload, statusPayload] = await Promise.all([
+  const [agentRecords, listPayload, statusPayload] = await Promise.all([
+    execOpenClawJson(
+      ["agents", "list", "--json"],
+      { timeout: 5000, maxBuffer: 1024 * 512 },
+    ),
     execOpenClawJson(
       ["models", "--agent", resolvedAgentId, "list", "--all", "--json"],
       { timeout: 5000, maxBuffer: 1024 * 512 },
@@ -54,6 +34,13 @@ export async function readLocalModelState(agentId) {
       { timeout: 5000, maxBuffer: 1024 * 512 },
     ),
   ]);
+  const configuredAgent = (Array.isArray(agentRecords) ? agentRecords : []).find(
+    (entry) => `${entry?.id ?? ""}`.trim() === resolvedAgentId,
+  );
+  const desiredModel =
+    typeof configuredAgent?.model === "string" && configuredAgent.model.trim()
+      ? configuredAgent.model.trim()
+      : null;
 
   const models = Array.isArray(listPayload?.models) ? listPayload.models : [];
   const aliases = statusPayload?.aliases ?? {};

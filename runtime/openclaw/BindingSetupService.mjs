@@ -10,6 +10,8 @@ export function buildBindingSetupState(params) {
     skillCount = 0,
     note = "",
     statusOverride = "",
+    transportLabel = "",
+    sshTarget = "",
   } = params ?? {};
 
   const steps = [
@@ -42,14 +44,22 @@ export function buildBindingSetupState(params) {
   ];
 
   if (target === "remote") {
+    const remoteLabel = `${transportLabel ?? sshTarget ?? ""}`.trim();
+    const hasRemoteTarget = Boolean(remoteLabel);
+    const remoteReady = hasRemoteTarget && gatewayReachable && hasAgent;
+
     return {
-      status: statusOverride || "degraded",
+      status:
+        statusOverride ||
+        (remoteReady ? "ready" : hasRemoteTarget ? "bootstrapping" : "degraded"),
       target,
-      title: "连接远程龙虾",
-      description: "远程连接稍后开放。",
+      title: remoteReady ? "远程 OpenClaw 已接入" : "连接远程 OpenClaw",
+      description: hasRemoteTarget
+        ? "通过 SSH 复用远程 OpenClaw。"
+        : "通过 SSH 连接远程 OpenClaw。",
       note:
-        note || "先完成本机连接即可。",
-      primaryActionLabel: undefined,
+        note || (hasRemoteTarget ? remoteLabel : "请先提供 SSH 目标。"),
+      primaryActionLabel: hasRemoteTarget ? "重新检查" : undefined,
       secondaryActionLabel: "本机优先",
       steps,
     };
