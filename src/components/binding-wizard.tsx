@@ -57,8 +57,11 @@ export function BindingWizard(props: BindingWizardProps) {
           <BindingRemoteStatusPanel
             connectionConfig={props.connectionConfig}
             connectionState={props.connectionState}
+            connectionProbe={props.connectionProbe}
             onConnectRemote={props.onConnectRemote}
             onDoctorRemote={props.onDoctorRemote}
+            onProbeRemote={props.onProbeRemote}
+            onSaveRemote={props.onSaveRemote}
             onCreateRelayConnectCode={props.onCreateRelayConnectCode}
             onGetRelayPairingState={props.onGetRelayPairingState}
           />

@@ -1,5 +1,11 @@
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { loadSabrinaProtocol } from "./protocol-loader.mjs";
+
+const execFileAsync = promisify(execFile);
+const DEFAULT_CONNECTOR_FETCH_TIMEOUT_MS = 8_000;
+const DEFAULT_RECOVERY_TIMEOUT_MS = 10_000;
 
 async function resolveConfiguredManifestPath(pluginConfig = {}) {
   const configuredPath = `${pluginConfig?.manifestPath ?? ""}`.trim();
@@ -18,6 +24,151 @@ async function resolveConfiguredManifestPath(pluginConfig = {}) {
 
 function formatBridgeError(message, manifestPath) {
   return `Sabrina connector unavailable: ${message} (${manifestPath})`;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRecoverableBridgeError(error) {
+  const message = `${error instanceof Error ? error.message : error ?? ""}`.toLowerCase();
+  return (
+    message.includes("fetch failed") ||
+    message.includes("ecconnrefused") ||
+    message.includes("econnreset") ||
+    message.includes("timed out") ||
+    message.includes("networkerror")
+  );
+}
+
+function isProcessRunning(pid) {
+  const numericPid = Number(pid);
+  if (!Number.isInteger(numericPid) || numericPid <= 0) {
+    return false;
+  }
+  try {
+    process.kill(numericPid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function launchSabrinaApp() {
+  if (process.platform !== "darwin") {
+    return false;
+  }
+
+  try {
+    await execFileAsync("open", ["-a", process.env.SABRINA_APP_NAME || "Sabrina"], {
+      timeout: 4_000,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchConnectorResponse(url, options = {}) {
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(
+    () => controller.abort(new Error("Connector request timed out.")),
+    options.timeout ?? DEFAULT_CONNECTOR_FETCH_TIMEOUT_MS,
+  );
+
+  try {
+    return await fetch(url, {
+      method: options.method ?? "GET",
+      headers: options.headers,
+      body: options.body,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+}
+
+async function performConnectorRequest(manifestPath, manifest, pathname, options = {}) {
+  const response = await fetchConnectorResponse(`${manifest.endpoint}${pathname}`, {
+    method: options.method ?? "GET",
+    headers: {
+      authorization: `Bearer ${manifest.token}`,
+      ...(options.body ? { "content-type": "application/json" } : {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+    timeout: options.timeout,
+  });
+
+  const text = await response.text();
+  let payload = null;
+  if (text.trim()) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = { raw: text };
+    }
+  }
+
+  if (!response.ok) {
+    const detail =
+      typeof payload?.error === "string" && payload.error.trim()
+        ? payload.error.trim()
+        : `${response.status} ${response.statusText}`.trim();
+    throw new Error(formatBridgeError(detail, manifestPath));
+  }
+
+  return {
+    manifestPath,
+    manifest,
+    payload,
+  };
+}
+
+async function performConnectorHealthRequest(manifestPath, manifest, options = {}) {
+  const { stripSabrinaConnectorSecret } = await loadSabrinaProtocol();
+  const response = await fetchConnectorResponse(`${manifest.endpoint}/v1/connector/health`, {
+    timeout: options.timeout,
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const detail =
+      typeof payload?.error === "string" && payload.error.trim()
+        ? payload.error.trim()
+        : `${response.status} ${response.statusText}`.trim();
+    throw new Error(formatBridgeError(detail, manifestPath));
+  }
+  return {
+    manifestPath,
+    manifest,
+    connector: payload?.connector ?? stripSabrinaConnectorSecret(manifest),
+    payload,
+  };
+}
+
+async function recoverSabrinaConnector(pluginConfig, manifestPath, manifest) {
+  const pidRunning = isProcessRunning(manifest?.pid);
+  if (!pidRunning) {
+    await rm(manifestPath, { force: true }).catch(() => {});
+  }
+
+  await launchSabrinaApp().catch(() => false);
+  const deadline = Date.now() + DEFAULT_RECOVERY_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    try {
+      const nextManifestResult = await loadSabrinaConnectorManifest(pluginConfig);
+      await performConnectorHealthRequest(
+        nextManifestResult.manifestPath,
+        nextManifestResult.manifest,
+        { timeout: 1_500 },
+      );
+      return nextManifestResult;
+    } catch {
+      await sleep(500);
+    }
+  }
+
+  throw new Error(formatBridgeError("Sabrina 没有及时恢复连接桥", manifestPath));
 }
 
 export async function loadSabrinaConnectorManifest(pluginConfig = {}) {
@@ -51,59 +202,45 @@ export async function loadSabrinaConnectorManifest(pluginConfig = {}) {
 export async function requestSabrinaConnector(pluginConfig, pathname, options = {}) {
   const { manifestPath, manifest } = await loadSabrinaConnectorManifest(pluginConfig);
   const { stripSabrinaConnectorSecret } = await loadSabrinaProtocol();
-  const response = await fetch(`${manifest.endpoint}${pathname}`, {
-    method: options.method ?? "GET",
-    headers: {
-      authorization: `Bearer ${manifest.token}`,
-      ...(options.body ? { "content-type": "application/json" } : {}),
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
 
-  const text = await response.text();
-  let payload = null;
-  if (text.trim()) {
-    try {
-      payload = JSON.parse(text);
-    } catch {
-      payload = { raw: text };
+  try {
+    const response = await performConnectorRequest(manifestPath, manifest, pathname, options);
+    return {
+      ...response,
+      connector: stripSabrinaConnectorSecret(manifest),
+    };
+  } catch (error) {
+    if (!isRecoverableBridgeError(error)) {
+      throw error;
     }
-  }
 
-  if (!response.ok) {
-    const detail =
-      typeof payload?.error === "string" && payload.error.trim()
-        ? payload.error.trim()
-        : `${response.status} ${response.statusText}`.trim();
-    throw new Error(formatBridgeError(detail, manifestPath));
+    const recovered = await recoverSabrinaConnector(pluginConfig, manifestPath, manifest);
+    const response = await performConnectorRequest(
+      recovered.manifestPath,
+      recovered.manifest,
+      pathname,
+      options,
+    );
+    return {
+      ...response,
+      connector: stripSabrinaConnectorSecret(recovered.manifest),
+    };
   }
-
-  return {
-    manifestPath,
-    manifest,
-    connector: stripSabrinaConnectorSecret(manifest),
-    payload,
-  };
 }
 
 export async function getSabrinaConnectorHealth(pluginConfig = {}) {
   const { manifestPath, manifest } = await loadSabrinaConnectorManifest(pluginConfig);
-  const { stripSabrinaConnectorSecret } = await loadSabrinaProtocol();
-  const response = await fetch(`${manifest.endpoint}/v1/connector/health`);
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) {
-    const detail =
-      typeof payload?.error === "string" && payload.error.trim()
-        ? payload.error.trim()
-        : `${response.status} ${response.statusText}`.trim();
-    throw new Error(formatBridgeError(detail, manifestPath));
+
+  try {
+    return await performConnectorHealthRequest(manifestPath, manifest);
+  } catch (error) {
+    if (!isRecoverableBridgeError(error)) {
+      throw error;
+    }
+
+    const recovered = await recoverSabrinaConnector(pluginConfig, manifestPath, manifest);
+    return performConnectorHealthRequest(recovered.manifestPath, recovered.manifest);
   }
-  return {
-    manifestPath,
-    manifest,
-    connector: payload?.connector ?? stripSabrinaConnectorSecret(manifest),
-    payload,
-  };
 }
 
 export function formatConnectionSummary(
@@ -174,6 +311,28 @@ export function formatDoctorReport(report) {
   );
   if (Array.isArray(report.checks)) {
     for (const check of report.checks) {
+      const badge =
+        check.status === "pass" ? "OK" : check.status === "warn" ? "WARN" : "FAIL";
+      lines.push(`${badge} ${check.label}: ${check.detail}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+export function formatConnectionProbe(probe) {
+  if (!probe) {
+    return "No Sabrina quick check result returned.";
+  }
+
+  const lines = [];
+  lines.push(
+    `Quick check: ${probe.summary ?? (probe.ok ? "ready" : "attention")} · ${probe.failureCount ?? 0} fail · ${probe.warningCount ?? 0} warn · ${probe.checkCount ?? 0} check(s)`,
+  );
+  if (probe.detail) {
+    lines.push(`Detail: ${probe.detail}`);
+  }
+  if (Array.isArray(probe.checks)) {
+    for (const check of probe.checks) {
       const badge =
         check.status === "pass" ? "OK" : check.status === "warn" ? "WARN" : "FAIL";
       lines.push(`${badge} ${check.label}: ${check.detail}`);

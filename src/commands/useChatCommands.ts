@@ -126,6 +126,10 @@ export function useChatCommands(params: {
     const requestTabId = activeTab.tabId;
     const requestThreadId = activeThreadId;
 
+    if (params.clearComposer) {
+      setComposerText("");
+    }
+
     setPending(requestThreadId, true);
 
     try {
@@ -148,9 +152,6 @@ export function useChatCommands(params: {
         });
 
       if (result.ok) {
-        if (params.clearComposer) {
-          setComposerText("");
-        }
         if (params.clearSelectedSkill) {
           clearSelectedComposerSkill(requestThreadId);
         }
@@ -212,10 +213,11 @@ export function useChatCommands(params: {
       return;
     }
 
-    setPending(activeThreadId, true);
     if (!overridePrompt) {
       setComposerText("");
     }
+
+    setPending(activeThreadId, true);
 
     try {
       const result = await desktop.threads.runOpenClawTaskTurn({

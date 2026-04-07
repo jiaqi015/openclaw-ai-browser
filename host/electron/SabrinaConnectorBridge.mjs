@@ -15,6 +15,7 @@ import {
   doctorOpenClaw,
   getOpenClawRelayPairingState,
   listOpenClawRelayEnvelopes,
+  probeOpenClawConnection,
   getOpenClawSupportSnapshot,
   getOpenClawRuntimeInsights,
   getSerializedOpenClawState,
@@ -197,6 +198,25 @@ async function handleConnectorRequest(req, res) {
         agentId: url.searchParams.get("agentId") || undefined,
       });
       sendJson(res, 200, { ok: true, report });
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/v1/openclaw/probe") {
+      const probe = await probeOpenClawConnection({
+        target: url.searchParams.get("target") || undefined,
+        driver: url.searchParams.get("driver") || undefined,
+        profile: url.searchParams.get("profile") || undefined,
+        stateDir: url.searchParams.get("stateDir") || undefined,
+        sshTarget: url.searchParams.get("sshTarget") || undefined,
+        sshPort: url.searchParams.get("sshPort")
+          ? Number(url.searchParams.get("sshPort"))
+          : undefined,
+        relayUrl: url.searchParams.get("relayUrl") || undefined,
+        connectCode: url.searchParams.get("connectCode") || undefined,
+        label: url.searchParams.get("label") || undefined,
+        agentId: url.searchParams.get("agentId") || undefined,
+      });
+      sendJson(res, 200, { ok: true, probe });
       return;
     }
 

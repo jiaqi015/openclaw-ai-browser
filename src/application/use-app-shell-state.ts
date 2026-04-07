@@ -233,10 +233,13 @@ export function useAppShellState({
     pairingStatus: controller.pairingStatus,
     lastError: controller.lastError,
     doctorReport: controller.doctorReport,
+    connectionProbe: controller.connectionProbe,
     turnJournalEntries: controller.turnJournalEntries,
     turnJournalStats: controller.turnJournalStats,
     browserMemoryRecords: controller.browserMemoryRecords,
     browserMemoryStats: controller.browserMemoryStats,
+    savedConnections: controller.savedConnections,
+    activeConnectionId: controller.activeConnectionId,
     approvingPairingRequestId: controller.approvingPairingRequestId,
     isApprovingLatestDevice: controller.isApprovingLatestDevice,
     pinnedSkillNames,
@@ -256,11 +259,26 @@ export function useAppShellState({
     onDoctorOpenClaw: (params) => {
       void controller.doctorOpenClaw(params).catch(() => {});
     },
+    onProbeConnection: (params) => {
+      return controller.probeConnection(params);
+    },
     onCreateRelayConnectCode: (params) => {
       return controller.createRelayConnectCode(params);
     },
     onGetRelayPairingState: (params) => {
       return controller.getRelayPairingState(params);
+    },
+    onSaveConnectionPreset: (params) => {
+      return controller.saveConnectionPreset(params);
+    },
+    onSelectSavedConnection: (savedConnectionId) => {
+      return controller.selectSavedConnection(savedConnectionId);
+    },
+    onConnectSavedConnection: (savedConnectionId) => {
+      return controller.connectSavedConnection(savedConnectionId);
+    },
+    onRemoveSavedConnection: (savedConnectionId) => {
+      return controller.removeSavedConnection(savedConnectionId);
     },
     onCloseGenTab: controller.handleCloseGenTab,
     onApprovePairingRequest: (request) => {

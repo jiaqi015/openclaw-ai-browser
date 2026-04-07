@@ -55,7 +55,22 @@
 
 ---
 
-## Quickstart
+## 用户接入
+
+如果你是第一次使用 Sabrina，先看：
+
+- [接入 OpenClaw 指南](docs/CONNECT_OPENCLAW.md)
+
+最短路径：
+
+1. 下载并安装 Sabrina。
+2. 确认本机或远端 OpenClaw 已经可用。
+3. 在 Sabrina 的 `OpenClaw` 设置页里选择：
+   - `本机`
+   - 或 `远程 -> 通过 SSH / 通过连接码`
+4. 先做一次快速检查，再正式连接。
+
+## 开发 Quickstart
 
 ```bash
 npm install

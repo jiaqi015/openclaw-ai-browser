@@ -23,10 +23,13 @@ type AppMainSurfaceProps = {
   pairingStatus?: SabrinaOpenClawPairingStatus | null;
   lastError?: string;
   doctorReport?: SabrinaOpenClawDoctorReport | null;
+  connectionProbe: SabrinaOpenClawConnectionProbeResult | null;
   turnJournalEntries: SabrinaTurnJournalEntry[];
   turnJournalStats: SabrinaTurnJournalStats | null;
   browserMemoryRecords: SabrinaBrowserMemoryRecord[];
   browserMemoryStats: SabrinaBrowserMemoryStats | null;
+  savedConnections: SabrinaOpenClawSavedConnection[];
+  activeConnectionId: string | null;
   approvingPairingRequestId?: string | null;
   isApprovingLatestDevice?: boolean;
   pinnedSkillNames: string[];
@@ -60,6 +63,18 @@ type AppMainSurfaceProps = {
     label?: string;
     agentId?: string;
   }) => void;
+  onProbeConnection: (params?: {
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+  }) => Promise<SabrinaOpenClawConnectionProbeResult | null> | SabrinaOpenClawConnectionProbeResult | null;
   onCreateRelayConnectCode: (params?: {
     relayUrl?: string;
     ttlMs?: number;
@@ -68,6 +83,24 @@ type AppMainSurfaceProps = {
     relayUrl?: string;
     connectCode?: string;
   }) => Promise<SabrinaOpenClawRelayPairingState | null>;
+  onSaveConnectionPreset: (params?: {
+    id?: string;
+    name?: string;
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+    markActive?: boolean;
+  }) => Promise<SabrinaOpenClawState | null> | SabrinaOpenClawState | null;
+  onSelectSavedConnection: (savedConnectionId: string) => Promise<SabrinaOpenClawState | null> | SabrinaOpenClawState | null;
+  onConnectSavedConnection: (savedConnectionId: string) => Promise<SabrinaOpenClawState | null> | SabrinaOpenClawState | null;
+  onRemoveSavedConnection: (savedConnectionId: string) => Promise<SabrinaOpenClawState | null> | SabrinaOpenClawState | null;
   onCloseGenTab: (genTabId: string) => void;
   onApprovePairingRequest: (
     request: SabrinaOpenClawPairingStatus["requests"][number],
@@ -120,18 +153,26 @@ export function AppMainSurface(props: AppMainSurfaceProps) {
       pairingStatus={props.pairingStatus}
       lastError={props.lastError}
       doctorReport={props.doctorReport}
+      connectionProbe={props.connectionProbe}
       turnJournalEntries={props.turnJournalEntries}
       turnJournalStats={props.turnJournalStats}
       browserMemoryRecords={props.browserMemoryRecords}
       browserMemoryStats={props.browserMemoryStats}
+      savedConnections={props.savedConnections}
+      activeConnectionId={props.activeConnectionId}
       approvingPairingRequestId={props.approvingPairingRequestId}
       isApprovingLatestDevice={props.isApprovingLatestDevice}
       onBeginBindingSetup={props.onBeginBindingSetup}
       onConnectOpenClaw={props.onConnectOpenClaw}
       onDisconnectOpenClaw={props.onDisconnectOpenClaw}
       onDoctorOpenClaw={props.onDoctorOpenClaw}
+      onProbeConnection={props.onProbeConnection}
       onCreateRelayConnectCode={props.onCreateRelayConnectCode}
       onGetRelayPairingState={props.onGetRelayPairingState}
+      onSaveConnectionPreset={props.onSaveConnectionPreset}
+      onSelectSavedConnection={props.onSelectSavedConnection}
+      onConnectSavedConnection={props.onConnectSavedConnection}
+      onRemoveSavedConnection={props.onRemoveSavedConnection}
       onCloseGenTab={props.onCloseGenTab}
       onApprovePairingRequest={props.onApprovePairingRequest}
       onApproveLatestDeviceRequest={props.onApproveLatestDeviceRequest}

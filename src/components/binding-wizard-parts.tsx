@@ -266,16 +266,22 @@ export function BindingRuntimeStatusPanel({
 export function BindingRemoteStatusPanel({
   connectionConfig,
   connectionState,
+  connectionProbe,
   onConnectRemote,
   onDoctorRemote,
+  onProbeRemote,
+  onSaveRemote,
   onCreateRelayConnectCode,
   onGetRelayPairingState,
 }: Pick<
   BindingWizardProps,
   | "connectionConfig"
   | "connectionState"
+  | "connectionProbe"
   | "onConnectRemote"
   | "onDoctorRemote"
+  | "onProbeRemote"
+  | "onSaveRemote"
   | "onCreateRelayConnectCode"
   | "onGetRelayPairingState"
 >) {
@@ -289,8 +295,11 @@ export function BindingRemoteStatusPanel({
   const [agentId, setAgentId] = useState("");
   const [relayPairing, setRelayPairing] = useState<SabrinaOpenClawRelayPairingSession | null>(null);
   const [isGeneratingRelayCode, setIsGeneratingRelayCode] = useState(false);
+  const [isCheckingRemote, setIsCheckingRemote] = useState(false);
+  const [isSavingRemote, setIsSavingRemote] = useState(false);
   const [relayPairingError, setRelayPairingError] = useState("");
   const [copiedWorkerCommand, setCopiedWorkerCommand] = useState(false);
+  const [savedNotice, setSavedNotice] = useState("");
 
   useEffect(() => {
     if (connectionConfig?.transport !== "remote") {
@@ -313,6 +322,7 @@ export function BindingRemoteStatusPanel({
     setRelayPairing(null);
     setRelayPairingError("");
     setCopiedWorkerCommand(false);
+    setSavedNotice("");
   }, [
     connectionConfig?.agentId,
     connectionConfig?.connectCode,
@@ -383,6 +393,42 @@ export function BindingRemoteStatusPanel({
       label: label.trim() || undefined,
       agentId: agentId.trim() || undefined,
     };
+  }
+
+  async function handleCheckRemote() {
+    if (!onProbeRemote) {
+      return;
+    }
+    setIsCheckingRemote(true);
+    setSavedNotice("");
+    try {
+      await onProbeRemote(buildRemotePayload());
+      setRelayPairingError("");
+    } catch (error) {
+      setRelayPairingError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsCheckingRemote(false);
+    }
+  }
+
+  async function handleSaveRemote() {
+    if (!onSaveRemote) {
+      return;
+    }
+    setIsSavingRemote(true);
+    setSavedNotice("");
+    try {
+      await onSaveRemote({
+        ...buildRemotePayload(),
+        name: label.trim() || undefined,
+      });
+      setSavedNotice(t("binding.remote.savedNotice"));
+      setRelayPairingError("");
+    } catch (error) {
+      setRelayPairingError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsSavingRemote(false);
+    }
   }
 
   async function handleGenerateRelayCode() {
@@ -468,20 +514,34 @@ export function BindingRemoteStatusPanel({
       </p>
 
       <div className="mt-4 space-y-3">
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
-            {t("binding.remote.driver")}
-          </label>
-          <select
-            value={driver}
-            onChange={(event) => setDriver(event.target.value as "ssh-cli" | "relay-paired")}
-            className="surface-input h-11 w-full rounded-2xl border px-3 text-sm text-white/80 outline-none"
-          >
-            <option value="ssh-cli">ssh-cli</option>
-            <option value="relay-paired">
-              relay-paired
-            </option>
-          </select>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {(
+            [
+              {
+                id: "ssh-cli" as const,
+                title: t("binding.remote.method.ssh"),
+                description: t("binding.remote.method.sshDescription"),
+              },
+              {
+                id: "relay-paired" as const,
+                title: t("binding.remote.method.code"),
+                description: t("binding.remote.method.codeDescription"),
+              },
+            ] as const
+          ).map((method) => (
+            <button
+              key={method.id}
+              type="button"
+              onClick={() => setDriver(method.id)}
+              className={cn(
+                "surface-card-selectable rounded-2xl border px-3.5 py-3 text-left transition-colors",
+                driver === method.id && "surface-card-selectable-active",
+              )}
+            >
+              <div className="text-sm font-medium text-white/88">{method.title}</div>
+              <div className="mt-1 text-[12px] leading-5 text-white/45">{method.description}</div>
+            </button>
+          ))}
         </div>
 
         {driver === "ssh-cli" ? (
@@ -590,6 +650,15 @@ export function BindingRemoteStatusPanel({
       </div>
 
       <div className="mt-4 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            void handleSaveRemote();
+          }}
+          className="surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white/72 transition-colors"
+        >
+          {isSavingRemote ? t("binding.processing") : t("binding.remote.saveAction")}
+        </button>
         {driver === "relay-paired" ? (
           <button
             type="button"
@@ -612,8 +681,17 @@ export function BindingRemoteStatusPanel({
         </button>
         <button
           type="button"
-          onClick={() => onDoctorRemote?.(buildRemotePayload())}
+          onClick={() => {
+            void handleCheckRemote();
+          }}
           className="surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white/72 transition-colors"
+        >
+          {isCheckingRemote ? t("binding.processing") : t("binding.remote.checkAction")}
+        </button>
+        <button
+          type="button"
+          onClick={() => onDoctorRemote?.(buildRemotePayload())}
+          className="surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white/58 transition-colors"
         >
           {t("binding.remote.doctorAction")}
         </button>
@@ -622,6 +700,46 @@ export function BindingRemoteStatusPanel({
       <p className="mt-3 text-[12px] leading-5 text-white/42">
         {t("binding.remote.formHint")}
       </p>
+
+      {savedNotice ? (
+        <div className="mt-3 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3.5">
+          <p className="text-[12px] leading-5 text-emerald-100/82">{savedNotice}</p>
+        </div>
+      ) : null}
+
+      {connectionProbe ? (
+        <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-white/82">{connectionProbe.summary}</p>
+              <p className="mt-1 text-[12px] leading-5 text-white/48">{connectionProbe.detail}</p>
+            </div>
+            <span
+              className={cn(
+                "rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.12em]",
+                connectionProbe.ok
+                  ? "border border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+                  : "border border-amber-400/20 bg-amber-500/10 text-amber-200",
+              )}
+            >
+              {connectionProbe.ok ? t("binding.remote.probe.ok") : t("binding.remote.probe.attention")}
+            </span>
+          </div>
+          <div className="mt-3 space-y-2">
+            {connectionProbe.checks.slice(0, 4).map((check) => (
+              <div key={check.id} className="rounded-xl border border-white/8 bg-black/20 px-3 py-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-[12px] font-medium text-white/78">{check.label}</div>
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-white/35">
+                    {check.status}
+                  </div>
+                </div>
+                <div className="mt-1 text-[12px] leading-5 text-white/48">{check.detail}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {driver === "relay-paired" && !relayPairing ? (
         <p className="mt-2 text-[12px] leading-5 text-white/42">

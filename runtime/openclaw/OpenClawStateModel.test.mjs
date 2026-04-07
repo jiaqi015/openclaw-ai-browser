@@ -7,7 +7,9 @@ import {
 import {
   createConnectionState,
   createDefaultBindingSetupState,
+  createSavedConnectionRecord,
   normalizeConnectionConfig,
+  normalizeSavedConnections,
 } from "./OpenClawStateModel.mjs";
 
 test("normalizeConnectionConfig derives remote driver defaults without losing remote metadata", () => {
@@ -142,4 +144,55 @@ test("createDefaultBindingSetupState localizes remote defaults in English", () =
   } finally {
     setCurrentUiLocale(previousLocale);
   }
+});
+
+test("createSavedConnectionRecord derives a stable remote preset from ssh config", () => {
+  const saved = createSavedConnectionRecord({
+    transport: "remote",
+    driver: "ssh-cli",
+    sshTarget: "root@example.com",
+    sshPort: 2222,
+    label: "京东云",
+    agentId: "main",
+    lastUsedAt: "2026-04-07T10:00:00.000Z",
+  });
+
+  assert.match(saved.id, /^openclaw-/);
+  assert.equal(saved.name, "京东云");
+  assert.equal(saved.transport, "remote");
+  assert.equal(saved.driver, "ssh-cli");
+  assert.equal(saved.sshTarget, "root@example.com");
+  assert.equal(saved.sshPort, 2222);
+  assert.equal(saved.agentId, "main");
+  assert.equal(saved.status, "saved");
+});
+
+test("normalizeSavedConnections deduplicates remote presets and filters non-remote entries", () => {
+  const first = createSavedConnectionRecord({
+    id: "same-1",
+    transport: "remote",
+    driver: "ssh-cli",
+    sshTarget: "root@example.com",
+  });
+
+  const normalized = normalizeSavedConnections([
+    first,
+    {
+      ...first,
+      name: "override-name",
+      label: "override-name",
+      lastUsedAt: "2026-04-07T11:00:00.000Z",
+    },
+    {
+      id: "local-1",
+      transport: "local",
+      driver: "local-cli",
+      label: "本机",
+    },
+  ]);
+
+  assert.equal(normalized.length, 1);
+  assert.equal(normalized[0].id, "same-1");
+  assert.equal(normalized[0].name, "override-name");
+  assert.equal(normalized[0].transport, "remote");
 });

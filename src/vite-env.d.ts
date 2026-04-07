@@ -306,6 +306,45 @@ declare global {
     lastConnectedAt: string | null;
   }
 
+  interface SabrinaOpenClawSavedConnection {
+    id: string;
+    name: string;
+    transport: "local" | "remote";
+    driver: "local-cli" | "ssh-cli" | "relay-paired";
+    profile: string | null;
+    stateDir: string | null;
+    sshTarget?: string | null;
+    sshPort?: number | null;
+    relayUrl?: string | null;
+    connectCode?: string | null;
+    label?: string | null;
+    agentId?: string | null;
+    status: "saved" | "connected" | "attention";
+    lastUsedAt: string | null;
+    lastConnectedAt: string | null;
+  }
+
+  interface SabrinaOpenClawConnectionProbeCheck {
+    id: string;
+    label: string;
+    status: "pass" | "warn" | "fail";
+    detail: string;
+  }
+
+  interface SabrinaOpenClawConnectionProbeResult {
+    ok: boolean;
+    target: "local" | "remote";
+    transport: "local" | "remote";
+    driver: "local-cli" | "ssh-cli" | "relay-paired" | null;
+    summary: string;
+    detail: string;
+    checkCount: number;
+    failureCount: number;
+    warningCount: number;
+    checkedAt: string;
+    checks: SabrinaOpenClawConnectionProbeCheck[];
+  }
+
   interface SabrinaOpenClawRelayPairingSession {
     pairingId: string;
     status: "pending" | "active" | "expired" | "rejected";
@@ -467,6 +506,8 @@ declare global {
     gatewayStatus: SabrinaOpenClawGatewayStatus | null;
     deviceStatus: SabrinaOpenClawDeviceStatus | null;
     pairingStatus: SabrinaOpenClawPairingStatus | null;
+    savedConnections: SabrinaOpenClawSavedConnection[];
+    activeConnectionId: string | null;
     lastRefreshedAt: string | null;
     lastError: string;
   }
@@ -877,6 +918,18 @@ declare global {
           label?: string;
           agentId?: string;
         }) => Promise<SabrinaOpenClawDoctorReport>;
+        probeConnection: (params?: {
+          target?: "local" | "remote";
+          driver?: "local-cli" | "ssh-cli" | "relay-paired";
+          profile?: string;
+          stateDir?: string;
+          sshTarget?: string;
+          sshPort?: number;
+          relayUrl?: string;
+          connectCode?: string;
+          label?: string;
+          agentId?: string;
+        }) => Promise<SabrinaOpenClawConnectionProbeResult>;
         getSupportSnapshot: (params?: {
           limit?: number;
           turnJournalLimit?: number;
@@ -913,6 +966,26 @@ declare global {
           afterSeq?: number;
         }) => Promise<SabrinaOpenClawRelayEnvelopeList>;
         setBindingTarget: (target: "local" | "remote") => Promise<SabrinaOpenClawState>;
+        saveConnectionPreset: (params?: {
+          id?: string;
+          name?: string;
+          target?: "local" | "remote";
+          profile?: string;
+          stateDir?: string;
+          driver?: "local-cli" | "ssh-cli" | "relay-paired";
+          sshTarget?: string;
+          sshPort?: number;
+          relayUrl?: string;
+          connectCode?: string;
+          label?: string;
+          agentId?: string;
+          status?: "saved" | "connected" | "attention";
+          lastUsedAt?: string;
+          lastConnectedAt?: string | null;
+          markActive?: boolean;
+        }) => Promise<SabrinaOpenClawState>;
+        removeSavedConnection: (savedConnectionId: string) => Promise<SabrinaOpenClawState>;
+        selectSavedConnection: (savedConnectionId: string) => Promise<SabrinaOpenClawState>;
         getLocalBinding: () => Promise<SabrinaOpenClawBinding>;
         getLocalModels: (params?: {
           agentId?: string;

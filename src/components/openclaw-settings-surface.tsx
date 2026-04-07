@@ -53,6 +53,42 @@ function truncateTail(value: string | null | undefined, limit = 56) {
     : normalizedValue;
 }
 
+const CONNECT_GUIDE_URL =
+  "https://github.com/jiaqi015/openclaw-ai-browser/blob/main/docs/CONNECT_OPENCLAW.md";
+
+function getSavedConnectionHeadline(savedConnection: SabrinaOpenClawSavedConnection) {
+  if (savedConnection.driver === "ssh-cli" && savedConnection.sshTarget) {
+    return savedConnection.sshTarget;
+  }
+  if (savedConnection.driver === "relay-paired" && savedConnection.relayUrl) {
+    return savedConnection.relayUrl;
+  }
+  return savedConnection.label || savedConnection.name;
+}
+
+function buildDoctorSummaryText(
+  doctorReport: SabrinaOpenClawDoctorReport | null,
+  connectionState: SabrinaOpenClawConnectionState | null,
+) {
+  if (!doctorReport) {
+    return "还没有诊断结果。先点一次检查，就能拿到下一步建议。";
+  }
+
+  if (doctorReport.failureCount === 0 && doctorReport.warningCount === 0) {
+    return "当前诊断全绿，可以直接继续连接或使用。";
+  }
+
+  const firstIssue = doctorReport.checks.find(
+    (check) => check.status === "fail" || check.status === "warn",
+  );
+  return [
+    `${doctorReport.failureCount} 个失败，${doctorReport.warningCount} 个提醒。`,
+    firstIssue?.detail || connectionState?.doctorHint || "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 function OpenClawInsightCard(props: {
   title: string;
   eyebrow?: string;
@@ -88,10 +124,13 @@ export function OpenClawSettingsSurface(props: {
   pairingStatus: SabrinaOpenClawPairingStatus | null;
   lastError: string;
   doctorReport: SabrinaOpenClawDoctorReport | null;
+  connectionProbe: SabrinaOpenClawConnectionProbeResult | null;
   turnJournalEntries: SabrinaTurnJournalEntry[];
   turnJournalStats: SabrinaTurnJournalStats | null;
   browserMemoryRecords: SabrinaBrowserMemoryRecord[];
   browserMemoryStats: SabrinaBrowserMemoryStats | null;
+  savedConnections: SabrinaOpenClawSavedConnection[];
+  activeConnectionId: string | null;
   lobsterLabel: string;
   lobsterStatus: "connected" | "disconnected";
   approvingPairingRequestId: string | null;
@@ -126,6 +165,18 @@ export function OpenClawSettingsSurface(props: {
     label?: string;
     agentId?: string;
   }) => void;
+  onProbeConnection: (params?: {
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+  }) => Promise<SabrinaOpenClawConnectionProbeResult | null> | SabrinaOpenClawConnectionProbeResult | null;
   onCreateRelayConnectCode: (params?: {
     relayUrl?: string;
     ttlMs?: number;
@@ -134,6 +185,24 @@ export function OpenClawSettingsSurface(props: {
     relayUrl?: string;
     connectCode?: string;
   }) => Promise<SabrinaOpenClawRelayPairingState | null>;
+  onSaveConnectionPreset: (params?: {
+    id?: string;
+    name?: string;
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+    markActive?: boolean;
+  }) => Promise<SabrinaOpenClawState | null> | SabrinaOpenClawState | null;
+  onSelectSavedConnection: (savedConnectionId: string) => Promise<SabrinaOpenClawState | null> | SabrinaOpenClawState | null;
+  onConnectSavedConnection: (savedConnectionId: string) => Promise<SabrinaOpenClawState | null> | SabrinaOpenClawState | null;
+  onRemoveSavedConnection: (savedConnectionId: string) => Promise<SabrinaOpenClawState | null> | SabrinaOpenClawState | null;
   onOpenExternalUrl: (url: string) => void;
   onSelectBindingTarget: (target: "local" | "remote") => void;
 }) {
@@ -149,10 +218,13 @@ export function OpenClawSettingsSurface(props: {
     isApprovingLatestDevice,
     lastError,
     doctorReport,
+    connectionProbe,
     turnJournalEntries,
     turnJournalStats,
     browserMemoryRecords,
     browserMemoryStats,
+    savedConnections,
+    activeConnectionId,
     lobsterLabel,
     lobsterStatus,
     onApproveLatestDeviceRequest,
@@ -161,8 +233,13 @@ export function OpenClawSettingsSurface(props: {
     onConnectOpenClaw,
     onDisconnectOpenClaw,
     onDoctorOpenClaw,
+    onProbeConnection,
     onCreateRelayConnectCode,
     onGetRelayPairingState,
+    onSaveConnectionPreset,
+    onSelectSavedConnection,
+    onConnectSavedConnection,
+    onRemoveSavedConnection,
     onOpenExternalUrl,
     onSelectBindingTarget,
     pairingStatus,
@@ -176,6 +253,9 @@ export function OpenClawSettingsSurface(props: {
   const doctorWarnings = (doctorReport?.checks ?? []).filter(
     (check) => check.status === "fail" || check.status === "warn",
   );
+  const doctorSummaryText = buildDoctorSummaryText(doctorReport, connectionState);
+  const doctorSuggestedCommand =
+    doctorWarnings.find((check) => check.command)?.command ?? connectionState?.commandHint ?? "";
   const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
 
   async function handleCopyCommand(text: string) {
@@ -261,10 +341,52 @@ export function OpenClawSettingsSurface(props: {
             </div>
           </div>
 
+          <div className="surface-panel rounded-2xl border p-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-white/78">{t("openclaw.guide.title")}</h3>
+                <p className="mt-1 text-[12px] leading-5 text-white/48">
+                  {bindingSetupState.target === "remote"
+                    ? t("openclaw.guide.remoteDescription")
+                    : t("openclaw.guide.localDescription")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onOpenExternalUrl(CONNECT_GUIDE_URL)}
+                className="surface-button-system rounded-xl border px-3 py-1.5 text-[12px] font-medium text-white/72 transition-colors"
+              >
+                {t("openclaw.guide.openAction")}
+              </button>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              {(bindingSetupState.target === "remote"
+                ? [
+                    t("openclaw.guide.remote.step1"),
+                    t("openclaw.guide.remote.step2"),
+                    t("openclaw.guide.remote.step3"),
+                  ]
+                : [
+                    t("openclaw.guide.local.step1"),
+                    t("openclaw.guide.local.step2"),
+                    t("openclaw.guide.local.step3"),
+                  ]
+              ).map((step, index) => (
+                <div key={step} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-white/35">
+                    {t("openclaw.guide.stepLabel", { number: index + 1 })}
+                  </div>
+                  <div className="mt-2 text-sm leading-6 text-white/82">{step}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <BindingWizard
             state={bindingSetupState}
             connectionConfig={connectionConfig}
             connectionState={connectionState}
+            connectionProbe={connectionProbe}
             gatewayStatus={gatewayStatus}
             deviceStatus={deviceStatus}
             pairingStatus={pairingStatus}
@@ -276,6 +398,8 @@ export function OpenClawSettingsSurface(props: {
             onApproveLatestDeviceRequest={onApproveLatestDeviceRequest}
             onConnectRemote={onConnectOpenClaw}
             onDoctorRemote={onDoctorOpenClaw}
+            onProbeRemote={onProbeConnection}
+            onSaveRemote={onSaveConnectionPreset}
             onCreateRelayConnectCode={onCreateRelayConnectCode}
             onGetRelayPairingState={onGetRelayPairingState}
             onPrimaryAction={() => onBeginBindingSetup(bindingSetupState.target ?? "local")}
@@ -287,6 +411,103 @@ export function OpenClawSettingsSurface(props: {
                 : undefined
             }
           />
+
+          <div className="surface-panel rounded-2xl border p-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-white/78">
+                  {t("openclaw.savedConnections.title")}
+                </h3>
+                <p className="mt-1 text-[12px] leading-5 text-white/48">
+                  {t("openclaw.savedConnections.description")}
+                </p>
+              </div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
+                {savedConnections.length} saved
+              </div>
+            </div>
+
+            {savedConnections.length === 0 ? (
+              <div className="mt-4 rounded-2xl border border-dashed border-white/10 px-4 py-5 text-sm text-white/42">
+                {t("openclaw.savedConnections.empty")}
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-3">
+                {savedConnections.map((savedConnection) => {
+                  const headline = getSavedConnectionHeadline(savedConnection);
+                  const isActive = activeConnectionId === savedConnection.id;
+                  return (
+                    <div
+                      key={savedConnection.id}
+                      className={cn(
+                        "rounded-2xl border p-4",
+                        isActive
+                          ? "border-green-400/20 bg-green-500/10"
+                          : "border-white/10 bg-white/5",
+                      )}
+                    >
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm font-medium text-white/86">
+                              {savedConnection.name}
+                            </div>
+                            {isActive ? (
+                              <span className="rounded-full border border-green-400/20 bg-green-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-green-200">
+                                {t("openclaw.savedConnections.active")}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="mt-1 text-[12px] leading-5 text-white/48">
+                            {headline}
+                          </div>
+                          <div className="mt-2 text-[12px] leading-5 text-white/38">
+                            {savedConnection.driver} ·{" "}
+                            {savedConnection.lastConnectedAt
+                              ? t("openclaw.savedConnections.lastConnected", {
+                                  value: formatTimestamp(savedConnection.lastConnectedAt, uiLocale),
+                                })
+                              : t("openclaw.savedConnections.lastUsed", {
+                                  value: formatTimestamp(savedConnection.lastUsedAt, uiLocale),
+                                })}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void onSelectSavedConnection(savedConnection.id);
+                            }}
+                            className="surface-button-system rounded-xl border px-3 py-1.5 text-[12px] font-medium text-white/74 transition-colors"
+                          >
+                            {t("openclaw.savedConnections.loadAction")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void onConnectSavedConnection(savedConnection.id);
+                            }}
+                            className="surface-button-system rounded-xl border px-3 py-1.5 text-[12px] font-medium text-white transition-colors"
+                          >
+                            {t("openclaw.savedConnections.connectAction")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void onRemoveSavedConnection(savedConnection.id);
+                            }}
+                            className="surface-button-system rounded-xl border px-3 py-1.5 text-[12px] font-medium text-white/58 transition-colors"
+                          >
+                            {t("openclaw.savedConnections.removeAction")}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {connectionState?.transport === "remote" && connectionState?.commandHint ? (
             <div className="surface-panel rounded-2xl border p-4">
@@ -457,6 +678,34 @@ export function OpenClawSettingsSurface(props: {
                   </div>
                 </div>
                 <div className="mt-4 space-y-3">
+                  <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm text-white/85">{doctorSummaryText}</div>
+                        {doctorSuggestedCommand ? (
+                          <div className="mt-2 text-[11px] uppercase tracking-[0.16em] text-white/30">
+                            suggested action
+                          </div>
+                        ) : null}
+                      </div>
+                      {doctorSuggestedCommand ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleCopyCommand(doctorSuggestedCommand);
+                          }}
+                          className="surface-button-system rounded-lg border px-2.5 py-1 text-[11px] font-medium text-white/70 transition-colors"
+                        >
+                          {copiedCommand === doctorSuggestedCommand ? "Copied" : "Copy"}
+                        </button>
+                      ) : null}
+                    </div>
+                    {doctorSuggestedCommand ? (
+                      <pre className="mt-2 overflow-x-auto rounded-lg border border-white/8 bg-black/25 px-2.5 py-2 text-[11px] leading-5 text-white/68">
+                        <code>{doctorSuggestedCommand}</code>
+                      </pre>
+                    ) : null}
+                  </div>
                   {!doctorReport ? (
                     <div className="rounded-xl border border-dashed border-white/10 px-3 py-4 text-sm text-white/40">
                       Run a doctor action from the binding flow to capture a fresh report.

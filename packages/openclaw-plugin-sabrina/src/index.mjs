@@ -1,5 +1,6 @@
 import {
   formatConnectionSummary,
+  formatConnectionProbe,
   formatDoctorReport,
   getSabrinaConnectorHealth,
   requestSabrinaConnector,
@@ -211,6 +212,9 @@ function registerDoctorCommand(rootCommand, api) {
         const result = await requestSabrinaConnector(
           api.pluginConfig ?? {},
           `/v1/openclaw/doctor?${params.toString()}`,
+          {
+            timeout: 20_000,
+          },
         );
 
         if (options.json) {
@@ -219,6 +223,60 @@ function registerDoctorCommand(rootCommand, api) {
         }
 
         console.log(formatDoctorReport(result.payload?.report ?? null));
+      } catch (error) {
+        handleCliError(error);
+      }
+    });
+}
+
+function registerProbeCommand(rootCommand, api) {
+  rootCommand
+    .command("probe")
+    .description("Run Sabrina quick connection checks before connecting")
+    .option("--target <target>", "local or remote", "local")
+    .option("--driver <driver>", "Remote driver (ssh-cli or relay-paired)")
+    .option("--ssh-target <target>", "SSH target for the ssh-cli remote driver")
+    .option("--ssh-port <port>", "Optional SSH port for the ssh-cli driver")
+    .option("--relay-url <url>", "Relay URL for the relay-paired remote driver")
+    .option("--connect-code <code>", "Short-lived connect code for the relay-paired driver")
+    .option("--label <label>", "Friendly label for the remote OpenClaw")
+    .option("--agent <id>", "Prefer a specific remote agent")
+    .option("--profile <profile>", "Target a specific OpenClaw profile")
+    .option("--state-dir <path>", "Target a specific OpenClaw state dir")
+    .option("--json", "Print raw JSON")
+    .action(async (options) => {
+      try {
+        const params = new URLSearchParams();
+        params.set("target", options.target);
+        if (options.driver) params.set("driver", options.driver);
+        if (options.sshTarget) params.set("sshTarget", options.sshTarget);
+        if (options.sshPort) params.set("sshPort", `${options.sshPort}`);
+        if (options.relayUrl) params.set("relayUrl", options.relayUrl);
+        if (options.connectCode) params.set("connectCode", options.connectCode);
+        if (options.label) params.set("label", options.label);
+        if (options.agent) params.set("agentId", options.agent);
+        if (options.profile) params.set("profile", options.profile);
+        if (options.stateDir) params.set("stateDir", options.stateDir);
+        if (!options.driver && (options.relayUrl || options.connectCode)) {
+          params.set("driver", "relay-paired");
+        } else if (!options.driver && (options.target === "remote" || options.sshTarget)) {
+          params.set("driver", "ssh-cli");
+        }
+
+        const result = await requestSabrinaConnector(
+          api.pluginConfig ?? {},
+          `/v1/openclaw/probe?${params.toString()}`,
+          {
+            timeout: 20_000,
+          },
+        );
+
+        if (options.json) {
+          printJson(result.payload);
+          return;
+        }
+
+        console.log(formatConnectionProbe(result.payload?.probe ?? null));
       } catch (error) {
         handleCliError(error);
       }
@@ -482,6 +540,7 @@ const sabrinaPlugin = {
         registerStatusCommand(rootCommand, api);
         registerConnectCommand(rootCommand, api);
         registerDisconnectCommand(rootCommand, api);
+        registerProbeCommand(rootCommand, api);
         registerDoctorCommand(rootCommand, api);
         registerRelayCodeCommand(rootCommand, api);
         registerRelayClaimCommand(rootCommand);

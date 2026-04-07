@@ -41,6 +41,7 @@ export function buildSshArgsForCommand(command, context) {
 }
 
 function formatProbeError(error) {
+  const message = error instanceof Error ? error.message : String(error);
   const stderr =
     typeof error?.stderr === "string" && error.stderr.trim()
       ? error.stderr.trim()
@@ -48,7 +49,16 @@ function formatProbeError(error) {
   if (stderr) {
     return stderr;
   }
-  return error instanceof Error ? error.message : String(error);
+  if (error?.code === "ETIMEDOUT" || error?.killed === true) {
+    return "SSH 探测超时。请确认远端可达，并且这台机器已经配置好免交互 SSH 认证。";
+  }
+  if (
+    (typeof error?.code === "number" && error.code !== 0) ||
+    message.includes("Command failed: ssh")
+  ) {
+    return "无法通过免交互 SSH 访问远端 OpenClaw。请确认 SSH 密钥、ssh-agent 或目标账号权限。";
+  }
+  return message;
 }
 
 export const sshCliDriver = Object.freeze({

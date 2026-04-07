@@ -24,10 +24,13 @@ export function SurfaceRouter(props: {
   lastError: string;
   skillCatalog: SabrinaOpenClawSkillCatalog | null;
   doctorReport: SabrinaOpenClawDoctorReport | null;
+  connectionProbe: SabrinaOpenClawConnectionProbeResult | null;
   turnJournalEntries: SabrinaTurnJournalEntry[];
   turnJournalStats: SabrinaTurnJournalStats | null;
   browserMemoryRecords: SabrinaBrowserMemoryRecord[];
   browserMemoryStats: SabrinaBrowserMemoryStats | null;
+  savedConnections: SabrinaOpenClawSavedConnection[];
+  activeConnectionId: string | null;
   lobsterLabel: string;
   lobsterStatus: "connected" | "disconnected";
   approvingPairingRequestId: string | null;
@@ -62,6 +65,18 @@ export function SurfaceRouter(props: {
     label?: string;
     agentId?: string;
   }) => void;
+  onProbeConnection: (params?: {
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+  }) => Promise<SabrinaOpenClawConnectionProbeResult | null> | SabrinaOpenClawConnectionProbeResult | null;
   onCreateRelayConnectCode: (params?: {
     relayUrl?: string;
     ttlMs?: number;
@@ -70,6 +85,24 @@ export function SurfaceRouter(props: {
     relayUrl?: string;
     connectCode?: string;
   }) => Promise<SabrinaOpenClawRelayPairingState | null>;
+  onSaveConnectionPreset: (params?: {
+    id?: string;
+    name?: string;
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+    markActive?: boolean;
+  }) => Promise<SabrinaOpenClawState | null> | SabrinaOpenClawState | null;
+  onSelectSavedConnection: (savedConnectionId: string) => Promise<SabrinaOpenClawState | null> | SabrinaOpenClawState | null;
+  onConnectSavedConnection: (savedConnectionId: string) => Promise<SabrinaOpenClawState | null> | SabrinaOpenClawState | null;
+  onRemoveSavedConnection: (savedConnectionId: string) => Promise<SabrinaOpenClawState | null> | SabrinaOpenClawState | null;
   onCloseGenTab: (genTabId: string) => void;
   onNavigate: (url: string) => void;
   onOpenDiagnostics: () => void;
@@ -101,10 +134,13 @@ export function SurfaceRouter(props: {
     lastError,
     skillCatalog,
     doctorReport,
+    connectionProbe,
     turnJournalEntries,
     turnJournalStats,
     browserMemoryRecords,
     browserMemoryStats,
+    savedConnections,
+    activeConnectionId,
     lobsterLabel,
     lobsterStatus,
     approvingPairingRequestId,
@@ -115,8 +151,13 @@ export function SurfaceRouter(props: {
     onConnectOpenClaw,
     onDisconnectOpenClaw,
     onDoctorOpenClaw,
+    onProbeConnection,
     onCreateRelayConnectCode,
     onGetRelayPairingState,
+    onSaveConnectionPreset,
+    onSelectSavedConnection,
+    onConnectSavedConnection,
+    onRemoveSavedConnection,
     onCloseGenTab,
     onNavigate,
     onOpenDiagnostics,
@@ -189,10 +230,13 @@ export function SurfaceRouter(props: {
         pairingStatus={pairingStatus}
         lastError={lastError}
         doctorReport={doctorReport}
+        connectionProbe={connectionProbe}
         turnJournalEntries={turnJournalEntries}
         turnJournalStats={turnJournalStats}
         browserMemoryRecords={browserMemoryRecords}
         browserMemoryStats={browserMemoryStats}
+        savedConnections={savedConnections}
+        activeConnectionId={activeConnectionId}
         lobsterStatus={lobsterStatus}
         lobsterLabel={lobsterLabel}
         approvingPairingRequestId={approvingPairingRequestId}
@@ -201,8 +245,13 @@ export function SurfaceRouter(props: {
         onConnectOpenClaw={onConnectOpenClaw}
         onDisconnectOpenClaw={onDisconnectOpenClaw}
         onDoctorOpenClaw={onDoctorOpenClaw}
+        onProbeConnection={onProbeConnection}
         onCreateRelayConnectCode={onCreateRelayConnectCode}
         onGetRelayPairingState={onGetRelayPairingState}
+        onSaveConnectionPreset={onSaveConnectionPreset}
+        onSelectSavedConnection={onSelectSavedConnection}
+        onConnectSavedConnection={onConnectSavedConnection}
+        onRemoveSavedConnection={onRemoveSavedConnection}
         onOpenExternalUrl={onOpenExternalUrl}
         onSelectBindingTarget={onSelectBindingTarget}
         onApprovePairingRequest={onApprovePairingRequest}

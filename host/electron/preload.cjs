@@ -60,6 +60,8 @@ contextBridge.exposeInMainWorld("sabrinaDesktop", {
     connect: (params) => ipcRenderer.invoke("openclaw:connect", params),
     disconnect: (params) => ipcRenderer.invoke("openclaw:disconnect", params),
     doctor: (params) => ipcRenderer.invoke("openclaw:doctor", params),
+    probeConnection: (params) =>
+      ipcRenderer.invoke("openclaw:probe-connection", params),
     getSupportSnapshot: (params) =>
       ipcRenderer.invoke("openclaw:get-support-snapshot", params),
     createRelayConnectCode: (params) =>
@@ -72,6 +74,12 @@ contextBridge.exposeInMainWorld("sabrinaDesktop", {
       ipcRenderer.invoke("openclaw:list-relay-envelopes", params),
     setBindingTarget: (target) =>
       ipcRenderer.invoke("openclaw:set-binding-target", { target }),
+    saveConnectionPreset: (params) =>
+      ipcRenderer.invoke("openclaw:save-connection-preset", params),
+    removeSavedConnection: (savedConnectionId) =>
+      ipcRenderer.invoke("openclaw:remove-saved-connection", { savedConnectionId }),
+    selectSavedConnection: (savedConnectionId) =>
+      ipcRenderer.invoke("openclaw:select-saved-connection", { savedConnectionId }),
     getLocalBinding: () => ipcRenderer.invoke("openclaw:get-local-binding"),
     getLocalModels: (params) =>
       ipcRenderer.invoke("openclaw:get-local-models", params),

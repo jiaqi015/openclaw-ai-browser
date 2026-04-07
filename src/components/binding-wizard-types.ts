@@ -44,6 +44,33 @@ export type BindingWizardProps = {
     label?: string;
     agentId?: string;
   }) => void;
+  onProbeRemote?: (params?: {
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+  }) => Promise<SabrinaOpenClawConnectionProbeResult | null> | SabrinaOpenClawConnectionProbeResult | null;
+  onSaveRemote?: (params?: {
+    id?: string;
+    name?: string;
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+    markActive?: boolean;
+  }) => Promise<SabrinaOpenClawState | null> | SabrinaOpenClawState | null;
   onCreateRelayConnectCode?: (params?: {
     relayUrl?: string;
     ttlMs?: number;
@@ -52,4 +79,5 @@ export type BindingWizardProps = {
     relayUrl?: string;
     connectCode?: string;
   }) => Promise<SabrinaOpenClawRelayPairingState | null> | SabrinaOpenClawRelayPairingState | null;
+  connectionProbe?: SabrinaOpenClawConnectionProbeResult | null;
 };

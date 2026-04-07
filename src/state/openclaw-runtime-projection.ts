@@ -112,6 +112,8 @@ export function createEmptyOpenClawState(
     gatewayStatus: null,
     deviceStatus: null,
     pairingStatus: null,
+    savedConnections: [],
+    activeConnectionId: null,
     lastRefreshedAt: null,
     lastError: "",
   };

@@ -22,6 +22,8 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     createEmptyOpenClawState("local"),
   );
   const [doctorReport, setDoctorReport] = useState<SabrinaOpenClawDoctorReport | null>(null);
+  const [connectionProbe, setConnectionProbe] =
+    useState<SabrinaOpenClawConnectionProbeResult | null>(null);
   const [supportSnapshot, setSupportSnapshot] = useState<SabrinaSupportSnapshot | null>(null);
   const [turnJournalSnapshot, setTurnJournalSnapshot] =
     useState<SabrinaTurnJournalSnapshot | null>(null);
@@ -52,6 +54,8 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
   const gatewayStatus = runtimeState.gatewayStatus;
   const deviceStatus = runtimeState.deviceStatus;
   const pairingStatus = runtimeState.pairingStatus;
+  const savedConnections = runtimeState.savedConnections ?? [];
+  const activeConnectionId = runtimeState.activeConnectionId ?? null;
   const lastError = runtimeState.lastError;
   const modelOptions = modelState?.models ?? [];
   const selectedModel = modelState?.desiredModel ?? modelState?.appliedModel ?? "";
@@ -341,6 +345,107 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     return report;
   }
 
+  async function probeConnection(params?: {
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+  }) {
+    const openclaw = desktop?.openclaw;
+    if (!openclaw?.probeConnection) {
+      return null;
+    }
+
+    const result = await openclaw.probeConnection({
+      target: params?.target ?? runtimeState.selectedTarget,
+      profile: params?.profile,
+      stateDir: params?.stateDir,
+      driver: params?.driver,
+      sshTarget: params?.sshTarget,
+      sshPort: params?.sshPort,
+      relayUrl: params?.relayUrl,
+      connectCode: params?.connectCode,
+      label: params?.label,
+      agentId: params?.agentId,
+    });
+    setConnectionProbe(result);
+    return result;
+  }
+
+  async function saveConnectionPreset(params?: {
+    id?: string;
+    name?: string;
+    target?: "local" | "remote";
+    profile?: string;
+    stateDir?: string;
+    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    sshTarget?: string;
+    sshPort?: number;
+    relayUrl?: string;
+    connectCode?: string;
+    label?: string;
+    agentId?: string;
+    markActive?: boolean;
+  }) {
+    const openclaw = desktop?.openclaw;
+    if (!openclaw?.saveConnectionPreset) {
+      return null;
+    }
+
+    const nextState = await openclaw.saveConnectionPreset(params ?? {});
+    applyRuntimeState(nextState);
+    return nextState;
+  }
+
+  async function removeSavedConnection(savedConnectionId: string) {
+    const openclaw = desktop?.openclaw;
+    if (!openclaw?.removeSavedConnection) {
+      return null;
+    }
+
+    const nextState = await openclaw.removeSavedConnection(savedConnectionId);
+    applyRuntimeState(nextState);
+    return nextState;
+  }
+
+  async function selectSavedConnection(savedConnectionId: string) {
+    const openclaw = desktop?.openclaw;
+    if (!openclaw?.selectSavedConnection) {
+      return null;
+    }
+
+    const nextState = await openclaw.selectSavedConnection(savedConnectionId);
+    applyRuntimeState(nextState);
+    return nextState;
+  }
+
+  async function connectSavedConnection(savedConnectionId: string) {
+    const savedConnection = savedConnections.find((entry) => entry.id === savedConnectionId) ?? null;
+    if (!savedConnection) {
+      throw new Error("未找到已保存的 OpenClaw 目标。");
+    }
+
+    await selectSavedConnection(savedConnectionId);
+    return connectOpenClaw({
+      target: savedConnection.transport,
+      profile: savedConnection.profile ?? undefined,
+      stateDir: savedConnection.stateDir ?? undefined,
+      driver: savedConnection.driver,
+      sshTarget: savedConnection.sshTarget ?? undefined,
+      sshPort: savedConnection.sshPort ?? undefined,
+      relayUrl: savedConnection.relayUrl ?? undefined,
+      connectCode: savedConnection.connectCode ?? undefined,
+      label: savedConnection.label ?? savedConnection.name,
+      agentId: savedConnection.agentId ?? undefined,
+    });
+  }
+
   async function createRelayConnectCode(params?: {
     relayUrl?: string;
     ttlMs?: number;
@@ -426,8 +531,11 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     gatewayStatus,
     deviceStatus,
     pairingStatus,
+    savedConnections,
+    activeConnectionId,
     lastError,
     doctorReport,
+    connectionProbe,
     supportSnapshot,
     selectedModel,
     modelOptions,
@@ -442,8 +550,13 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     connectOpenClaw,
     disconnectOpenClaw,
     doctorOpenClaw,
+    probeConnection,
     createRelayConnectCode,
     getRelayPairingState,
+    saveConnectionPreset,
+    removeSavedConnection,
+    selectSavedConnection,
+    connectSavedConnection,
     setBindingTarget,
     switchSelectedModel,
     approvePairingRequest,

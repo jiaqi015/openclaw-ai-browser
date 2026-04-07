@@ -22,9 +22,13 @@ import {
   getOpenClawRelayPairingState,
   getOpenClawSupportSnapshot,
   getSerializedOpenClawState,
+  probeOpenClawConnection,
   pruneOpenClawTurnJournal,
   refreshOpenClawRuntimeState,
+  removeSavedOpenClawConnection,
   saveOpenClawBrowserMemory,
+  saveOpenClawConnectionPreset,
+  selectSavedOpenClawConnection,
   sendOpenClawRelayEnvelope,
   getOpenClawTurnJournal,
   searchOpenClawTurnJournal,
@@ -44,6 +48,9 @@ export function registerOpenClawIpcHandlers() {
     disconnectOpenClaw(payload ?? {}),
   );
   ipcMain.handle("openclaw:doctor", (_e, payload) => doctorOpenClaw(payload ?? {}));
+  ipcMain.handle("openclaw:probe-connection", (_e, payload) =>
+    probeOpenClawConnection(payload ?? {}),
+  );
   ipcMain.handle("openclaw:get-support-snapshot", (_e, payload) =>
     getOpenClawSupportSnapshot(payload ?? {}),
   );
@@ -61,6 +68,15 @@ export function registerOpenClawIpcHandlers() {
   );
   ipcMain.handle("openclaw:set-binding-target", (_e, payload) =>
     selectOpenClawBindingTarget(payload?.target),
+  );
+  ipcMain.handle("openclaw:save-connection-preset", (_e, payload) =>
+    saveOpenClawConnectionPreset(payload ?? {}),
+  );
+  ipcMain.handle("openclaw:remove-saved-connection", (_e, payload) =>
+    removeSavedOpenClawConnection(payload?.savedConnectionId),
+  );
+  ipcMain.handle("openclaw:select-saved-connection", (_e, payload) =>
+    selectSavedOpenClawConnection(payload?.savedConnectionId),
   );
   ipcMain.handle("openclaw:get-local-binding", () => buildLocalOpenClawBinding());
   ipcMain.handle("openclaw:get-local-models", (_e, payload) =>
