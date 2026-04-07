@@ -1,5 +1,6 @@
 // Owns all browser tab lifecycle: create, activate, close, navigate, bounds.
 import { bindBrowserTabEvents } from "./BrowserTabEventBinding.mjs";
+import { getBrowserUrlLabel } from "./BrowserUrlService.mjs";
 import {
   defaultTabUrl,
   getBrowserTabContextSource,
@@ -262,7 +263,7 @@ export function createBrowserTab(initialInput = defaultTabUrl, options = {}) {
   const tab = {
     tabId,
     view,
-    title: "新标签页",
+    title: getBrowserUrlLabel(normalized.url),
     url: normalized.url,
     loading: true,
     canGoBack: false,

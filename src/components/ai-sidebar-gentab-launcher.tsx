@@ -20,6 +20,8 @@ const GENTAB_TYPE_OPTIONS: GenTabPreferredType[] = [
 ];
 
 export function AiSidebarGenTabLauncher(props: {
+  blockedReason: string;
+  canGenerate: boolean;
   chatKey: string;
   composerText: string;
   generatingGenTabId: string | null;
@@ -31,15 +33,21 @@ export function AiSidebarGenTabLauncher(props: {
     success: boolean;
     error?: string;
   }>;
+  primarySourceTab: SabrinaTabReferenceCandidate | null;
   selectedReferenceTabs: SabrinaTabReferenceCandidate[];
+  totalSourcePageCount: number;
 }) {
   const {
+    blockedReason,
+    canGenerate,
     chatKey,
     composerText,
     generatingGenTabId,
     hasConnectedLobster,
     onOpenGenTabGenerator,
+    primarySourceTab,
     selectedReferenceTabs,
+    totalSourcePageCount,
   } = props;
   const [genTabLauncherOpen, setGenTabLauncherOpen] = useState(false);
   const [genTabIntentDraft, setGenTabIntentDraft] = useState("");
@@ -50,8 +58,7 @@ export function AiSidebarGenTabLauncher(props: {
     t,
   } = useUiPreferences();
 
-  const canStartGenTab =
-    hasConnectedLobster && selectedReferenceTabs.length >= 2 && !generatingGenTabId;
+  const canStartGenTab = hasConnectedLobster && canGenerate && !generatingGenTabId;
 
   useEffect(() => {
     setGenTabLauncherOpen(false);
@@ -73,7 +80,7 @@ export function AiSidebarGenTabLauncher(props: {
   }, [composerText, genTabLauncherOpen, t]);
 
   useEffect(() => {
-    if (selectedReferenceTabs.length >= 2 && hasConnectedLobster) {
+    if (selectedReferenceTabs.length >= 1 && hasConnectedLobster) {
       return;
     }
 
@@ -81,7 +88,7 @@ export function AiSidebarGenTabLauncher(props: {
     setGenTabInlineError("");
   }, [hasConnectedLobster, selectedReferenceTabs.length]);
 
-  if (!hasConnectedLobster || selectedReferenceTabs.length < 2) {
+  if (!hasConnectedLobster || selectedReferenceTabs.length < 1) {
     return null;
   }
 
@@ -104,10 +111,10 @@ export function AiSidebarGenTabLauncher(props: {
         )}
       >
         <img src={gentabIcon} className="w-4 h-4" alt="GenTab" />
-        <span>
+          <span>
           {genTabLauncherOpen
             ? t("gentab.launcher.open")
-            : t("gentab.launcher.closed", { count: selectedReferenceTabs.length })}
+            : t("gentab.launcher.closed", { count: totalSourcePageCount })}
         </span>
       </button>
 
@@ -128,9 +135,23 @@ export function AiSidebarGenTabLauncher(props: {
                 </div>
               </div>
               <span className="rounded-full border border-white/8 bg-white/[0.04] px-2 py-1 text-[10px] text-white/45">
-                {t("gentab.launcher.pageCount", { count: selectedReferenceTabs.length })}
+                {t("gentab.launcher.pageCount", { count: totalSourcePageCount })}
               </span>
             </div>
+
+            {primarySourceTab ? (
+              <div className="mb-3 rounded-2xl border border-white/8 bg-black/15 px-3 py-2">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-white/28">
+                  {t("common.currentPage")}
+                </div>
+                <div className="mt-1 truncate text-[12px] font-medium text-white/82">
+                  {primarySourceTab.title}
+                </div>
+                <div className="mt-1 text-[10px] text-white/38">
+                  {primarySourceTab.sourceAvailability?.label}
+                </div>
+              </div>
+            ) : null}
 
             <textarea
               value={genTabIntentDraft}
@@ -173,6 +194,8 @@ export function AiSidebarGenTabLauncher(props: {
 
             {genTabInlineError ? (
               <div className="mt-3 text-[11px] text-apple-pink/85">{genTabInlineError}</div>
+            ) : !canGenerate && blockedReason ? (
+              <div className="mt-3 text-[11px] text-white/46">{blockedReason}</div>
             ) : null}
 
             <div className="mt-3 flex items-center justify-between gap-3">

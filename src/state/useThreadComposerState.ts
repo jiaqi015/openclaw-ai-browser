@@ -60,6 +60,7 @@ export function useThreadComposerState(params: {
           url: tab.url,
           favicon: tab.favicon,
           active: tab.tabId === activeTab?.tabId,
+          sourceAvailability: tab.sourceAvailability,
         })),
     [activeTab?.tabId, tabs],
   );

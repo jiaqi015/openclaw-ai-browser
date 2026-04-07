@@ -3,14 +3,6 @@ import { getSabrinaDesktop } from "../lib/sabrina-desktop";
 import { useUiPreferences } from "./use-ui-preferences";
 import { parseGenTabIdFromUrl } from "../lib/gentab-url";
 import {
-  clearGenTabFromStorage,
-  clearPendingGenTabMetadata,
-  getPendingGenTabMetadata,
-  loadGenTabFromStorage,
-  saveGenTabToStorage,
-  setPendingGenTabMetadata,
-} from "../lib/gentab-storage";
-import {
   createEmptyGenTabState,
   normalizeGenTabPreferredType,
   validateGenTabData,
@@ -22,17 +14,7 @@ import {
 } from "../lib/gentab-types";
 import { translate } from "../../shared/localization.mjs";
 
-function createInitialGenTabState(genTabId: string | null): GenTabGenerationState {
-  const saved = loadGenTabFromStorage(genTabId);
-  if (saved && validateGenTabData(saved)) {
-    return {
-      status: "done",
-      gentab: saved,
-      error: null,
-      progress: 100,
-    };
-  }
-
+function createInitialGenTabState(): GenTabGenerationState {
   return {
     ...createEmptyGenTabState(),
     status: "generating",
@@ -82,72 +64,159 @@ export function useGenTabSurfaceState(params: {
     preferences: { uiLocale, assistantLocaleMode },
   } = useUiPreferences();
   const genTabId = parseGenTabIdFromUrl(url);
-  const [state, setState] = useState<GenTabGenerationState>(() =>
-    createInitialGenTabState(genTabId),
-  );
+  const [state, setState] = useState<GenTabGenerationState>(() => createInitialGenTabState());
   const [activeView, setActiveView] = useState<GenTabType>("comparison");
   const [refineIntent, setRefineIntent] = useState("");
   const [preferredType, setPreferredType] = useState<GenTabPreferredType>("auto");
+  const [pendingMetadata, setPendingMetadata] = useState<SabrinaPendingGenTabMetadata | null>(
+    null,
+  );
+  const [runtimeHydrated, setRuntimeHydrated] = useState(false);
 
   useEffect(() => {
-    setState(createInitialGenTabState(genTabId));
+    setState(createInitialGenTabState());
     setActiveView("comparison");
     setRefineIntent("");
     setPreferredType("auto");
+    setPendingMetadata(null);
+    setRuntimeHydrated(false);
   }, [genTabId]);
 
   useEffect(() => {
-    if (state.status !== "generating") {
+    let cancelled = false;
+
+    async function hydrateRuntimeState() {
+      if (!genTabId) {
+        if (!cancelled) {
+          setState((current) => ({
+            ...current,
+            status: "error",
+            error: translate(uiLocale, "error.invalidGenTabId"),
+          }));
+          setRuntimeHydrated(true);
+        }
+        return;
+      }
+
+      if (!desktop?.gentab?.getState) {
+        if (!cancelled) {
+          setState((current) => ({
+            ...current,
+            status: "error",
+            error: translate(uiLocale, "error.gentabUnsupported"),
+          }));
+          setRuntimeHydrated(true);
+        }
+        return;
+      }
+
+      try {
+        const result = await desktop.gentab.getState({ genId: genTabId });
+        if (cancelled) {
+          return;
+        }
+
+        const nextPendingMetadata = result.pendingMetadata ?? null;
+        const nextGentab = validateGenTabData(result.gentab) ? result.gentab : null;
+
+        setPendingMetadata(nextPendingMetadata);
+
+        if (nextPendingMetadata) {
+          setRefineIntent(nextPendingMetadata.userIntent);
+          setPreferredType(normalizeGenTabPreferredType(nextPendingMetadata.preferredType));
+          setState({
+            ...createEmptyGenTabState(),
+            status: "generating",
+            progress: 0,
+            error: null,
+          });
+        } else if (nextGentab) {
+          setState({
+            status: "done",
+            gentab: nextGentab,
+            error: null,
+            progress: 100,
+          });
+        } else {
+          setState((current) => ({
+            ...current,
+            status: "error",
+            error: translate(uiLocale, "error.gentabMetadataMissing"),
+          }));
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setState((current) => ({
+            ...current,
+            status: "error",
+            error: error instanceof Error ? error.message : String(error),
+          }));
+        }
+      } finally {
+        if (!cancelled) {
+          setRuntimeHydrated(true);
+        }
+      }
+    }
+
+    void hydrateRuntimeState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [desktop, genTabId, uiLocale]);
+
+  useEffect(() => {
+    if (!runtimeHydrated || state.status !== "generating") {
       return;
     }
 
     let cancelled = false;
 
     const doGenerate = async () => {
-        if (!genTabId) {
-          if (!cancelled) {
-            setState((current) => ({
-              ...current,
-              status: "error",
-              error: translate(uiLocale, "error.invalidGenTabId"),
-            }));
-          }
-          return;
+      if (!genTabId) {
+        if (!cancelled) {
+          setState((current) => ({
+            ...current,
+            status: "error",
+            error: translate(uiLocale, "error.invalidGenTabId"),
+          }));
         }
+        return;
+      }
 
-        if (!desktop?.gentab?.generate) {
-          if (!cancelled) {
-            setState((current) => ({
-              ...current,
-              status: "error",
-              error: translate(uiLocale, "error.gentabUnsupported"),
-            }));
-          }
-          return;
+      if (!desktop?.gentab?.generate) {
+        if (!cancelled) {
+          setState((current) => ({
+            ...current,
+            status: "error",
+            error: translate(uiLocale, "error.gentabUnsupported"),
+          }));
         }
+        return;
+      }
+
+      if (!pendingMetadata) {
+        if (!cancelled) {
+          setState((current) => ({
+            ...current,
+            status: "error",
+            error: translate(uiLocale, "error.gentabMetadataMissing"),
+          }));
+        }
+        return;
+      }
 
       try {
-        const metadata = getPendingGenTabMetadata(genTabId);
-        if (!metadata) {
-          if (!cancelled) {
-            setState((current) => ({
-              ...current,
-              status: "error",
-              error: translate(uiLocale, "error.gentabMetadataMissing"),
-            }));
-          }
-          return;
-        }
-
         if (!cancelled) {
           setState((current) => ({ ...current, progress: 20 }));
         }
 
         const result = await desktop.gentab.generate({
           genId: genTabId,
-          referenceTabIds: metadata.referenceTabIds,
-          userIntent: metadata.userIntent,
-          preferredType: metadata.preferredType,
+          referenceTabIds: pendingMetadata.referenceTabIds,
+          userIntent: pendingMetadata.userIntent,
+          preferredType: pendingMetadata.preferredType,
           uiLocale,
           assistantLocaleMode,
         });
@@ -176,8 +245,7 @@ export function useGenTabSurfaceState(params: {
           return;
         }
 
-        saveGenTabToStorage(genTabId, result.gentab);
-        clearPendingGenTabMetadata(genTabId);
+        setPendingMetadata(null);
         setState({
           status: "done",
           gentab: result.gentab,
@@ -201,7 +269,15 @@ export function useGenTabSurfaceState(params: {
     return () => {
       cancelled = true;
     };
-  }, [assistantLocaleMode, desktop, genTabId, state.status, uiLocale]);
+  }, [
+    assistantLocaleMode,
+    desktop,
+    genTabId,
+    pendingMetadata,
+    runtimeHydrated,
+    state.status,
+    uiLocale,
+  ]);
 
   useEffect(() => {
     if (!state.gentab) {
@@ -223,7 +299,7 @@ export function useGenTabSurfaceState(params: {
       return;
     }
 
-    const fallbackMetadata = getPendingGenTabMetadata(genTabId) ?? {
+    const fallbackMetadata = pendingMetadata ?? {
       referenceTabIds: state.gentab?.metadata.sourceTabIds ?? [],
       userIntent: state.gentab?.metadata.userIntent ?? "",
       preferredType: state.gentab?.metadata.preferredType,
@@ -245,19 +321,45 @@ export function useGenTabSurfaceState(params: {
       nextPreferredType ?? preferredType ?? fallbackMetadata.preferredType,
     );
 
-    clearGenTabFromStorage(genTabId);
-    setPendingGenTabMetadata(genTabId, {
+    const nextPendingMetadata: SabrinaPendingGenTabMetadata = {
       referenceTabIds: fallbackMetadata.referenceTabIds,
       userIntent,
       preferredType: resolvedPreferredType,
-    });
-    setRefineIntent(userIntent);
-    setPreferredType(resolvedPreferredType);
-    setState({
-      ...createEmptyGenTabState(),
-      status: "generating",
-      progress: 0,
-    });
+    };
+
+    async function queueGeneration() {
+      if (!desktop?.gentab?.setPending) {
+        setState((current) => ({
+          ...current,
+          status: "error",
+          error: translate(uiLocale, "error.gentabUnsupported"),
+        }));
+        return;
+      }
+
+      try {
+        await desktop.gentab.setPending({
+          genId: genTabId,
+          ...nextPendingMetadata,
+        });
+        setPendingMetadata(nextPendingMetadata);
+        setRefineIntent(userIntent);
+        setPreferredType(resolvedPreferredType);
+        setState({
+          ...createEmptyGenTabState(),
+          status: "generating",
+          progress: 0,
+        });
+      } catch (error) {
+        setState((current) => ({
+          ...current,
+          status: "error",
+          error: error instanceof Error ? error.message : String(error),
+        }));
+      }
+    }
+
+    void queueGeneration();
   }
 
   function handleCancel() {
@@ -270,7 +372,6 @@ export function useGenTabSurfaceState(params: {
       return;
     }
 
-    clearPendingGenTabMetadata(genTabId);
     void desktop?.gentab?.closeGenTab?.(genTabId);
   }
 
@@ -279,6 +380,7 @@ export function useGenTabSurfaceState(params: {
     beginGeneration,
     genTabId,
     handleCancel,
+    pendingMetadata,
     preferredType,
     refineIntent,
     setActiveView,

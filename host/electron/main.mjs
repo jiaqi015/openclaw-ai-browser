@@ -36,6 +36,10 @@ import {
   serializeLibraryState,
 } from "../../runtime/browser/BrowserLibraryStore.mjs";
 import {
+  initGenTabStore,
+  loadGenTabStoreState,
+} from "../../runtime/browser/GenTabStore.mjs";
+import {
   initThreadStore,
   loadThreadStoreState,
   serializeThreadRuntimeState,
@@ -330,6 +334,10 @@ app.whenReady().then(async () => {
     openPath: openLocalFilePath,
     revealPath: revealLocalFilePath,
   });
+  initGenTabStore({
+    resolveStatePath: () => resolveUserDataFilePath("gentab-state.json"),
+    recordEvent: recordMonitorEvent,
+  });
   initThreadStore({
     getMainWindow,
     resolveStatePath: () => resolveUserDataFilePath("thread-state.json"),
@@ -366,6 +374,7 @@ app.whenReady().then(async () => {
   });
 
   await loadBrowserLibraryState();
+  await loadGenTabStoreState();
   await loadThreadStoreState();
   await loadTurnJournalState();
   await loadOpenClawStateStore();

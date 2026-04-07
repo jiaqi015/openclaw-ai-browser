@@ -195,9 +195,9 @@
     {
       "id": "gentab-pending-metadata-write",
       "type": "file-contains",
-      "file": "src/shell/useGenTabController.ts",
-      "pattern": "setPendingGenTabMetadata(",
-      "reason": "GenTab must persist pending metadata before opening the internal tab."
+      "file": "host/electron/register-gentab-ipc-handlers.mjs",
+      "pattern": "await setPendingGenTabMetadata(genId, {",
+      "reason": "GenTab must persist pending metadata through the main-process runtime contract before opening the internal tab."
     },
     {
       "id": "renderer-no-thread-state-writeback",

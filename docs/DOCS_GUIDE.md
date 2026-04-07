@@ -68,6 +68,16 @@
 
 这篇是**执行主链设计稿**。
 
+### [GENTAB_PRD.md](./GENTAB_PRD.md)
+
+适合场景：
+
+- 想理解 GenTab 为什么是 Sabrina 的关键能力
+- 想看 GenTab 的完整输入、输出、UI、容错和验收要求
+- 想知道它和 Google Disco 的关系，但不偏离 Sabrina 定位
+
+这篇是**GenTab 的完整产品需求文档**。
+
 ### [ENGINEERING_SYSTEM.md](./ENGINEERING_SYSTEM.md)
 
 适合场景：

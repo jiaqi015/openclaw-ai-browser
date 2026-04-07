@@ -1,5 +1,9 @@
 import { getContextSnapshotForTab } from "../../runtime/browser/TabContextService.mjs";
 import {
+  clearPendingGenTabMetadata,
+  saveGenTabData,
+} from "../../runtime/browser/GenTabStore.mjs";
+import {
   buildGenTabPrompt,
   extractJsonFromOutput,
   normalizeGeneratedGenTab,
@@ -38,6 +42,15 @@ export async function generateGenTab(payload = {}, dependencies = {}) {
     typeof dependencies?.executeGenTabTurn === "function"
       ? dependencies.executeGenTabTurn
       : executeGenTabTurn;
+  const persistGenTabData =
+    typeof dependencies?.saveGenTabData === "function"
+      ? dependencies.saveGenTabData
+      : saveGenTabData;
+  const clearPendingMetadata =
+    typeof dependencies?.clearPendingGenTabMetadata === "function"
+      ? dependencies.clearPendingGenTabMetadata
+      : clearPendingGenTabMetadata;
+  const genId = `${payload?.genId ?? ""}`.trim();
 
   if (referenceTabIds.length === 0) {
     return { success: false, error: "请至少提供一个来源标签页" };
@@ -81,6 +94,11 @@ export async function generateGenTab(payload = {}, dependencies = {}) {
       executionPlan: turnResult.executionPlan ?? null,
       journalEntryId: journalEntry.journalId,
     };
+  }
+
+  if (genId) {
+    await persistGenTabData(genId, turnResult.gentab);
+    await clearPendingMetadata(genId);
   }
 
   return {

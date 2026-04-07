@@ -28,9 +28,12 @@ test("generateGenTab uses Browser Context Package provenance for host-level gene
     },
   };
   let capturedPrompt = "";
+  let persistedGenId = "";
+  let clearedGenId = "";
 
   const result = await generateGenTab(
     {
+      genId: "gentab-1",
       referenceTabIds: ["tab-a", "missing-tab", "tab-b"],
       userIntent: "整理竞品对比",
       preferredType: "comparison",
@@ -63,10 +66,19 @@ test("generateGenTab uses Browser Context Package provenance for host-level gene
           }),
         };
       },
+      saveGenTabData: async (genId, gentab) => {
+        persistedGenId = genId;
+        assert.equal(gentab.title, "竞品对比台");
+      },
+      clearPendingGenTabMetadata: async (genId) => {
+        clearedGenId = genId;
+      },
     },
   );
 
   assert.equal(result.success, true);
+  assert.equal(persistedGenId, "gentab-1");
+  assert.equal(clearedGenId, "gentab-1");
   assert.match(capturedPrompt, /Browser Context Package provenance/);
   assert.match(capturedPrompt, /Browser Context Package execution/);
   assert.match(capturedPrompt, /缺失引用页 ID：missing-tab/);

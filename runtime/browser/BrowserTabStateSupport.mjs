@@ -1,4 +1,5 @@
 import { getBrowserUrlLabel } from "./BrowserUrlService.mjs";
+import { buildBrowserSourceAvailability } from "./BrowserSourceAvailabilityService.mjs";
 
 export const defaultTabUrl = "about:blank";
 export const maxSelectionChars = 4000;
@@ -27,6 +28,7 @@ export function serializeBrowserTab(tab) {
     selectedText: tab.selectedText,
     favicon: tab.favicon,
     lastError: tab.lastError,
+    sourceAvailability: buildBrowserSourceAvailability(tab),
   };
 }
 
@@ -35,7 +37,11 @@ export function normalizeBrowserAddressInput(input) {
   if (!raw) {
     return { url: defaultTabUrl };
   }
-  if (/^https?:\/\//i.test(raw) || /^about:/i.test(raw)) {
+  if (
+    /^https?:\/\//i.test(raw) ||
+    /^(about|file|data|blob|devtools|chrome|internal|sabrina):/i.test(raw) ||
+    /^[a-z][a-z0-9+.-]*:\/\/.+/i.test(raw)
+  ) {
     return { url: raw };
   }
   if (/^(localhost|\d{1,3}(?:\.\d{1,3}){3})(:\d+)?(\/.*)?$/i.test(raw)) {

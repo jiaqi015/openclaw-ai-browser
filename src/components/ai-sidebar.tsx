@@ -23,8 +23,10 @@ import { translate } from "../../shared/localization.mjs";
 
 export function AiSidebar(props: {
   binding: SabrinaOpenClawBinding | null;
+  canGenerateGenTab: boolean;
   chatKey: string;
   composerText: string;
+  genTabBlockedReason: string;
   hasConnectedLobster: boolean;
   isModelSwitching: boolean;
   isThinking: boolean;
@@ -52,20 +54,24 @@ export function AiSidebar(props: {
   onSend: () => void;
   onSendToOpenClaw: () => void;
   onToggleReference: (tabId: string) => void;
+  primaryGenTabSourceTab: SabrinaTabReferenceCandidate | null;
   quickActions: SidebarQuickAction[];
   referenceCandidates: SabrinaTabReferenceCandidate[];
   referenceQuery: string;
   selectedComposerSkill: SidebarComposerSkill | null;
   selectedReferenceIds: string[];
   sidebarWidth: number;
+  totalGenTabSourcePageCount: number;
   generatingGenTabId: string | null;
   threadSummaries: SabrinaThreadSummary[];
   visibleMessages: SidebarMessage[];
 }) {
   const {
     binding,
+    canGenerateGenTab,
     chatKey,
     composerText,
+    genTabBlockedReason,
     hasConnectedLobster,
     isModelSwitching,
     isThinking,
@@ -87,12 +93,14 @@ export function AiSidebar(props: {
     onSend,
     onSendToOpenClaw,
     onToggleReference,
+    primaryGenTabSourceTab,
     quickActions,
     referenceCandidates,
     referenceQuery,
     selectedComposerSkill,
     selectedReferenceIds,
     sidebarWidth,
+    totalGenTabSourcePageCount,
     generatingGenTabId,
     threadSummaries,
     visibleMessages,
@@ -276,12 +284,16 @@ export function AiSidebar(props: {
           composerText={composerText}
           genTabLauncher={
             <AiSidebarGenTabLauncher
+              blockedReason={genTabBlockedReason}
+              canGenerate={canGenerateGenTab}
               chatKey={chatKey}
               composerText={composerText}
               generatingGenTabId={generatingGenTabId}
               hasConnectedLobster={hasConnectedLobster}
               onOpenGenTabGenerator={onOpenGenTabGenerator}
+              primarySourceTab={primaryGenTabSourceTab}
               selectedReferenceTabs={selectedReferenceTabs}
+              totalSourcePageCount={totalGenTabSourcePageCount}
             />
           }
           hasConnectedLobster={hasConnectedLobster}

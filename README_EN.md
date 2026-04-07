@@ -166,6 +166,7 @@ sequenceDiagram
 - [Iteration Loop](docs/ITERATION_LOOP.md)
 - [Browser/OpenClaw Architecture](docs/BROWSER_OPENCLAW_ARCHITECTURE.md)
 - [Turn Engine Design](docs/TURN_ENGINE_DESIGN.md) — Sabrina turn lifecycle, execution planning, receipt normalization
+- [GenTab PRD](docs/GENTAB_PRD.md) — full GenTab product requirements, input/output constraints, UI, and acceptance criteria
 - [System State](docs/SYSTEM_STATE.md) — what is true right now, what is not done yet, current gates, and next risks
 - [Next Phase Plan](docs/NEXT_PHASE_PLAN.md) — the next five workstreams, target outcomes, and acceptance points
 - [Claude Code Learnings](docs/CLAUDE_CODE_LEARNINGS.md) — what is worth learning from Claude Code and how it maps back to Sabrina

@@ -48,14 +48,22 @@ export function TabReferencePicker(props: {
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
         {visibleTabs.map((tab) => {
           const selected = selectedIds.includes(tab.id);
+          const available = tab.sourceAvailability?.canReference ?? true;
           return (
             <button
               key={tab.id}
               type="button"
-              onClick={() => onToggleTab?.(tab.id)}
+              onClick={() => {
+                if (!available) {
+                  return;
+                }
+                onToggleTab?.(tab.id);
+              }}
+              disabled={!available}
               className={cn(
                 "surface-card-selectable flex items-center gap-3 rounded-[20px] border px-3 py-3 text-left transition-colors",
                 selected && "surface-card-selectable-active",
+                !available && "cursor-not-allowed opacity-60",
               )}
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/8 text-white/56">
@@ -69,6 +77,11 @@ export function TabReferencePicker(props: {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-white/86">{tab.title}</p>
                 <p className="truncate text-[12px] text-white/40">{tab.host}</p>
+                {!available ? (
+                  <p className="truncate pt-1 text-[11px] text-white/30">
+                    {tab.sourceAvailability?.label}
+                  </p>
+                ) : null}
               </div>
 
               <div

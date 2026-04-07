@@ -37,6 +37,21 @@ declare global {
     selectedText: string;
     favicon: string | null;
     lastError: string | null;
+    sourceAvailability: {
+      state: "ready" | "loading" | "unavailable" | "error";
+      reason:
+        | "ready"
+        | "page-loading"
+        | "page-load-failed"
+        | "internal-surface"
+        | "local-file-unavailable"
+        | "missing-tab"
+        | "missing-url"
+        | "unsupported-source";
+      label: string;
+      canReference: boolean;
+      canUseAsPrimary: boolean;
+    };
   }
 
   interface SabrinaDesktopSnapshot {
@@ -771,6 +786,20 @@ declare global {
     };
   }
 
+  interface SabrinaPendingGenTabMetadata {
+    referenceTabIds: string[];
+    userIntent: string;
+    preferredType?: "auto" | "table" | "list" | "timeline" | "comparison" | "card-grid";
+  }
+
+  interface SabrinaGenTabStateResult {
+    success: boolean;
+    error?: string;
+    genId?: string;
+    pendingMetadata?: SabrinaPendingGenTabMetadata | null;
+    gentab?: GenTabGenerateResult["gentab"] | null;
+  }
+
   interface Window {
     sabrinaDesktop?: {
       platform: string;
@@ -1084,7 +1113,17 @@ declare global {
           referenceTabIds: string[];
           userIntent: string;
           preferredType?: "auto" | "table" | "list" | "timeline" | "comparison" | "card-grid";
-        }) => Promise<{ success: boolean; tab: SabrinaDesktopTab }>;
+        }) => Promise<
+          | { success: true; tab: SabrinaDesktopTab }
+          | { success: false; error?: string; tab?: undefined }
+        >;
+        getState: (params: { genId: string }) => Promise<SabrinaGenTabStateResult>;
+        setPending: (params: {
+          genId: string;
+          referenceTabIds: string[];
+          userIntent: string;
+          preferredType?: "auto" | "table" | "list" | "timeline" | "comparison" | "card-grid";
+        }) => Promise<SabrinaGenTabStateResult>;
         generate: (params: {
           genId: string;
           referenceTabIds: string[];

@@ -50,6 +50,8 @@ export interface SabrinaTabReferenceCandidate {
   url: string;
   favicon?: string | null;
   active?: boolean;
+  implicitPrimary?: boolean;
+  sourceAvailability?: SabrinaDesktopTab["sourceAvailability"];
 }
 
 export {

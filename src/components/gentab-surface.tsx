@@ -7,7 +7,6 @@ import {
   type GenTabPreferredType,
   type GenTabType,
 } from "../lib/gentab-types";
-import { getPendingGenTabMetadata } from "../lib/gentab-storage";
 import { cn } from "../lib/utils";
 import { useGenTabSurfaceState } from "../application/use-gentab-surface-state";
 import { useUiPreferences } from "../application/use-ui-preferences";
@@ -27,8 +26,8 @@ export function GenTabSurface(props: {
   const {
     activeView,
     beginGeneration,
-    genTabId,
     handleCancel,
+    pendingMetadata,
     preferredType,
     refineIntent,
     setActiveView,
@@ -126,7 +125,7 @@ export function GenTabSurface(props: {
               <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-left text-[12px] leading-6 text-white/44">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-white/26">{t("gentab.currentGoal")}</div>
                 <div className="mt-1 text-white/62">
-                  {getPendingGenTabMetadata(genTabId ?? "")?.userIntent || t("gentab.defaultIntent")}
+                  {pendingMetadata?.userIntent || t("gentab.defaultIntent")}
                 </div>
               </div>
               <button

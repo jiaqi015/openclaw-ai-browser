@@ -6,6 +6,7 @@ import { useBrowserCommands } from "../commands/useBrowserCommands";
 import { useDesktopDiagnostics } from "../application/use-desktop-diagnostics";
 import { useOpenClawState } from "../state/useOpenClawState";
 import { useBrowserState } from "../state/useBrowserState";
+import { useGenTabSourceState } from "../state/useGenTabSourceState";
 import { useThreadState } from "../state/useThreadState";
 import { useThreadComposerState } from "../state/useThreadComposerState";
 import { useGenTabController } from "./useGenTabController";
@@ -99,15 +100,27 @@ export function useAppController(uiLocale: UiLocale) {
     activeTab,
     activeThreadId,
   });
+  const {
+    primarySourceTab: primaryGenTabSourceTab,
+    readyReferenceTabs,
+    totalSourcePageCount: totalGenTabSourcePageCount,
+    canGenerate: canGenerateGenTab,
+    blockedReason: genTabBlockedReason,
+  } = useGenTabSourceState({
+    tabs,
+    activeTab,
+    selectedReferenceIds,
+  });
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const {
     generatingGenTabId,
     handleOpenGenTabGenerator,
     handleCloseGenTab,
   } = useGenTabController({
+    activeTabId: activeTab?.tabId ?? null,
     binding,
     composerText,
-    selectedReferenceIds,
+    selectedReferenceIds: readyReferenceTabs.map((tab) => tab.id),
   });
   const isBookmarked = activeTab
     ? bookmarkEntries.some((bookmark) => bookmark.url === activeTab.url)
@@ -159,6 +172,10 @@ export function useAppController(uiLocale: UiLocale) {
     referenceQuery,
     selectedComposerSkill,
     selectedReferenceIds,
+    primaryGenTabSourceTab,
+    totalGenTabSourcePageCount,
+    canGenerateGenTab,
+    genTabBlockedReason,
     historyEntries,
     bookmarkEntries,
     downloads,

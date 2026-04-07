@@ -181,6 +181,7 @@ sequenceDiagram
 - [Iteration Loop](docs/ITERATION_LOOP.md)
 - [Browser/OpenClaw Architecture](docs/BROWSER_OPENCLAW_ARCHITECTURE.md)
 - [Turn Engine Design](docs/TURN_ENGINE_DESIGN.md) — Sabrina turn lifecycle、execution planning、receipt normalization
+- [GenTab PRD](docs/GENTAB_PRD.md) — GenTab 的完整产品需求、输入输出约束、UI 和验收标准
 - [System State](docs/SYSTEM_STATE.md) — 当前系统全貌、哪些是真的、哪些还没做、当前门禁与下一步
 - [Next Phase Plan](docs/NEXT_PHASE_PLAN.md) — 下一阶段五条主线、目标、交付和验收
 - [Claude Code Learnings](docs/CLAUDE_CODE_LEARNINGS.md) — 值得学的机制、代码策略，以及如何落回 Sabrina 定位
