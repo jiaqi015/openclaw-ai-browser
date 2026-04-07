@@ -4,11 +4,14 @@ import {
   buildRefreshedOpenClawState,
 } from "./OpenClawSnapshotService.mjs";
 import {
+  createConnectionConfigFromSavedRecord,
   createConnectionState,
   createDefaultConnectionConfig,
   createDefaultBindingSetupState,
   createDefaultOpenClawState,
+  createSavedConnectionRecord,
   normalizeConnectionConfig,
+  normalizeSavedConnections,
   normalizeTarget,
 } from "./OpenClawStateModel.mjs";
 
@@ -65,6 +68,11 @@ function normalizeOpenClawState(rawState) {
     gatewayStatus: rawState?.gatewayStatus ?? null,
     deviceStatus: rawState?.deviceStatus ?? null,
     pairingStatus: rawState?.pairingStatus ?? null,
+    savedConnections: normalizeSavedConnections(rawState?.savedConnections),
+    activeConnectionId:
+      typeof rawState?.activeConnectionId === "string" && rawState.activeConnectionId.trim()
+        ? rawState.activeConnectionId.trim()
+        : null,
     lastRefreshedAt:
       typeof rawState?.lastRefreshedAt === "string" && rawState.lastRefreshedAt.trim()
         ? rawState.lastRefreshedAt.trim()
@@ -181,6 +189,10 @@ export function serializeOpenClawState() {
             : [],
         }
       : null,
+    savedConnections: Array.isArray(state.savedConnections)
+      ? state.savedConnections.map((entry) => ({ ...entry }))
+      : [],
+    activeConnectionId: state.activeConnectionId,
     lastRefreshedAt: state.lastRefreshedAt,
     lastError: state.lastError,
   };
@@ -290,4 +302,68 @@ export async function setOpenClawSelectedTarget(target, options = {}) {
   }
 
   return refreshOpenClawState({ target });
+}
+
+export async function saveOpenClawSavedConnection(savedConnection = {}) {
+  const record = createSavedConnectionRecord(savedConnection);
+  const nextSavedConnections = normalizeSavedConnections([
+    ...state.savedConnections.filter((entry) => entry.id !== record.id),
+    record,
+  ]).sort((left, right) => {
+    const leftStamp = left.lastUsedAt || left.lastConnectedAt || "";
+    const rightStamp = right.lastUsedAt || right.lastConnectedAt || "";
+    return rightStamp.localeCompare(leftStamp);
+  });
+
+  return commitOpenClawState({
+    ...state,
+    savedConnections: nextSavedConnections,
+    activeConnectionId:
+      savedConnection?.markActive === true ? record.id : state.activeConnectionId,
+  });
+}
+
+export async function removeOpenClawSavedConnection(savedConnectionId) {
+  const targetId = `${savedConnectionId ?? ""}`.trim();
+  if (!targetId) {
+    return serializeOpenClawState();
+  }
+
+  return commitOpenClawState({
+    ...state,
+    savedConnections: state.savedConnections.filter((entry) => entry.id !== targetId),
+    activeConnectionId: state.activeConnectionId === targetId ? null : state.activeConnectionId,
+  });
+}
+
+export async function selectOpenClawSavedConnection(savedConnectionId) {
+  const targetId = `${savedConnectionId ?? ""}`.trim();
+  const savedConnection = state.savedConnections.find((entry) => entry.id === targetId) ?? null;
+  if (!savedConnection) {
+    throw new Error("未找到已保存的 OpenClaw 目标。");
+  }
+
+  const nextTarget = normalizeTarget(savedConnection.transport);
+  const nextConnectionConfig = createConnectionConfigFromSavedRecord(savedConnection);
+  const nextBindingSetupState = {
+    ...state.bindingSetupState,
+    target: nextTarget,
+  };
+
+  return commitOpenClawState({
+    ...state,
+    selectedTarget: nextTarget,
+    connectionConfig: nextConnectionConfig,
+    activeConnectionId: savedConnection.id,
+    bindingSetupState: nextBindingSetupState,
+    connectionState: createConnectionState({
+      target: nextTarget,
+      connectionConfig: nextConnectionConfig,
+      binding: null,
+      gatewayStatus: null,
+      bindingSetupState: nextBindingSetupState,
+      lastError: "",
+      lastRefreshedAt: state.lastRefreshedAt,
+    }),
+  });
 }

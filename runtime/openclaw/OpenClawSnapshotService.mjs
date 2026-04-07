@@ -30,6 +30,13 @@ export async function buildRefreshedOpenClawState(currentState = {}, options = {
   setOpenClawTransportContext(connectionConfig);
   const nextState = {
     ...createDefaultOpenClawState(),
+    savedConnections: Array.isArray(currentState?.savedConnections)
+      ? currentState.savedConnections
+      : [],
+    activeConnectionId:
+      typeof currentState?.activeConnectionId === "string" && currentState.activeConnectionId.trim()
+        ? currentState.activeConnectionId.trim()
+        : null,
     selectedTarget,
     connectionConfig,
     bindingSetupState: createDefaultBindingSetupState(selectedTarget),

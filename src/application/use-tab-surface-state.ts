@@ -237,8 +237,9 @@ export function useTabSurfaceState(params: {
       return;
     }
 
+    const prompt = normalizeNewTabChatPrompt(value);
     setNewTabInput("");
-    await sendNewTabChatMessage(normalizeNewTabChatPrompt(value));
+    await sendNewTabChatMessage(prompt);
   }
 
   async function handleMenuCommand(command: BrowserMenuCommand) {

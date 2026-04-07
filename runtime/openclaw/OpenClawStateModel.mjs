@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import {
   SABRINA_LOCAL_CAPABILITIES,
   createSabrinaRemoteSessionContract,
@@ -60,6 +61,139 @@ function normalizeConnectCode(value) {
 function normalizeAgentId(value) {
   const normalized = `${value ?? ""}`.trim();
   return normalized || null;
+}
+
+function normalizeSavedConnectionStatus(value) {
+  const normalized = `${value ?? ""}`.trim();
+  if (normalized === "connected" || normalized === "attention") {
+    return normalized;
+  }
+  return "saved";
+}
+
+function buildSavedConnectionName(config, input = {}) {
+  const explicitName = normalizeLabel(input?.name);
+  if (explicitName) {
+    return explicitName;
+  }
+
+  if (config.transport === "local") {
+    return "本机 OpenClaw";
+  }
+
+  if (config.label) {
+    return config.label;
+  }
+
+  if (config.driver === "ssh-cli" && config.sshTarget) {
+    return config.sshTarget;
+  }
+
+  if (config.driver === "relay-paired" && config.relayUrl) {
+    return config.relayUrl;
+  }
+
+  return "远程 OpenClaw";
+}
+
+function buildSavedConnectionId(config, input = {}) {
+  const explicitId = `${input?.id ?? ""}`.trim();
+  if (explicitId) {
+    return explicitId;
+  }
+
+  const fingerprint = crypto
+    .createHash("sha1")
+    .update(
+      JSON.stringify({
+        transport: config.transport,
+        driver: config.driver,
+        profile: config.profile,
+        stateDir: config.stateDir,
+        sshTarget: config.sshTarget,
+        sshPort: config.sshPort,
+        relayUrl: config.relayUrl,
+        label: config.label,
+        agentId: config.agentId,
+      }),
+    )
+    .digest("hex")
+    .slice(0, 12);
+
+  return `openclaw-${fingerprint}`;
+}
+
+export function createSavedConnectionRecord(input = {}) {
+  const target = normalizeTarget(input?.transport ?? input?.target ?? "remote");
+  const connectionConfig = normalizeConnectionConfig(
+    input?.connectionConfig && typeof input.connectionConfig === "object"
+      ? {
+          ...input.connectionConfig,
+          transport: target,
+        }
+      : {
+          ...input,
+          transport: target,
+        },
+    target,
+  );
+  const name = buildSavedConnectionName(connectionConfig, input);
+
+  return {
+    id: buildSavedConnectionId(connectionConfig, input),
+    name,
+    transport: connectionConfig.transport,
+    driver: connectionConfig.driver ?? (target === "remote" ? "ssh-cli" : "local-cli"),
+    profile: connectionConfig.profile,
+    stateDir: connectionConfig.stateDir,
+    sshTarget: connectionConfig.sshTarget ?? null,
+    sshPort: connectionConfig.sshPort ?? null,
+    relayUrl: connectionConfig.relayUrl ?? null,
+    connectCode: connectionConfig.driver === "relay-paired"
+      ? connectionConfig.connectCode ?? null
+      : null,
+    label: connectionConfig.label ?? null,
+    agentId: connectionConfig.agentId ?? null,
+    status: normalizeSavedConnectionStatus(input?.status),
+    lastUsedAt:
+      typeof input?.lastUsedAt === "string" && input.lastUsedAt.trim()
+        ? input.lastUsedAt.trim()
+        : null,
+    lastConnectedAt:
+      typeof input?.lastConnectedAt === "string" && input.lastConnectedAt.trim()
+        ? input.lastConnectedAt.trim()
+        : null,
+  };
+}
+
+export function normalizeSavedConnections(values = []) {
+  return Array.from(
+    new Map(
+      (Array.isArray(values) ? values : [])
+        .map((entry) => createSavedConnectionRecord(entry))
+        .filter((entry) => entry.transport === "remote")
+        .map((entry) => [entry.id, entry]),
+    ).values(),
+  );
+}
+
+export function createConnectionConfigFromSavedRecord(savedRecord) {
+  return normalizeConnectionConfig(
+    {
+      enabled: false,
+      transport: savedRecord?.transport ?? "remote",
+      driver: savedRecord?.driver,
+      profile: savedRecord?.profile,
+      stateDir: savedRecord?.stateDir,
+      sshTarget: savedRecord?.sshTarget,
+      sshPort: savedRecord?.sshPort,
+      relayUrl: savedRecord?.relayUrl,
+      connectCode: savedRecord?.connectCode,
+      label: savedRecord?.label ?? savedRecord?.name,
+      agentId: savedRecord?.agentId,
+    },
+    savedRecord?.transport ?? "remote",
+  );
 }
 
 export function createDefaultConnectionConfig(target = "local") {
@@ -311,6 +445,8 @@ export function createDefaultOpenClawState() {
     gatewayStatus: null,
     deviceStatus: null,
     pairingStatus: null,
+    savedConnections: [],
+    activeConnectionId: null,
     lastRefreshedAt: null,
     lastError: "",
   };
