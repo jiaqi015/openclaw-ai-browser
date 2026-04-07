@@ -232,6 +232,11 @@ export function useAppShellState({
     deviceStatus: controller.deviceStatus,
     pairingStatus: controller.pairingStatus,
     lastError: controller.lastError,
+    doctorReport: controller.doctorReport,
+    turnJournalEntries: controller.turnJournalEntries,
+    turnJournalStats: controller.turnJournalStats,
+    browserMemoryRecords: controller.browserMemoryRecords,
+    browserMemoryStats: controller.browserMemoryStats,
     approvingPairingRequestId: controller.approvingPairingRequestId,
     isApprovingLatestDevice: controller.isApprovingLatestDevice,
     pinnedSkillNames,
@@ -250,6 +255,12 @@ export function useAppShellState({
     },
     onDoctorOpenClaw: (params) => {
       void controller.doctorOpenClaw(params).catch(() => {});
+    },
+    onCreateRelayConnectCode: (params) => {
+      return controller.createRelayConnectCode(params);
+    },
+    onGetRelayPairingState: (params) => {
+      return controller.getRelayPairingState(params);
     },
     onCloseGenTab: controller.handleCloseGenTab,
     onApprovePairingRequest: (request) => {

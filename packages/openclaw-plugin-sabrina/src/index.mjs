@@ -33,12 +33,19 @@ function registerStatusCommand(rootCommand, api) {
             connector: health.payload?.connector ?? health.connector,
             state: status.payload?.state ?? null,
             connectionState: status.payload?.connectionState ?? null,
+            runtimeInsights: status.payload?.runtimeInsights ?? null,
           });
           return;
         }
 
         console.log("Sabrina connector is reachable.");
-        console.log(formatConnectionSummary(status.payload?.connectionState ?? null));
+        console.log(
+          formatConnectionSummary(
+            status.payload?.connectionState ?? null,
+            health.payload?.connector ?? health.connector,
+            status.payload?.runtimeInsights ?? null,
+          ),
+        );
       } catch (error) {
         handleCliError(error);
       }
@@ -181,6 +188,111 @@ function registerDoctorCommand(rootCommand, api) {
     });
 }
 
+function registerRelayCodeCommand(rootCommand, api) {
+  rootCommand
+    .command("relay-code")
+    .description("Generate or reuse a Sabrina relay pairing code")
+    .requiredOption("--relay-url <url>", "Relay URL for the relay-paired driver")
+    .option("--ttl-seconds <seconds>", "Optional TTL for a newly created code")
+    .option("--json", "Print raw JSON")
+    .action(async (options) => {
+      try {
+        const ttlSeconds = options.ttlSeconds ? Number(options.ttlSeconds) : null;
+        const result = await requestSabrinaConnector(
+          api.pluginConfig ?? {},
+          "/v1/openclaw/relay-pairing",
+          {
+            method: "POST",
+            body: {
+              relayUrl: options.relayUrl,
+              ttlMs:
+                Number.isFinite(ttlSeconds) && ttlSeconds > 0
+                  ? Math.trunc(ttlSeconds * 1000)
+                  : undefined,
+            },
+          },
+        );
+
+        if (options.json) {
+          printJson(result.payload);
+          return;
+        }
+
+        const session = result.payload?.state?.active ?? result.payload?.state?.session ?? null;
+        if (!session) {
+          console.log("Sabrina did not return an active relay pairing code.");
+          return;
+        }
+
+        console.log(`Code: ${session.code}`);
+        console.log(`Relay: ${session.relayUrl}`);
+        console.log(`Device: ${session.browserDisplayName}`);
+        console.log(`Expires: ${session.expiresAt}`);
+      } catch (error) {
+        handleCliError(error);
+      }
+    });
+}
+
+async function requestRelayJson(relayUrl, pathname, options = {}) {
+  const normalizedRelayUrl = `${relayUrl ?? ""}`.trim().replace(/\/+$/, "");
+  if (!normalizedRelayUrl) {
+    throw new Error("Relay URL is required.");
+  }
+
+  const response = await fetch(`${normalizedRelayUrl}${pathname}`, {
+    method: options.method ?? "GET",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const detail =
+      typeof payload?.error === "string" && payload.error.trim()
+        ? payload.error.trim()
+        : `${response.status} ${response.statusText}`.trim();
+    throw new Error(detail);
+  }
+  return payload;
+}
+
+function registerRelayClaimCommand(rootCommand) {
+  rootCommand
+    .command("relay-claim")
+    .description("Claim a Sabrina relay pairing code from a remote OpenClaw machine")
+    .requiredOption("--relay-url <url>", "Relay URL")
+    .requiredOption("--connect-code <code>", "One-time Sabrina connect code")
+    .option("--device-id <id>", "Optional OpenClaw device id")
+    .option("--label <label>", "Optional OpenClaw display label")
+    .option("--json", "Print raw JSON")
+    .action(async (options) => {
+      try {
+        const payload = await requestRelayJson(options.relayUrl, "/v1/pairings/claim", {
+          method: "POST",
+          body: {
+            code: options.connectCode,
+            openclawDeviceId: options.deviceId,
+            openclawLabel: options.label,
+          },
+        });
+
+        if (options.json) {
+          printJson(payload);
+          return;
+        }
+
+        console.log(`Session: ${payload?.pairing?.sessionId ?? "unknown"}`);
+        console.log(`Pairing: ${payload?.pairing?.pairingId ?? "unknown"}`);
+        console.log(`Browser: ${payload?.pairing?.browserDisplayName ?? "unknown"}`);
+        console.log(`Status: ${payload?.pairing?.status ?? "unknown"}`);
+      } catch (error) {
+        handleCliError(error);
+      }
+    });
+}
+
 const sabrinaPlugin = {
   id: "openclaw-plugin-sabrina",
   name: "Sabrina Browser Connector",
@@ -196,6 +308,8 @@ const sabrinaPlugin = {
         registerConnectCommand(rootCommand, api);
         registerDisconnectCommand(rootCommand, api);
         registerDoctorCommand(rootCommand, api);
+        registerRelayCodeCommand(rootCommand, api);
+        registerRelayClaimCommand(rootCommand);
       },
       { commands: ["sabrina"] },
     );

@@ -44,4 +44,12 @@ export type BindingWizardProps = {
     label?: string;
     agentId?: string;
   }) => void;
+  onCreateRelayConnectCode?: (params?: {
+    relayUrl?: string;
+    ttlMs?: number;
+  }) => Promise<SabrinaOpenClawRelayPairingState | null> | SabrinaOpenClawRelayPairingState | null;
+  onGetRelayPairingState?: (params?: {
+    relayUrl?: string;
+    connectCode?: string;
+  }) => Promise<SabrinaOpenClawRelayPairingState | null> | SabrinaOpenClawRelayPairingState | null;
 };

@@ -22,6 +22,12 @@ export function SurfaceRouter(props: {
   gatewayStatus: SabrinaOpenClawGatewayStatus | null;
   historyEntries: SabrinaHistoryEntry[];
   lastError: string;
+  skillCatalog: SabrinaOpenClawSkillCatalog | null;
+  doctorReport: SabrinaOpenClawDoctorReport | null;
+  turnJournalEntries: SabrinaTurnJournalEntry[];
+  turnJournalStats: SabrinaTurnJournalStats | null;
+  browserMemoryRecords: SabrinaBrowserMemoryRecord[];
+  browserMemoryStats: SabrinaBrowserMemoryStats | null;
   lobsterLabel: string;
   lobsterStatus: "connected" | "disconnected";
   approvingPairingRequestId: string | null;
@@ -56,6 +62,14 @@ export function SurfaceRouter(props: {
     label?: string;
     agentId?: string;
   }) => void;
+  onCreateRelayConnectCode: (params?: {
+    relayUrl?: string;
+    ttlMs?: number;
+  }) => Promise<SabrinaOpenClawRelayPairingState | null>;
+  onGetRelayPairingState: (params?: {
+    relayUrl?: string;
+    connectCode?: string;
+  }) => Promise<SabrinaOpenClawRelayPairingState | null>;
   onCloseGenTab: (genTabId: string) => void;
   onNavigate: (url: string) => void;
   onOpenDiagnostics: () => void;
@@ -85,6 +99,12 @@ export function SurfaceRouter(props: {
     gatewayStatus,
     historyEntries,
     lastError,
+    skillCatalog,
+    doctorReport,
+    turnJournalEntries,
+    turnJournalStats,
+    browserMemoryRecords,
+    browserMemoryStats,
     lobsterLabel,
     lobsterStatus,
     approvingPairingRequestId,
@@ -95,6 +115,8 @@ export function SurfaceRouter(props: {
     onConnectOpenClaw,
     onDisconnectOpenClaw,
     onDoctorOpenClaw,
+    onCreateRelayConnectCode,
+    onGetRelayPairingState,
     onCloseGenTab,
     onNavigate,
     onOpenDiagnostics,
@@ -138,6 +160,11 @@ export function SurfaceRouter(props: {
     return (
       <DiagnosticsSurface
         state={diagnostics}
+        connectionState={connectionState}
+        skillCatalog={skillCatalog}
+        doctorReport={doctorReport}
+        turnJournalStats={turnJournalStats}
+        browserMemoryStats={browserMemoryStats}
         onRefresh={onRefreshDiagnostics}
         onOpenLogDirectory={onOpenLogDirectory}
         onRevealHumanLogFile={onRevealHumanLogFile}
@@ -156,10 +183,16 @@ export function SurfaceRouter(props: {
         connectionConfig={connectionConfig}
         connectionState={connectionState}
         bindingSetupState={bindingSetupState}
+        skillCatalog={skillCatalog}
         gatewayStatus={gatewayStatus}
         deviceStatus={deviceStatus}
         pairingStatus={pairingStatus}
         lastError={lastError}
+        doctorReport={doctorReport}
+        turnJournalEntries={turnJournalEntries}
+        turnJournalStats={turnJournalStats}
+        browserMemoryRecords={browserMemoryRecords}
+        browserMemoryStats={browserMemoryStats}
         lobsterStatus={lobsterStatus}
         lobsterLabel={lobsterLabel}
         approvingPairingRequestId={approvingPairingRequestId}
@@ -168,6 +201,8 @@ export function SurfaceRouter(props: {
         onConnectOpenClaw={onConnectOpenClaw}
         onDisconnectOpenClaw={onDisconnectOpenClaw}
         onDoctorOpenClaw={onDoctorOpenClaw}
+        onCreateRelayConnectCode={onCreateRelayConnectCode}
+        onGetRelayPairingState={onGetRelayPairingState}
         onOpenExternalUrl={onOpenExternalUrl}
         onSelectBindingTarget={onSelectBindingTarget}
         onApprovePairingRequest={onApprovePairingRequest}

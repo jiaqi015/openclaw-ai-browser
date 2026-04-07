@@ -1,7 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import os from "node:os";
+import path from "node:path";
+import { mkdtemp } from "node:fs/promises";
+import { startSabrinaRelayDevServer } from "../../packages/sabrina-relay-dev/src/server.mjs";
+import {
+  ensureSabrinaRelayConnectCode,
+} from "./SabrinaRemotePairingService.mjs";
 import {
   getOpenClawDriverId,
+  probeOpenClawDriverTransport,
   supportsOpenClawGatewayHttpManagement,
   supportsOpenClawRemoteCliExecution,
   supportsOpenClawSessionTrace,
@@ -24,6 +32,49 @@ test("driver registry treats local transport as local-cli with local-only capabi
     assert.equal(supportsOpenClawSessionTrace(context), true);
     assert.equal(supportsOpenClawGatewayHttpManagement(context), true);
   } finally {
+    setOpenClawTransportContext(previous);
+  }
+});
+
+test("relay-paired probe explains pending and claimed relay sessions without falling back local", async () => {
+  const previous = getOpenClawTransportContext();
+  const relay = await startSabrinaRelayDevServer({ port: 0 });
+  const homeDir = await mkdtemp(path.join(os.tmpdir(), "sabrina-relay-probe-"));
+  try {
+    const created = await ensureSabrinaRelayConnectCode({
+      homeDir,
+      relayUrl: relay.url,
+      publish: true,
+    });
+    const context = setOpenClawTransportContext({
+      transport: "remote",
+      driver: "relay-paired",
+      relayUrl: relay.url,
+      connectCode: created.session.code,
+    });
+
+    const pendingProbe = await probeOpenClawDriverTransport({ context });
+    assert.equal(pendingProbe.ok, false);
+    assert.match(pendingProbe.detail, /等待远端 OpenClaw 认领/);
+
+    const claimResponse = await fetch(`${relay.url}/v1/pairings/claim`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        code: created.session.code,
+        openclawDeviceId: "openclaw-1",
+        openclawLabel: "Remote OpenClaw",
+      }),
+    });
+    assert.equal(claimResponse.ok, true);
+
+    const activeProbe = await probeOpenClawDriverTransport({ context });
+    assert.equal(activeProbe.ok, false);
+    assert.match(activeProbe.detail, /已被 Remote OpenClaw认领|已被 远端 OpenClaw认领|已被 Remote OpenClaw 认领/);
+  } finally {
+    await relay.close();
     setOpenClawTransportContext(previous);
   }
 });

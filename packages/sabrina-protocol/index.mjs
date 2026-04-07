@@ -13,6 +13,8 @@ export const SABRINA_CONNECTOR_HOST = "127.0.0.1";
 export const SABRINA_CONNECTOR_DEFAULT_PORT = 44718;
 export const SABRINA_CONNECTOR_DIRNAME = ".sabrina";
 export const SABRINA_CONNECTOR_MANIFEST_FILENAME = "connector.json";
+export const SABRINA_CONNECTOR_DEVICE_FILENAME = "device.json";
+export const SABRINA_CONNECTOR_PAIRINGS_FILENAME = "relay-pairings.json";
 
 export const SABRINA_LOCAL_CAPABILITIES = Object.freeze([
   "context.read",
@@ -114,6 +116,20 @@ export function resolveSabrinaConnectorManifestPath(homeDir = os.homedir()) {
   );
 }
 
+export function resolveSabrinaConnectorDevicePath(homeDir = os.homedir()) {
+  return path.join(
+    resolveSabrinaConnectorRootDir(homeDir),
+    SABRINA_CONNECTOR_DEVICE_FILENAME,
+  );
+}
+
+export function resolveSabrinaConnectorPairingsPath(homeDir = os.homedir()) {
+  return path.join(
+    resolveSabrinaConnectorRootDir(homeDir),
+    SABRINA_CONNECTOR_PAIRINGS_FILENAME,
+  );
+}
+
 export function createSabrinaConnectorSecret() {
   return crypto.randomUUID().replace(/-/g, "");
 }
@@ -187,6 +203,7 @@ export function createSabrinaPairingSession(input = {}) {
         : "pending",
     browserDeviceId: `${input.browserDeviceId ?? ""}`.trim() || null,
     openclawDeviceId: `${input.openclawDeviceId ?? ""}`.trim() || null,
+    openclawLabel: `${input.openclawLabel ?? ""}`.trim() || null,
     requestedAt:
       typeof input.requestedAt === "string" && input.requestedAt.trim()
         ? input.requestedAt.trim()
@@ -195,6 +212,11 @@ export function createSabrinaPairingSession(input = {}) {
       typeof input.expiresAt === "string" && input.expiresAt.trim()
         ? input.expiresAt.trim()
         : new Date(Date.now() + 2 * 60_000).toISOString(),
+    claimedAt:
+      typeof input.claimedAt === "string" && input.claimedAt.trim()
+        ? input.claimedAt.trim()
+        : null,
+    sessionId: `${input.sessionId ?? ""}`.trim() || null,
   };
 }
 

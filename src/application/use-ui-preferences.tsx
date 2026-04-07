@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { getSabrinaDesktop } from "../lib/sabrina-desktop";
+import { getQaUiLocaleOverride } from "../lib/qa-boot";
 import {
   DEFAULT_ASSISTANT_LOCALE_MODE,
   DEFAULT_UI_LOCALE,
@@ -39,9 +40,28 @@ function readSavedPreferences(): UiPreferences {
       return defaultPreferences;
     }
     const parsed = JSON.parse(raw);
-    return { ...defaultPreferences, ...parsed };
+    const merged = { ...defaultPreferences, ...parsed };
+    const qaLocale = getQaUiLocaleOverride();
+    if (!qaLocale) {
+      return merged;
+    }
+
+    return {
+      ...merged,
+      uiLocale: qaLocale,
+      assistantLocaleMode:
+        merged.assistantLocaleMode === "follow-ui" ? "follow-ui" : qaLocale,
+    };
   } catch {
-    return defaultPreferences;
+    const qaLocale = getQaUiLocaleOverride();
+    if (!qaLocale) {
+      return defaultPreferences;
+    }
+
+    return {
+      ...defaultPreferences,
+      uiLocale: qaLocale,
+    };
   }
 }
 

@@ -106,7 +106,11 @@ export async function getSabrinaConnectorHealth(pluginConfig = {}) {
   };
 }
 
-export function formatConnectionSummary(connectionState) {
+export function formatConnectionSummary(
+  connectionState,
+  connector = null,
+  runtimeInsights = null,
+) {
   if (!connectionState) {
     return "Sabrina is running, but OpenClaw connection state is unavailable.";
   }
@@ -115,11 +119,42 @@ export function formatConnectionSummary(connectionState) {
     `Status: ${connectionState.summary ?? connectionState.status ?? "unknown"}`,
   ];
 
+  if (connector?.endpoint) {
+    lines.push(`Connector: ${connector.endpoint}`);
+  }
   if (connectionState.detail) {
     lines.push(`Detail: ${connectionState.detail}`);
   }
   if (connectionState.transportLabel) {
     lines.push(`Target: ${connectionState.transportLabel}`);
+  }
+  if (connector?.browserCapabilitySchemaVersion || connector?.remoteSessionContractVersion) {
+    lines.push(
+      `Schema: capability v${connector?.browserCapabilitySchemaVersion ?? "n/a"} · remote v${connector?.remoteSessionContractVersion ?? "n/a"}`,
+    );
+  }
+  if (Array.isArray(connector?.features) && connector.features.length > 0) {
+    lines.push(`Features: ${connector.features.join(", ")}`);
+  }
+  if (connectionState.remoteSessionContract?.driver) {
+    lines.push(
+      `Remote contract: v${connectionState.remoteSessionContract.contractVersion} · ${connectionState.remoteSessionContract.driver}`,
+    );
+  }
+  if (runtimeInsights?.skillCatalog) {
+    lines.push(
+      `Skills: ${runtimeInsights.skillCatalog.ready}/${runtimeInsights.skillCatalog.total} ready · declared ${runtimeInsights.skillCatalog.capabilitySourceCounts?.declared ?? 0} · overlay ${runtimeInsights.skillCatalog.capabilitySourceCounts?.overlay ?? 0} · heuristic ${runtimeInsights.skillCatalog.capabilitySourceCounts?.heuristic ?? 0}`,
+    );
+  }
+  if (runtimeInsights?.turnJournal) {
+    lines.push(
+      `Turn journal: ${runtimeInsights.turnJournal.count} entries · latest ${runtimeInsights.turnJournal.latestStatus ?? "n/a"}`,
+    );
+  }
+  if (runtimeInsights?.browserMemory) {
+    lines.push(
+      `Browser memory: ${runtimeInsights.browserMemory.count} records · latest ${runtimeInsights.browserMemory.latestCapturedAt ?? "n/a"}`,
+    );
   }
   if (connectionState.commandHint) {
     lines.push(`Hint: ${connectionState.commandHint}`);
@@ -134,9 +169,9 @@ export function formatDoctorReport(report) {
   }
 
   const lines = [];
-  if (report.summary) {
-    lines.push(report.summary);
-  }
+  lines.push(
+    `Doctor: ${report.transportLabel ?? report.transport ?? "unknown"} · ${report.failureCount ?? 0} fail · ${report.warningCount ?? 0} warn · ${report.checkCount ?? 0} check(s)`,
+  );
   if (Array.isArray(report.checks)) {
     for (const check of report.checks) {
       const badge =

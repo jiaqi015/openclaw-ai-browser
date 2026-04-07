@@ -306,6 +306,33 @@ declare global {
     lastConnectedAt: string | null;
   }
 
+  interface SabrinaOpenClawRelayPairingSession {
+    pairingId: string;
+    status: "pending" | "active" | "expired" | "rejected";
+    relayUrl: string | null;
+    browserDeviceId: string;
+    browserDisplayName: string;
+    openclawDeviceId?: string | null;
+    openclawLabel?: string | null;
+    code: string;
+    expiresAt: string;
+    requestedAt: string;
+    claimedAt?: string | null;
+    sessionId?: string | null;
+  }
+
+  interface SabrinaOpenClawRelayPairingState {
+    ok: boolean;
+    device: {
+      deviceId: string;
+      displayName: string;
+      createdAt: string;
+      updatedAt: string;
+    };
+    active: SabrinaOpenClawRelayPairingSession | null;
+    sessions: SabrinaOpenClawRelayPairingSession[];
+  }
+
   interface SabrinaThreadRecord {
     threadId: string;
     title: string;
@@ -458,6 +485,12 @@ declare global {
     metadata: Record<string, unknown>;
   }
 
+  interface SabrinaBrowserMemoryStats {
+    path: string;
+    count: number;
+    latestCapturedAt: string | null;
+  }
+
   interface SabrinaTurnJournalEntry {
     journalId: string;
     turnId: string;
@@ -482,6 +515,16 @@ declare global {
     response: Record<string, unknown> | null;
     errorMessage: string;
     contextPackageSummary: Record<string, unknown> | null;
+  }
+
+  interface SabrinaTurnJournalStats {
+    path: string;
+    count: number;
+    latestCreatedAt: string | null;
+    latestThreadId: string | null;
+    latestTurnId: string | null;
+    latestStatus: string | null;
+    statusCounts: Record<string, number>;
   }
 
   interface SabrinaDiagnosticsEntry {
@@ -770,6 +813,14 @@ declare global {
           label?: string;
           agentId?: string;
         }) => Promise<SabrinaOpenClawDoctorReport>;
+        createRelayConnectCode: (params?: {
+          relayUrl?: string;
+          ttlMs?: number;
+        }) => Promise<SabrinaOpenClawRelayPairingState>;
+        getRelayPairingState: (params?: {
+          relayUrl?: string;
+          connectCode?: string;
+        }) => Promise<SabrinaOpenClawRelayPairingState>;
         setBindingTarget: (target: "local" | "remote") => Promise<SabrinaOpenClawState>;
         getLocalBinding: () => Promise<SabrinaOpenClawBinding>;
         getLocalModels: (params?: {
@@ -808,11 +859,7 @@ declare global {
         saveMemory: (payload: Partial<SabrinaBrowserMemoryRecord>) => Promise<{
           ok: boolean;
           record: SabrinaBrowserMemoryRecord;
-          stats: {
-            path: string;
-            count: number;
-            latestCapturedAt: string | null;
-          };
+          stats: SabrinaBrowserMemoryStats;
         }>;
         searchMemory: (payload: {
           query?: string;
@@ -821,11 +868,7 @@ declare global {
           ok: boolean;
           query: string;
           records: SabrinaBrowserMemoryRecord[];
-          stats: {
-            path: string;
-            count: number;
-            latestCapturedAt: string | null;
-          };
+          stats: SabrinaBrowserMemoryStats;
         }>;
         getTurnJournal: (payload?: {
           limit?: number;
@@ -834,15 +877,7 @@ declare global {
         }) => Promise<{
           ok: boolean;
           entries: SabrinaTurnJournalEntry[];
-          stats: {
-            path: string;
-            count: number;
-            latestCreatedAt: string | null;
-            latestThreadId: string | null;
-            latestTurnId: string | null;
-            latestStatus: string | null;
-            statusCounts: Record<string, number>;
-          };
+          stats: SabrinaTurnJournalStats;
         }>;
         searchTurnJournal: (payload: {
           query?: string;
@@ -851,15 +886,7 @@ declare global {
           ok: boolean;
           query: string;
           entries: SabrinaTurnJournalEntry[];
-          stats: {
-            path: string;
-            count: number;
-            latestCreatedAt: string | null;
-            latestThreadId: string | null;
-            latestTurnId: string | null;
-            latestStatus: string | null;
-            statusCounts: Record<string, number>;
-          };
+          stats: SabrinaTurnJournalStats;
         }>;
         runLocalAgent: (params: {
           agentId?: string;

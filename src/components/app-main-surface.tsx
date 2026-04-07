@@ -22,6 +22,11 @@ type AppMainSurfaceProps = {
   deviceStatus?: SabrinaOpenClawDeviceStatus | null;
   pairingStatus?: SabrinaOpenClawPairingStatus | null;
   lastError?: string;
+  doctorReport?: SabrinaOpenClawDoctorReport | null;
+  turnJournalEntries: SabrinaTurnJournalEntry[];
+  turnJournalStats: SabrinaTurnJournalStats | null;
+  browserMemoryRecords: SabrinaBrowserMemoryRecord[];
+  browserMemoryStats: SabrinaBrowserMemoryStats | null;
   approvingPairingRequestId?: string | null;
   isApprovingLatestDevice?: boolean;
   pinnedSkillNames: string[];
@@ -55,6 +60,14 @@ type AppMainSurfaceProps = {
     label?: string;
     agentId?: string;
   }) => void;
+  onCreateRelayConnectCode: (params?: {
+    relayUrl?: string;
+    ttlMs?: number;
+  }) => Promise<SabrinaOpenClawRelayPairingState | null>;
+  onGetRelayPairingState: (params?: {
+    relayUrl?: string;
+    connectCode?: string;
+  }) => Promise<SabrinaOpenClawRelayPairingState | null>;
   onCloseGenTab: (genTabId: string) => void;
   onApprovePairingRequest: (
     request: SabrinaOpenClawPairingStatus["requests"][number],
@@ -101,16 +114,24 @@ export function AppMainSurface(props: AppMainSurfaceProps) {
       connectionConfig={props.connectionConfig}
       connectionState={props.connectionState}
       bindingSetupState={props.bindingSetupState}
+      skillCatalog={props.skillCatalog}
       gatewayStatus={props.gatewayStatus}
       deviceStatus={props.deviceStatus}
       pairingStatus={props.pairingStatus}
       lastError={props.lastError}
+      doctorReport={props.doctorReport}
+      turnJournalEntries={props.turnJournalEntries}
+      turnJournalStats={props.turnJournalStats}
+      browserMemoryRecords={props.browserMemoryRecords}
+      browserMemoryStats={props.browserMemoryStats}
       approvingPairingRequestId={props.approvingPairingRequestId}
       isApprovingLatestDevice={props.isApprovingLatestDevice}
       onBeginBindingSetup={props.onBeginBindingSetup}
       onConnectOpenClaw={props.onConnectOpenClaw}
       onDisconnectOpenClaw={props.onDisconnectOpenClaw}
       onDoctorOpenClaw={props.onDoctorOpenClaw}
+      onCreateRelayConnectCode={props.onCreateRelayConnectCode}
+      onGetRelayPairingState={props.onGetRelayPairingState}
       onCloseGenTab={props.onCloseGenTab}
       onApprovePairingRequest={props.onApprovePairingRequest}
       onApproveLatestDeviceRequest={props.onApproveLatestDeviceRequest}

@@ -17,6 +17,7 @@ import {
   prunePendingNavigations,
   pruneTabSurfaceModes,
 } from "./tab-surface-state-helpers";
+import { getQaInitialSurface } from "../lib/qa-boot";
 import type { SearchEngine } from "./use-ui-preferences";
 import type { UiLocale } from "../../shared/localization.mjs";
 
@@ -54,6 +55,8 @@ export function useTabSurfaceState(params: {
   >({});
   const previousTabCountRef = useRef(0);
   const menuCommandHandlerRef = useRef<(command: BrowserMenuCommand) => void>(() => {});
+  const qaSurfaceRef = useRef<InternalSurface | null>(getQaInitialSurface());
+  const qaSurfaceOpenedRef = useRef(false);
 
   const activeTabSurface = activeTab ? tabSurfaceModes[activeTab.tabId] ?? null : null;
   const surfaceMode: SurfaceMode = activeTabSurface ?? "browser";
@@ -234,8 +237,8 @@ export function useTabSurfaceState(params: {
       return;
     }
 
-    await sendNewTabChatMessage(normalizeNewTabChatPrompt(value));
     setNewTabInput("");
+    await sendNewTabChatMessage(normalizeNewTabChatPrompt(value));
   }
 
   async function handleMenuCommand(command: BrowserMenuCommand) {
@@ -268,6 +271,15 @@ export function useTabSurfaceState(params: {
       unsubscribe();
     };
   }, [subscribeBrowserMenuCommand]);
+
+  useEffect(() => {
+    if (!qaSurfaceRef.current || qaSurfaceOpenedRef.current) {
+      return;
+    }
+
+    qaSurfaceOpenedRef.current = true;
+    void openInternalTab(qaSurfaceRef.current);
+  }, [createTab, tabs.length]);
 
   return {
     inputUrl,

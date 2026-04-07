@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   applyProjectedRuntimeState,
   createEmptyOpenClawState,
@@ -6,11 +6,23 @@ import {
 } from "./openclaw-runtime-projection";
 
 type SabrinaDesktop = NonNullable<Window["sabrinaDesktop"]>;
+type SabrinaDesktopOpenClaw = NonNullable<SabrinaDesktop["openclaw"]>;
+type SabrinaTurnJournalSnapshot = Awaited<
+  ReturnType<SabrinaDesktopOpenClaw["getTurnJournal"]>
+>;
+type SabrinaBrowserMemorySnapshot = Awaited<
+  ReturnType<SabrinaDesktopOpenClaw["searchMemory"]>
+>;
 
 export function useOpenClawState(desktop?: SabrinaDesktop) {
   const [runtimeState, setRuntimeState] = useState<SabrinaOpenClawState>(
     createEmptyOpenClawState("local"),
   );
+  const [doctorReport, setDoctorReport] = useState<SabrinaOpenClawDoctorReport | null>(null);
+  const [turnJournalSnapshot, setTurnJournalSnapshot] =
+    useState<SabrinaTurnJournalSnapshot | null>(null);
+  const [browserMemorySnapshot, setBrowserMemorySnapshot] =
+    useState<SabrinaBrowserMemorySnapshot | null>(null);
   const [isModelSwitching, setIsModelSwitching] = useState(false);
   const [approvingPairingRequestId, setApprovingPairingRequestId] = useState<string | null>(null);
   const [isApprovingLatestDevice, setIsApprovingLatestDevice] = useState(false);
@@ -39,6 +51,46 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
   const lastError = runtimeState.lastError;
   const modelOptions = modelState?.models ?? [];
   const selectedModel = modelState?.desiredModel ?? modelState?.appliedModel ?? "";
+  const turnJournalEntries = turnJournalSnapshot?.entries ?? [];
+  const turnJournalStats = turnJournalSnapshot?.stats ?? null;
+  const browserMemoryRecords = browserMemorySnapshot?.records ?? [];
+  const browserMemoryStats = browserMemorySnapshot?.stats ?? null;
+
+  useEffect(() => {
+    const openclaw = desktop?.openclaw;
+    if (!openclaw?.getTurnJournal || !openclaw?.searchMemory) {
+      setTurnJournalSnapshot(null);
+      setBrowserMemorySnapshot(null);
+      return;
+    }
+
+    let mounted = true;
+
+    Promise.all([
+      openclaw.getTurnJournal({ limit: 3 }),
+      openclaw.searchMemory({ query: "", limit: 3 }),
+    ])
+      .then(([journalSnapshot, memorySnapshot]) => {
+        if (!mounted) {
+          return;
+        }
+
+        setTurnJournalSnapshot(journalSnapshot);
+        setBrowserMemorySnapshot(memorySnapshot);
+      })
+      .catch(() => {
+        if (!mounted) {
+          return;
+        }
+
+        setTurnJournalSnapshot(null);
+        setBrowserMemorySnapshot(null);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [desktop, runtimeState.lastRefreshedAt, runtimeState.selectedTarget]);
 
   async function refreshOpenClawState(target = selectedBindingTargetRef.current) {
     const openclaw = desktop?.openclaw;
@@ -199,7 +251,7 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
       return null;
     }
 
-    return openclaw.doctor({
+    const report = await openclaw.doctor({
       target: params?.target ?? runtimeState.selectedTarget,
       profile: params?.profile,
       stateDir: params?.stateDir,
@@ -210,6 +262,38 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
       connectCode: params?.connectCode,
       label: params?.label,
       agentId: params?.agentId,
+    });
+    setDoctorReport(report);
+    return report;
+  }
+
+  async function createRelayConnectCode(params?: {
+    relayUrl?: string;
+    ttlMs?: number;
+  }) {
+    const openclaw = desktop?.openclaw;
+    if (!openclaw?.createRelayConnectCode) {
+      return null;
+    }
+
+    return openclaw.createRelayConnectCode({
+      relayUrl: params?.relayUrl,
+      ttlMs: params?.ttlMs,
+    });
+  }
+
+  async function getRelayPairingState(params?: {
+    relayUrl?: string;
+    connectCode?: string;
+  }) {
+    const openclaw = desktop?.openclaw;
+    if (!openclaw?.getRelayPairingState) {
+      return null;
+    }
+
+    return openclaw.getRelayPairingState({
+      relayUrl: params?.relayUrl,
+      connectCode: params?.connectCode,
     });
   }
 
@@ -269,8 +353,13 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     deviceStatus,
     pairingStatus,
     lastError,
+    doctorReport,
     selectedModel,
     modelOptions,
+    turnJournalEntries,
+    turnJournalStats,
+    browserMemoryRecords,
+    browserMemoryStats,
     isModelSwitching,
     approvingPairingRequestId,
     isApprovingLatestDevice,
@@ -278,6 +367,8 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     connectOpenClaw,
     disconnectOpenClaw,
     doctorOpenClaw,
+    createRelayConnectCode,
+    getRelayPairingState,
     setBindingTarget,
     switchSelectedModel,
     approvePairingRequest,

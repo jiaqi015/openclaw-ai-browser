@@ -13,10 +13,12 @@ import {
   approveOpenClawDeviceRequest,
   approveOpenClawPairingRequest,
   connectOpenClaw,
+  createOpenClawRelayConnectCode,
   beginOpenClawBindingSetup,
   disconnectOpenClaw,
   doctorOpenClaw,
   getOpenClawConnectionState,
+  getOpenClawRelayPairingState,
   getSerializedOpenClawState,
   refreshOpenClawRuntimeState,
   saveOpenClawBrowserMemory,
@@ -38,6 +40,12 @@ export function registerOpenClawIpcHandlers() {
     disconnectOpenClaw(payload ?? {}),
   );
   ipcMain.handle("openclaw:doctor", (_e, payload) => doctorOpenClaw(payload ?? {}));
+  ipcMain.handle("openclaw:create-relay-connect-code", (_e, payload) =>
+    createOpenClawRelayConnectCode(payload ?? {}),
+  );
+  ipcMain.handle("openclaw:get-relay-pairing-state", (_e, payload) =>
+    getOpenClawRelayPairingState(payload ?? {}),
+  );
   ipcMain.handle("openclaw:set-binding-target", (_e, payload) =>
     selectOpenClawBindingTarget(payload?.target),
   );

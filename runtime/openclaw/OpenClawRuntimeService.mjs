@@ -22,6 +22,10 @@ import {
   searchBrowserMemoryRecords,
 } from "./SabrinaMemoryBridgeService.mjs";
 import {
+  ensureSabrinaRelayConnectCode,
+  getSabrinaRelayPairingState,
+} from "./SabrinaRemotePairingService.mjs";
+import {
   getTurnJournalStats,
   listTurnJournalEntries,
   searchTurnJournalEntries,
@@ -30,6 +34,50 @@ import { setOpenClawTransportContext } from "./OpenClawTransportContext.mjs";
 
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+export function buildOpenClawRuntimeInsights(input = {}) {
+  const state = input?.state && typeof input.state === "object" ? input.state : null;
+  const connectionState =
+    state?.connectionState && typeof state.connectionState === "object"
+      ? state.connectionState
+      : null;
+  const skillSummary =
+    state?.skillCatalog?.summary && typeof state.skillCatalog.summary === "object"
+      ? state.skillCatalog.summary
+      : null;
+  const turnJournalStats =
+    input?.turnJournalStats && typeof input.turnJournalStats === "object"
+      ? input.turnJournalStats
+      : null;
+  const browserMemoryStats =
+    input?.browserMemoryStats && typeof input.browserMemoryStats === "object"
+      ? input.browserMemoryStats
+      : null;
+
+  return {
+    remoteSessionContract: connectionState?.remoteSessionContract ?? null,
+    skillCatalog: skillSummary
+      ? {
+          browserCapabilitySchemaVersion:
+            skillSummary.browserCapabilitySchemaVersion ?? null,
+          total: Number(skillSummary.total ?? 0),
+          eligible: Number(skillSummary.eligible ?? 0),
+          ready: Number(skillSummary.ready ?? 0),
+          disabled: Number(skillSummary.disabled ?? 0),
+          blockedByAllowlist: Number(skillSummary.blockedByAllowlist ?? 0),
+          missingRequirements: Number(skillSummary.missingRequirements ?? 0),
+          capabilitySourceCounts: {
+            declared: Number(skillSummary.capabilitySourceCounts?.declared ?? 0),
+            overlay: Number(skillSummary.capabilitySourceCounts?.overlay ?? 0),
+            heuristic: Number(skillSummary.capabilitySourceCounts?.heuristic ?? 0),
+            metadata: Number(skillSummary.capabilitySourceCounts?.metadata ?? 0),
+          },
+        }
+      : null,
+    turnJournal: turnJournalStats,
+    browserMemory: browserMemoryStats,
+  };
 }
 
 export function getSerializedOpenClawState() {
@@ -232,6 +280,21 @@ export async function doctorOpenClaw(params = {}) {
   });
 }
 
+export async function createOpenClawRelayConnectCode(params = {}) {
+  return ensureSabrinaRelayConnectCode({
+    relayUrl: params?.relayUrl,
+    ttlMs: params?.ttlMs,
+    publish: params?.publish ?? true,
+  });
+}
+
+export async function getOpenClawRelayPairingState(params = {}) {
+  return getSabrinaRelayPairingState({
+    relayUrl: params?.relayUrl,
+    connectCode: params?.connectCode,
+  });
+}
+
 export async function saveOpenClawBrowserMemory(params = {}) {
   const record = await saveBrowserMemoryRecord(params);
   return {
@@ -251,6 +314,18 @@ export async function searchOpenClawBrowserMemory(params = {}) {
     records,
     stats: await getBrowserMemoryStats(),
   };
+}
+
+export async function getOpenClawRuntimeInsights() {
+  const state = serializeOpenClawState();
+  const browserMemoryStats = await getBrowserMemoryStats();
+  const turnJournalStats = getTurnJournalStats();
+
+  return buildOpenClawRuntimeInsights({
+    state,
+    browserMemoryStats,
+    turnJournalStats,
+  });
 }
 
 export async function getOpenClawTurnJournal(params = {}) {

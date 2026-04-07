@@ -10,8 +10,11 @@ import {
 } from "../../packages/sabrina-protocol/index.mjs";
 import {
   connectOpenClaw,
+  createOpenClawRelayConnectCode,
   disconnectOpenClaw,
   doctorOpenClaw,
+  getOpenClawRelayPairingState,
+  getOpenClawRuntimeInsights,
   getSerializedOpenClawState,
 } from "../../runtime/openclaw/OpenClawRuntimeService.mjs";
 
@@ -146,10 +149,12 @@ async function handleConnectorRequest(req, res) {
   try {
     if (req.method === "GET" && url.pathname === "/v1/openclaw/status") {
       const state = getSerializedOpenClawState();
+      const runtimeInsights = await getOpenClawRuntimeInsights();
       sendJson(res, 200, {
         ok: true,
         state,
         connectionState: state.connectionState,
+        runtimeInsights,
       });
       return;
     }
@@ -170,6 +175,22 @@ async function handleConnectorRequest(req, res) {
         agentId: url.searchParams.get("agentId") || undefined,
       });
       sendJson(res, 200, { ok: true, report });
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/v1/openclaw/relay-pairing") {
+      const state = await getOpenClawRelayPairingState({
+        relayUrl: url.searchParams.get("relayUrl") || undefined,
+        connectCode: url.searchParams.get("connectCode") || undefined,
+      });
+      sendJson(res, 200, { ok: true, state });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/v1/openclaw/relay-pairing") {
+      const payload = await readJsonBody(req);
+      const state = await createOpenClawRelayConnectCode(payload ?? {});
+      sendJson(res, 200, { ok: true, state });
       return;
     }
 

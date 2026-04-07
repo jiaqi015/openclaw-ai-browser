@@ -1,29 +1,23 @@
-import { Search, TriangleAlert, Wifi, Bot } from "lucide-react";
-import {
-  formatDiagnosticsAgo,
-  formatDiagnosticsDuration,
-} from "../application/use-diagnostics-view-state";
+import { Search, TriangleAlert, Wifi, Bot, type LucideIcon } from "lucide-react";
+import { formatDiagnosticsAgo } from "../application/use-diagnostics-view-state";
 import { useUiPreferences } from "../application/use-ui-preferences";
 import { cn } from "../lib/utils";
 
-export function DiagnosticsStatusCard(props: {
-  icon: typeof TriangleAlert;
+function DiagnosticsCompactMetric(props: {
+  icon: LucideIcon;
   label: string;
   value: string;
-  note: string;
+  valueClassName?: string;
 }) {
-  const { icon: Icon, label, note, value } = props;
+  const { icon: Icon, label, value, valueClassName } = props;
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-      <div className="flex items-center gap-2 text-white/45">
+    <div className="rounded-[22px] border border-white/10 bg-white/[0.04] px-4 py-3">
+      <div className="flex items-center gap-2 text-white/38">
         <Icon className="h-4 w-4" />
-        <span className="text-[11px] font-medium uppercase tracking-[0.2em]">
-          {label}
-        </span>
+        <span className="text-[11px] font-medium uppercase tracking-[0.18em]">{label}</span>
       </div>
-      <div className="mt-3 text-2xl font-semibold text-white">{value}</div>
-      <div className="mt-1 text-xs leading-5 text-white/45">{note}</div>
+      <div className={cn("mt-2 text-sm font-semibold text-white/90", valueClassName)}>{value}</div>
     </div>
   );
 }
@@ -165,8 +159,8 @@ export function DiagnosticsSummarySection(props: {
 
   return (
     <section className="surface-panel rounded-3xl border p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
           <div
             className={cn(
               "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium",
@@ -175,35 +169,41 @@ export function DiagnosticsSummarySection(props: {
           >
             {healthTone.title}
           </div>
-          <p className="mt-3 text-sm text-white/55">{healthTone.description}</p>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-white/58">{healthTone.description}</p>
         </div>
 
-        <div className="text-sm text-white/40">{t("diagnostics.uptime", { minutes: Math.round(summary.uptimeSec / 60) })}</div>
+        <div className="inline-flex self-start rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-white/40">
+          {t("diagnostics.uptime", { minutes: Math.round(summary.uptimeSec / 60) })}
+        </div>
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-3">
-        <DiagnosticsStatusCard
+      <div className="mt-4 grid gap-2 md:grid-cols-3">
+        <DiagnosticsCompactMetric
           icon={TriangleAlert}
           label={t("diagnostics.browser")}
-          value={`${summary.counters.error}`}
-          note={t("diagnostics.browserNote", {
+          value={t("diagnostics.browserMetric", {
             error: summary.counters.error,
             warn: summary.counters.warn,
           })}
+          valueClassName={
+            summary.counters.error > 0
+              ? "text-red-200"
+              : summary.counters.warn > 0
+                ? "text-amber-200"
+                : undefined
+          }
         />
-        <DiagnosticsStatusCard
+        <DiagnosticsCompactMetric
           icon={Wifi}
           label={t("diagnostics.network")}
-          value={`${summary.counters.networkFailures}`}
-          note={t("diagnostics.networkNote", { count: summary.counters.networkFailures })}
+          value={t("diagnostics.networkMetric", { count: summary.counters.networkFailures })}
+          valueClassName={summary.counters.networkFailures > 0 ? "text-red-200" : undefined}
         />
-        <DiagnosticsStatusCard
+        <DiagnosticsCompactMetric
           icon={Bot}
           label={t("diagnostics.ai")}
-          value={`${summary.ai.failure}`}
-          note={t("diagnostics.aiNote", {
-            duration: formatDiagnosticsDuration(summary.ai.avgDurationMs),
-          })}
+          value={t("diagnostics.aiMetric", { count: summary.ai.failure })}
+          valueClassName={summary.ai.failure > 0 ? "text-red-200" : undefined}
         />
       </div>
     </section>

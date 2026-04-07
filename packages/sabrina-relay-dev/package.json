@@ -1,0 +1,11 @@
+{
+  "name": "@sabrina/sabrina-relay-dev",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal development relay for Sabrina remote pairing",
+  "main": "./src/server.mjs",
+  "exports": {
+    ".": "./src/server.mjs"
+  }
+}
