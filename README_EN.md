@@ -1,11 +1,7 @@
 [中文](./README.md) | English
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/icon.svg" />
-    <source media="(prefers-color-scheme: light)" srcset="docs/icon.svg" />
-    <img src="docs/icon.svg" width="128" height="128" alt="Sabrina" />
-  </picture>
+  <img src="docs/icon.png" width="128" height="128" alt="Sabrina" />
 </p>
 
 <h1 align="center">Sabrina</h1>
