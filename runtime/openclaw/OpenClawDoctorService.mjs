@@ -22,6 +22,7 @@ import {
   setOpenClawTransportContext,
 } from "./OpenClawTransportContext.mjs";
 import { normalizeConnectionConfig, normalizeTarget } from "./OpenClawStateModel.mjs";
+import { buildSabrinaRelayWorkerCommand } from "../../shared/openclaw-commands.mjs";
 
 function toCheck(id, label, ok, detail, extra = {}) {
   return {
@@ -45,28 +46,6 @@ function toWarnCheck(id, label, detail, extra = {}) {
 
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
-}
-
-function buildRelayWorkerCommand(connectionConfig = {}) {
-  const relayUrl = `${connectionConfig?.relayUrl ?? ""}`.trim();
-  const connectCode = `${connectionConfig?.connectCode ?? ""}`.trim();
-  if (!relayUrl || !connectCode) {
-    return "";
-  }
-
-  return [
-    "openclaw sabrina relay-worker",
-    `--relay-url ${relayUrl}`,
-    `--connect-code ${connectCode}`,
-    `${connectionConfig?.label ?? ""}`.trim()
-      ? `--label ${JSON.stringify(`${connectionConfig.label}`.trim())}`
-      : "",
-    `${connectionConfig?.agentId ?? ""}`.trim()
-      ? `--agent ${`${connectionConfig.agentId}`.trim()}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
 }
 
 export async function buildOpenClawDoctorReport(params = {}) {
@@ -132,16 +111,21 @@ export async function buildOpenClawDoctorReport(params = {}) {
     );
 
     if (connectionConfig.driver === "relay-paired") {
-      const relayWorkerCommand = buildRelayWorkerCommand(connectionConfig);
+      const relayWorkerCommand = buildSabrinaRelayWorkerCommand(connectionConfig);
       checks.push(
         remoteProbe.ok
-          ? toCheck("relay-worker", "Relay worker", true, "远端 relay worker 已响应。")
+          ? toCheck("relay-worker", "Relay worker", true, "远端 relay worker 已响应。", {
+              command: relayWorkerCommand || undefined,
+            })
           : toWarnCheck(
               "relay-worker",
               "Relay worker",
               relayWorkerCommand
                 ? `在远端 OpenClaw 机器运行：${relayWorkerCommand}`
                 : "补全 relay 地址和连接码后，就能生成远端 worker 命令。",
+              {
+                command: relayWorkerCommand || undefined,
+              },
             ),
       );
     }

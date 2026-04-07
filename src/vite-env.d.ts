@@ -476,6 +476,7 @@ declare global {
     label: string;
     status: "pass" | "fail" | "warn";
     detail: string;
+    command?: string;
   }
 
   interface SabrinaOpenClawDoctorReport {

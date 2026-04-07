@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
-const storageKey = "sabrina-skill-preferences-v1";
+const storageKey = "sabrina-skill-preferences-v2";
+const legacyStorageKey = "sabrina-skill-preferences-v1";
+const legacyDisabledField = ["disabled", "Skill", "Names"].join("");
 
 type SkillPreferencesState = {
   pinnedSkillNames: string[];
@@ -17,31 +19,70 @@ function normalizeStringArray(value: unknown) {
     return [];
   }
 
-  return value
-    .map((entry) => `${entry ?? ""}`.trim())
-    .filter(Boolean);
+  return Array.from(
+    new Set(
+      value
+        .map((entry) => `${entry ?? ""}`.trim())
+        .filter(Boolean),
+    ),
+  );
 }
 
-function readSavedPreferences(): SkillPreferencesState {
+function normalizeSavedPreferences(parsed: unknown): SkillPreferencesState {
+  const payload = parsed && typeof parsed === "object" ? parsed : {};
+  const legacyHiddenValue =
+    payload && typeof payload === "object"
+      ? Reflect.get(payload, legacyDisabledField)
+      : undefined;
+
+  return {
+    pinnedSkillNames: normalizeStringArray(
+      payload && typeof payload === "object"
+        ? Reflect.get(payload, "pinnedSkillNames")
+        : undefined,
+    ),
+    hiddenSkillNames: normalizeStringArray(
+      payload && typeof payload === "object"
+        ? Reflect.get(payload, "hiddenSkillNames") ?? legacyHiddenValue
+        : legacyHiddenValue,
+    ),
+  };
+}
+
+function readSavedPreferences() {
   if (typeof window === "undefined") {
-    return defaultState;
+    return {
+      preferences: defaultState,
+      needsMigration: false,
+    };
   }
 
   try {
     const raw = window.localStorage.getItem(storageKey);
-    if (!raw) {
-      return defaultState;
+    if (raw) {
+      return {
+        preferences: normalizeSavedPreferences(JSON.parse(raw)),
+        needsMigration: false,
+      };
     }
 
-    const parsed = JSON.parse(raw);
+    const legacyRaw = window.localStorage.getItem(legacyStorageKey);
+    if (!legacyRaw) {
+      return {
+        preferences: defaultState,
+        needsMigration: false,
+      };
+    }
+
     return {
-      pinnedSkillNames: normalizeStringArray(parsed?.pinnedSkillNames),
-      hiddenSkillNames: normalizeStringArray(
-        parsed?.hiddenSkillNames ?? parsed?.disabledSkillNames,
-      ),
+      preferences: normalizeSavedPreferences(JSON.parse(legacyRaw)),
+      needsMigration: true,
     };
   } catch {
-    return defaultState;
+    return {
+      preferences: defaultState,
+      needsMigration: false,
+    };
   }
 }
 
@@ -51,14 +92,20 @@ function savePreferences(nextState: SkillPreferencesState) {
   }
 
   window.localStorage.setItem(storageKey, JSON.stringify(nextState));
+  window.localStorage.removeItem(legacyStorageKey);
 }
 
 export function useSkillPreferences() {
-  const [preferences, setPreferences] = useState<SkillPreferencesState>(readSavedPreferences);
+  const initialState = readSavedPreferences();
+  const [preferences, setPreferences] = useState<SkillPreferencesState>(initialState.preferences);
+  const [needsMigration, setNeedsMigration] = useState(initialState.needsMigration);
 
   useEffect(() => {
     savePreferences(preferences);
-  }, [preferences]);
+    if (needsMigration) {
+      setNeedsMigration(false);
+    }
+  }, [needsMigration, preferences]);
 
   function togglePinnedSkill(skillName: string) {
     setPreferences((current) => {

@@ -2,6 +2,27 @@ import { Link, Radio, Unlink } from "lucide-react";
 import { useUiPreferences } from "../application/use-ui-preferences";
 import { BindingWizard } from "./binding-wizard";
 import { cn } from "../lib/utils";
+import { useState } from "react";
+
+async function copyTextToClipboard(text: string) {
+  if (window.navigator.clipboard?.writeText) {
+    await window.navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textarea);
+  if (!copied) {
+    throw new Error("copy failed");
+  }
+}
 
 function formatTimestamp(value: string | null, locale: string) {
   if (!value) {
@@ -155,6 +176,15 @@ export function OpenClawSettingsSurface(props: {
   const doctorWarnings = (doctorReport?.checks ?? []).filter(
     (check) => check.status === "fail" || check.status === "warn",
   );
+  const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
+
+  async function handleCopyCommand(text: string) {
+    await copyTextToClipboard(text);
+    setCopiedCommand(text);
+    window.setTimeout(() => {
+      setCopiedCommand((current) => (current === text ? null : current));
+    }, 1600);
+  }
 
   return (
     <div className="surface-screen absolute inset-0 overflow-y-auto p-10">
@@ -257,6 +287,31 @@ export function OpenClawSettingsSurface(props: {
                 : undefined
             }
           />
+
+          {connectionState?.transport === "remote" && connectionState?.commandHint ? (
+            <div className="surface-panel rounded-2xl border p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-white/78">Remote Action</h3>
+                  <p className="mt-1 text-[12px] leading-5 text-white/45">
+                    {connectionState.doctorHint}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleCopyCommand(connectionState.commandHint);
+                  }}
+                  className="surface-button-system rounded-xl border px-3 py-1.5 text-[12px] font-medium text-white/74 transition-colors"
+                >
+                  {copiedCommand === connectionState.commandHint ? "Copied" : "Copy command"}
+                </button>
+              </div>
+              <pre className="mt-3 overflow-x-auto rounded-xl border border-white/8 bg-black/20 px-3 py-3 text-[12px] leading-5 text-white/72">
+                <code>{connectionState.commandHint}</code>
+              </pre>
+            </div>
+          ) : null}
 
           <div className="surface-panel rounded-2xl border p-6">
             <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -430,6 +485,27 @@ export function OpenClawSettingsSurface(props: {
                           </div>
                         </div>
                         <div className="mt-1 text-xs text-white/45">{check.detail}</div>
+                        {check.command ? (
+                          <div className="mt-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-[11px] uppercase tracking-[0.16em] text-white/30">
+                                command
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void handleCopyCommand(check.command || "");
+                                }}
+                                className="surface-button-system rounded-lg border px-2.5 py-1 text-[11px] font-medium text-white/70 transition-colors"
+                              >
+                                {copiedCommand === check.command ? "Copied" : "Copy"}
+                              </button>
+                            </div>
+                            <pre className="mt-2 overflow-x-auto rounded-lg border border-white/8 bg-black/25 px-2.5 py-2 text-[11px] leading-5 text-white/68">
+                              <code>{check.command}</code>
+                            </pre>
+                          </div>
+                        ) : null}
                       </div>
                     ))
                   )}

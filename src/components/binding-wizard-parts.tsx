@@ -14,6 +14,7 @@ import { useUiPreferences } from "../application/use-ui-preferences";
 import { cn } from "../lib/utils";
 import type { BindingWizardProps } from "./binding-wizard-types";
 import { formatThreadTimestampLabel } from "../../shared/localization.mjs";
+import { buildSabrinaRelayWorkerCommand } from "../../shared/openclaw-commands.mjs";
 
 function getTargetCopy(
   t: (key: string, params?: Record<string, unknown>) => string,
@@ -414,16 +415,13 @@ export function BindingRemoteStatusPanel({
   }
 
   const workerCommand =
-    driver === "relay-paired" && relayUrl.trim() && connectCode.trim()
-      ? [
-          "openclaw sabrina relay-worker",
-          `--relay-url ${relayUrl.trim()}`,
-          `--connect-code ${connectCode.trim().toUpperCase()}`,
-          label.trim() ? `--label ${JSON.stringify(label.trim())}` : "",
-          agentId.trim() ? `--agent ${agentId.trim()}` : "",
-        ]
-          .filter(Boolean)
-          .join(" ")
+    driver === "relay-paired"
+      ? buildSabrinaRelayWorkerCommand({
+          relayUrl,
+          connectCode,
+          label,
+          agentId,
+        })
       : "";
 
   async function handleCopyWorkerCommand() {

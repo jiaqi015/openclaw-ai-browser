@@ -8,6 +8,10 @@ import {
   normalizeSabrinaRemoteDriver,
 } from "../../packages/sabrina-protocol/index.mjs";
 import { getOpenClawTransportLabel } from "./OpenClawTransportContext.mjs";
+import {
+  buildSabrinaRelayWorkerCommand,
+  buildSabrinaRemoteConnectCommand,
+} from "../../shared/openclaw-commands.mjs";
 
 import { getCurrentUiLocale, translate } from "../../shared/localization.mjs";
 
@@ -125,12 +129,9 @@ export function createConnectionState(params = {}) {
     locale,
     isRemote ? "openclaw.state.target.remote" : "openclaw.state.target.local",
   );
-  const remoteConnectHint =
-    config.driver === "ssh-cli"
-      ? "openclaw sabrina connect --remote --driver ssh-cli --ssh-target <user@host>"
-      : config.driver === "relay-paired"
-        ? "openclaw sabrina connect --remote --driver relay-paired --relay-url <url> --connect-code <code>"
-        : "openclaw sabrina connect --remote --driver <driver>";
+  const remoteConnectHint = buildSabrinaRemoteConnectCommand(config);
+  const relayWorkerHint =
+    config.driver === "relay-paired" ? buildSabrinaRelayWorkerCommand(config) : "";
 
   if (binding?.status === "active" && gatewayStatus?.ok) {
     return {
@@ -176,10 +177,19 @@ export function createConnectionState(params = {}) {
           locale,
           isRemote ? "openclaw.state.remoteNotReady" : "openclaw.state.localNotReady",
         ),
-      commandHint: isRemote ? "openclaw sabrina doctor --target remote" : "openclaw sabrina doctor",
+      commandHint:
+        isRemote && relayWorkerHint
+          ? relayWorkerHint
+          : isRemote
+            ? "openclaw sabrina doctor --target remote"
+            : "openclaw sabrina doctor",
       doctorHint: translate(
         locale,
-        isRemote ? "openclaw.state.remoteDoctor" : "openclaw.state.localDoctor",
+        isRemote && config.driver === "relay-paired"
+          ? "openclaw.state.remoteRelayDoctor"
+          : isRemote
+            ? "openclaw.state.remoteDoctor"
+            : "openclaw.state.localDoctor",
       ),
       transportLabel,
       capabilities,

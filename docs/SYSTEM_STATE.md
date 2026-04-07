@@ -266,7 +266,7 @@ Sabrina connector status 现在已经不只返回 connection state。
    对外 status 不再只会说“连接了没有”。
 
 7. **技能隐藏偏好已经不再是假的 UI toggle**
-   当前实现是 Sabrina 本地持久化的 `hiddenSkillNames` 偏好，不是早期 `App` 里临时内存态。
+   当前实现是 Sabrina 本地持久化的技能可见性偏好，不是早期 `App` 里临时内存态。
 
 ---
 
