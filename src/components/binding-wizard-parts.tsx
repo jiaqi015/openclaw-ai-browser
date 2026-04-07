@@ -289,6 +289,7 @@ export function BindingRemoteStatusPanel({
   const [relayPairing, setRelayPairing] = useState<SabrinaOpenClawRelayPairingSession | null>(null);
   const [isGeneratingRelayCode, setIsGeneratingRelayCode] = useState(false);
   const [relayPairingError, setRelayPairingError] = useState("");
+  const [copiedWorkerCommand, setCopiedWorkerCommand] = useState(false);
 
   useEffect(() => {
     if (connectionConfig?.transport !== "remote") {
@@ -310,6 +311,7 @@ export function BindingRemoteStatusPanel({
     setAgentId(connectionConfig.agentId ?? "");
     setRelayPairing(null);
     setRelayPairingError("");
+    setCopiedWorkerCommand(false);
   }, [
     connectionConfig?.agentId,
     connectionConfig?.connectCode,
@@ -409,6 +411,30 @@ export function BindingRemoteStatusPanel({
     } finally {
       setIsGeneratingRelayCode(false);
     }
+  }
+
+  const workerCommand =
+    driver === "relay-paired" && relayUrl.trim() && connectCode.trim()
+      ? [
+          "openclaw sabrina relay-worker",
+          `--relay-url ${relayUrl.trim()}`,
+          `--connect-code ${connectCode.trim().toUpperCase()}`,
+          label.trim() ? `--label ${JSON.stringify(label.trim())}` : "",
+          agentId.trim() ? `--agent ${agentId.trim()}` : "",
+        ]
+          .filter(Boolean)
+          .join(" ")
+      : "";
+
+  async function handleCopyWorkerCommand() {
+    if (!workerCommand || !window.navigator.clipboard?.writeText) {
+      return;
+    }
+    await window.navigator.clipboard.writeText(workerCommand);
+    setCopiedWorkerCommand(true);
+    window.setTimeout(() => {
+      setCopiedWorkerCommand(false);
+    }, 1_500);
   }
 
   const relayPairingStatusTone =
@@ -622,6 +648,11 @@ export function BindingRemoteStatusPanel({
             <span className="rounded-full border border-current/20 px-2.5 py-1 opacity-90">
               {relayPairingStatusLabel}
             </span>
+            {connectionState?.status === "connected" ? (
+              <span className="rounded-full border border-current/20 px-2.5 py-1 opacity-90">
+                {t("binding.remote.status.workerReady")}
+              </span>
+            ) : null}
             {relayPairing.openclawLabel ? (
               <span className="opacity-75">
                 {t("binding.remote.status.claimedBy", {
@@ -630,6 +661,37 @@ export function BindingRemoteStatusPanel({
               </span>
             ) : null}
           </div>
+        </div>
+      ) : null}
+
+      {workerCommand ? (
+        <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-white/82">
+                {t("binding.remote.workerTitle")}
+              </p>
+              <p className="mt-1 text-[12px] leading-5 text-white/48">
+                {connectionState?.status === "connected"
+                  ? t("binding.remote.workerConnectedHint")
+                  : t("binding.remote.workerHint")}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                void handleCopyWorkerCommand();
+              }}
+              className="surface-button-system rounded-xl border px-3 py-1.5 text-[12px] font-medium text-white/74 transition-colors"
+            >
+              {copiedWorkerCommand
+                ? t("binding.remote.copyDone")
+                : t("binding.remote.copyAction")}
+            </button>
+          </div>
+          <pre className="mt-3 overflow-x-auto rounded-xl border border-white/8 bg-black/20 px-3 py-3 text-[12px] leading-5 text-white/72">
+            <code>{workerCommand}</code>
+          </pre>
         </div>
       ) : null}
 

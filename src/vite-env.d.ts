@@ -333,6 +333,29 @@ declare global {
     sessions: SabrinaOpenClawRelayPairingSession[];
   }
 
+  interface SabrinaOpenClawRelayEnvelope {
+    schemaVersion: string;
+    sessionId: string;
+    seq: number;
+    type: string;
+    from: "browser" | "openclaw" | "relay";
+    to: "browser" | "openclaw" | "relay";
+    ciphertext: string;
+    nonce: string;
+    payload: Record<string, unknown> | null;
+    sentAt: string;
+  }
+
+  interface SabrinaOpenClawRelayEnvelopeList {
+    ok: boolean;
+    pairing?: {
+      pairingId: string;
+      sessionId: string | null;
+      status: "pending" | "active" | "expired" | "rejected";
+    } | null;
+    envelopes: SabrinaOpenClawRelayEnvelope[];
+  }
+
   interface SabrinaThreadRecord {
     threadId: string;
     title: string;
@@ -525,6 +548,46 @@ declare global {
     latestTurnId: string | null;
     latestStatus: string | null;
     statusCounts: Record<string, number>;
+  }
+
+  interface SabrinaOpenClawRuntimeInsights {
+    remoteSessionContract: SabrinaOpenClawConnectionState["remoteSessionContract"] | null;
+    skillCatalog: {
+      browserCapabilitySchemaVersion: string | null;
+      total: number;
+      eligible: number;
+      ready: number;
+      disabled: number;
+      blockedByAllowlist: number;
+      missingRequirements: number;
+      capabilitySourceCounts: {
+        declared: number;
+        overlay: number;
+        heuristic: number;
+        metadata: number;
+      };
+    } | null;
+    turnJournal: SabrinaTurnJournalStats | null;
+    browserMemory: SabrinaBrowserMemoryStats | null;
+  }
+
+  interface SabrinaOpenClawSupportSnapshot {
+    ok: boolean;
+    capturedAt: string;
+    state: SabrinaOpenClawState | null;
+    connectionState: SabrinaOpenClawConnectionState | null;
+    runtimeInsights: SabrinaOpenClawRuntimeInsights | null;
+    turnJournal: {
+      ok: boolean;
+      entries: SabrinaTurnJournalEntry[];
+      stats: SabrinaTurnJournalStats | null;
+    };
+    browserMemory: {
+      ok: boolean;
+      query: string;
+      records: SabrinaBrowserMemoryRecord[];
+      stats: SabrinaBrowserMemoryStats | null;
+    };
   }
 
   interface SabrinaDiagnosticsEntry {
@@ -813,6 +876,14 @@ declare global {
           label?: string;
           agentId?: string;
         }) => Promise<SabrinaOpenClawDoctorReport>;
+        getSupportSnapshot: (params?: {
+          limit?: number;
+          turnJournalLimit?: number;
+          browserMemoryLimit?: number;
+          threadId?: string;
+          status?: string;
+          memoryQuery?: string;
+        }) => Promise<SabrinaOpenClawSupportSnapshot>;
         createRelayConnectCode: (params?: {
           relayUrl?: string;
           ttlMs?: number;
@@ -821,6 +892,25 @@ declare global {
           relayUrl?: string;
           connectCode?: string;
         }) => Promise<SabrinaOpenClawRelayPairingState>;
+        sendRelayEnvelope: (params: {
+          relayUrl?: string;
+          sessionId?: string;
+          type?: string;
+          from?: "browser" | "openclaw" | "relay";
+          to?: "browser" | "openclaw" | "relay";
+          payload?: Record<string, unknown>;
+          ciphertext?: string;
+          nonce?: string;
+        }) => Promise<{
+          ok: boolean;
+          envelope?: SabrinaOpenClawRelayEnvelope | null;
+        }>;
+        listRelayEnvelopes: (params: {
+          relayUrl?: string;
+          sessionId?: string;
+          recipient?: "browser" | "openclaw" | "relay";
+          afterSeq?: number;
+        }) => Promise<SabrinaOpenClawRelayEnvelopeList>;
         setBindingTarget: (target: "local" | "remote") => Promise<SabrinaOpenClawState>;
         getLocalBinding: () => Promise<SabrinaOpenClawBinding>;
         getLocalModels: (params?: {
@@ -886,6 +976,13 @@ declare global {
           ok: boolean;
           query: string;
           entries: SabrinaTurnJournalEntry[];
+          stats: SabrinaTurnJournalStats;
+        }>;
+        pruneTurnJournal: (payload?: {
+          keepLatest?: number;
+        }) => Promise<{
+          ok: boolean;
+          removed: number;
           stats: SabrinaTurnJournalStats;
         }>;
         runLocalAgent: (params: {

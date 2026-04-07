@@ -47,6 +47,28 @@ function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function buildRelayWorkerCommand(connectionConfig = {}) {
+  const relayUrl = `${connectionConfig?.relayUrl ?? ""}`.trim();
+  const connectCode = `${connectionConfig?.connectCode ?? ""}`.trim();
+  if (!relayUrl || !connectCode) {
+    return "";
+  }
+
+  return [
+    "openclaw sabrina relay-worker",
+    `--relay-url ${relayUrl}`,
+    `--connect-code ${connectCode}`,
+    `${connectionConfig?.label ?? ""}`.trim()
+      ? `--label ${JSON.stringify(`${connectionConfig.label}`.trim())}`
+      : "",
+    `${connectionConfig?.agentId ?? ""}`.trim()
+      ? `--agent ${`${connectionConfig.agentId}`.trim()}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export async function buildOpenClawDoctorReport(params = {}) {
   const target = normalizeTarget(params?.target ?? params?.state?.selectedTarget);
   const connectionConfig = normalizeConnectionConfig(
@@ -108,6 +130,21 @@ export async function buildOpenClawDoctorReport(params = {}) {
           : remoteProbe.detail || "远程 transport 当前不可达",
       ),
     );
+
+    if (connectionConfig.driver === "relay-paired") {
+      const relayWorkerCommand = buildRelayWorkerCommand(connectionConfig);
+      checks.push(
+        remoteProbe.ok
+          ? toCheck("relay-worker", "Relay worker", true, "远端 relay worker 已响应。")
+          : toWarnCheck(
+              "relay-worker",
+              "Relay worker",
+              relayWorkerCommand
+                ? `在远端 OpenClaw 机器运行：${relayWorkerCommand}`
+                : "补全 relay 地址和连接码后，就能生成远端 worker 命令。",
+            ),
+      );
+    }
 
     if (!remoteProbe.ok) {
       try {

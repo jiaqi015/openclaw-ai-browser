@@ -6,6 +6,13 @@ It does not change Sabrina's product positioning, user-facing features, UI, or i
 
 It only clarifies how the runtime should organize browser context, thread continuity, and OpenClaw execution into one coherent turn system.
 
+Related reading:
+
+- [Docs Guide](./DOCS_GUIDE.md)
+- [System State](./SYSTEM_STATE.md)
+- [Browser/OpenClaw Architecture](./BROWSER_OPENCLAW_ARCHITECTURE.md)
+- [What Sabrina Should Learn From Claude Code](./CLAUDE_CODE_LEARNINGS.md)
+
 ## Why This Exists
 
 Sabrina has already established the right product boundary:

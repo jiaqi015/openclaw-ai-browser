@@ -1,5 +1,10 @@
 import { execOpenClawJson } from "./OpenClawClient.mjs";
 import {
+  getOpenClawRemoteDriver,
+  getOpenClawTransportContext,
+} from "./OpenClawTransportContext.mjs";
+import { supportsOpenClawRemoteCliExecution } from "./drivers/OpenClawDriverRegistry.mjs";
+import {
   extractSkillTraceFromSession,
   parseSkillReceipt,
   buildSkillTrace,
@@ -8,9 +13,17 @@ import {
 } from "./SkillTraceService.mjs";
 import { buildBrowserSkillPrompt } from "./BrowserSkillPromptService.mjs";
 import { resolveBrowserSkillInputPlan } from "./BrowserSkillInputPolicyService.mjs";
+import { invokeSabrinaRelayRpc } from "./relay/SabrinaRelayRpcService.mjs";
 
 function createSkillRequestId() {
   return `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function isRelayRemoteContext(context = getOpenClawTransportContext()) {
+  return (
+    getOpenClawRemoteDriver(context) === "relay-paired" &&
+    !supportsOpenClawRemoteCliExecution(context)
+  );
 }
 
 async function resolveAgentId(params, deps) {
@@ -35,6 +48,32 @@ export async function runLocalAgentTurn(params, deps) {
 
   if (!message) {
     throw new Error("消息不能为空");
+  }
+
+  const transportContext = getOpenClawTransportContext();
+  if (isRelayRemoteContext(transportContext)) {
+    const response = await invokeSabrinaRelayRpc({
+      relayUrl: transportContext.relayUrl,
+      connectCode: transportContext.connectCode,
+      method: "openclaw.agent.run",
+      params: {
+        agentId,
+        sessionId,
+        message,
+        thinking,
+        timeoutMs: 1000 * 60 * 5,
+      },
+      timeoutMs: 1000 * 60 * 5,
+      pollIntervalMs: 300,
+    });
+    return {
+      agentId,
+      text: `${response?.result?.text ?? ""}`.trim() || "OpenClaw 没有返回文本内容。",
+      sessionId: response?.result?.sessionId ?? null,
+      model: response?.result?.model ?? null,
+      provider: response?.result?.provider ?? null,
+      durationMs: response?.result?.durationMs ?? null,
+    };
   }
 
   const command = ["agent", "--agent", agentId];

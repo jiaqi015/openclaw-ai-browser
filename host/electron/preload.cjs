@@ -60,10 +60,16 @@ contextBridge.exposeInMainWorld("sabrinaDesktop", {
     connect: (params) => ipcRenderer.invoke("openclaw:connect", params),
     disconnect: (params) => ipcRenderer.invoke("openclaw:disconnect", params),
     doctor: (params) => ipcRenderer.invoke("openclaw:doctor", params),
+    getSupportSnapshot: (params) =>
+      ipcRenderer.invoke("openclaw:get-support-snapshot", params),
     createRelayConnectCode: (params) =>
       ipcRenderer.invoke("openclaw:create-relay-connect-code", params),
     getRelayPairingState: (params) =>
       ipcRenderer.invoke("openclaw:get-relay-pairing-state", params),
+    sendRelayEnvelope: (params) =>
+      ipcRenderer.invoke("openclaw:send-relay-envelope", params),
+    listRelayEnvelopes: (params) =>
+      ipcRenderer.invoke("openclaw:list-relay-envelopes", params),
     setBindingTarget: (target) =>
       ipcRenderer.invoke("openclaw:set-binding-target", { target }),
     getLocalBinding: () => ipcRenderer.invoke("openclaw:get-local-binding"),
@@ -95,6 +101,8 @@ contextBridge.exposeInMainWorld("sabrinaDesktop", {
       ipcRenderer.invoke("openclaw:get-turn-journal", payload),
     searchTurnJournal: (payload) =>
       ipcRenderer.invoke("openclaw:search-turn-journal", payload),
+    pruneTurnJournal: (payload) =>
+      ipcRenderer.invoke("openclaw:prune-turn-journal", payload),
     runLocalAgent: (params) =>
       ipcRenderer.invoke("openclaw:run-local-agent", params),
     onState: (listener) => {

@@ -3,12 +3,78 @@ import { readLocalModelState } from "./ModelStateService.mjs";
 import { restartLocalGateway as restartLocalGatewayViaService } from "./OpenClawGatewayService.mjs";
 import { ensureSabrinaBrowserAgent } from "./OpenClawAgentBootstrapService.mjs";
 import { execOpenClawCommand, execOpenClawJson } from "./OpenClawClient.mjs";
+import {
+  getOpenClawRemoteDriver,
+  getOpenClawTransportContext,
+} from "./OpenClawTransportContext.mjs";
+import { supportsOpenClawRemoteCliExecution } from "./drivers/OpenClawDriverRegistry.mjs";
+import { invokeSabrinaRelayRpc } from "./relay/SabrinaRelayRpcService.mjs";
+
+function isRelayRemoteContext(context = getOpenClawTransportContext()) {
+  return (
+    getOpenClawRemoteDriver(context) === "relay-paired" &&
+    !supportsOpenClawRemoteCliExecution(context)
+  );
+}
+
+function buildRelayModelState(snapshot = {}, fallbackAgentId = "main") {
+  const modelsStatus = snapshot?.modelsStatus ?? {};
+  const models = Array.isArray(snapshot?.modelOptions)
+    ? snapshot.modelOptions
+    : Array.isArray(modelsStatus?.models)
+      ? modelsStatus.models
+          .map((entry) => {
+            const id =
+              `${entry?.id ?? entry?.model ?? entry?.name ?? ""}`.trim() || null;
+            if (!id) {
+              return null;
+            }
+            return {
+              id,
+              label:
+                `${entry?.label ?? entry?.alias ?? entry?.displayName ?? id}`.trim() || id,
+              desc:
+                `${entry?.desc ?? entry?.provider ?? entry?.source ?? ""}`.trim() || id,
+              available: entry?.available !== false,
+            };
+          })
+          .filter(Boolean)
+      : [];
+  const desiredModel =
+    `${modelsStatus?.defaultModel ?? snapshot?.models?.defaultModel ?? ""}`.trim() || null;
+  const appliedModel =
+    `${modelsStatus?.resolvedDefault ?? snapshot?.models?.resolvedDefault ?? ""}`.trim() ||
+    desiredModel ||
+    null;
+
+  return {
+    agentId: `${snapshot?.agentId ?? fallbackAgentId ?? "main"}`.trim() || "main",
+    desiredModel,
+    appliedModel,
+    models,
+  };
+}
 
 export async function getLocalModelState(agentId = "main") {
   const resolvedAgentId =
     typeof agentId === "string" && agentId.trim()
       ? agentId.trim()
       : (await ensureSabrinaBrowserAgent()).agentId;
+  const context = getOpenClawTransportContext();
+  if (isRelayRemoteContext(context)) {
+    const snapshot = (
+      await invokeSabrinaRelayRpc({
+        relayUrl: context.relayUrl,
+        connectCode: context.connectCode,
+        method: "openclaw.snapshot",
+        params: {
+          agentId: resolvedAgentId,
+        },
+        timeoutMs: 6_000,
+      })
+    ).result;
+    return buildRelayModelState(snapshot, resolvedAgentId);
+  }
   return readLocalModelState(resolvedAgentId);
 }
 
@@ -20,6 +86,22 @@ export async function setLocalModel(params) {
   const model = typeof params?.model === "string" ? params.model.trim() : "";
   if (!model) {
     throw new Error("缺少模型 id");
+  }
+  const context = getOpenClawTransportContext();
+  if (isRelayRemoteContext(context)) {
+    const snapshot = (
+      await invokeSabrinaRelayRpc({
+        relayUrl: context.relayUrl,
+        connectCode: context.connectCode,
+        method: "openclaw.model.set",
+        params: {
+          agentId,
+          model,
+        },
+        timeoutMs: 15_000,
+      })
+    ).result;
+    return buildRelayModelState(snapshot, agentId);
   }
 
   const agents = await execOpenClawJson(["agents", "list", "--json"], {

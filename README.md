@@ -160,11 +160,15 @@ sequenceDiagram
 
 ## Docs
 
+- [Docs Guide](docs/DOCS_GUIDE.md) — 文档阅读顺序、不同角色先读什么、怎么建立当前真相
 - [Engineering System](docs/ENGINEERING_SYSTEM.md)
 - [Acceptance Matrix](docs/ACCEPTANCE_MATRIX.md)
 - [Iteration Loop](docs/ITERATION_LOOP.md)
 - [Browser/OpenClaw Architecture](docs/BROWSER_OPENCLAW_ARCHITECTURE.md)
 - [Turn Engine Design](docs/TURN_ENGINE_DESIGN.md) — Sabrina turn lifecycle、execution planning、receipt normalization
+- [System State](docs/SYSTEM_STATE.md) — 当前系统全貌、哪些是真的、哪些还没做、当前门禁与下一步
+- [Next Phase Plan](docs/NEXT_PHASE_PLAN.md) — 下一阶段五条主线、目标、交付和验收
+- [Claude Code Learnings](docs/CLAUDE_CODE_LEARNINGS.md) — 值得学的机制、代码策略，以及如何落回 Sabrina 定位
 - [Design Baseline](docs/DESIGN_BASELINE.md) — UI 调性、线程系统、组件约束与扩展规则
 
 ## Contributing

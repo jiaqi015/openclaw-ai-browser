@@ -7,6 +7,7 @@ import {
   getTurnJournalStats,
   initTurnJournalStore,
   loadTurnJournalState,
+  pruneTurnJournalEntries,
   recordTurnJournalEntry,
   searchTurnJournalEntries,
   serializeTurnJournalState,
@@ -46,4 +47,42 @@ test("recordTurnJournalEntry persists a separate turn journal record", async () 
   ]);
   assert.equal(getTurnJournalStats().count, 1);
   assert.equal(searchTurnJournalEntries("turn-1").length, 1);
+});
+
+test("pruneTurnJournalEntries trims retained entries and updates stats", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "sabrina-turn-journal-prune-"));
+  const statePath = path.join(tempDir, "turn-journal.json");
+
+  initTurnJournalStore({
+    resolveStatePath: () => statePath,
+  });
+  await loadTurnJournalState();
+
+  await recordTurnJournalEntry({
+    turnId: "turn-1",
+    threadId: "thread-1",
+    summary: "first",
+  });
+  await recordTurnJournalEntry({
+    turnId: "turn-2",
+    threadId: "thread-2",
+    summary: "second",
+  });
+  await recordTurnJournalEntry({
+    turnId: "turn-3",
+    threadId: "thread-3",
+    summary: "third",
+  });
+
+  const pruned = await pruneTurnJournalEntries({ keepLatest: 2 });
+  const snapshot = serializeTurnJournalState();
+
+  assert.equal(pruned.ok, true);
+  assert.equal(pruned.removed, 1);
+  assert.equal(snapshot.entries.length, 2);
+  assert.deepEqual(
+    snapshot.entries.map((entry) => entry.turnId),
+    ["turn-3", "turn-2"],
+  );
+  assert.equal(getTurnJournalStats().count, 2);
 });

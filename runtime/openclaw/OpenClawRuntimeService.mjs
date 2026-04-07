@@ -26,8 +26,13 @@ import {
   getSabrinaRelayPairingState,
 } from "./SabrinaRemotePairingService.mjs";
 import {
+  listSabrinaRelayEnvelopes,
+  sendSabrinaRelayEnvelope,
+} from "./relay/SabrinaRelayClient.mjs";
+import {
   getTurnJournalStats,
   listTurnJournalEntries,
+  pruneTurnJournalEntries,
   searchTurnJournalEntries,
 } from "../turns/TurnJournalStore.mjs";
 import { setOpenClawTransportContext } from "./OpenClawTransportContext.mjs";
@@ -80,6 +85,35 @@ export function buildOpenClawRuntimeInsights(input = {}) {
   };
 }
 
+export function buildOpenClawSupportSnapshot(input = {}) {
+  return {
+    ok: true,
+    capturedAt:
+      typeof input?.capturedAt === "string" && input.capturedAt.trim()
+        ? input.capturedAt.trim()
+        : new Date().toISOString(),
+    state: input?.state && typeof input.state === "object" ? input.state : null,
+    connectionState:
+      input?.connectionState && typeof input.connectionState === "object"
+        ? input.connectionState
+        : input?.state?.connectionState && typeof input.state.connectionState === "object"
+          ? input.state.connectionState
+          : null,
+    runtimeInsights:
+      input?.runtimeInsights && typeof input.runtimeInsights === "object"
+        ? input.runtimeInsights
+        : null,
+    turnJournal:
+      input?.turnJournal && typeof input.turnJournal === "object"
+        ? input.turnJournal
+        : { ok: true, entries: [], stats: null },
+    browserMemory:
+      input?.browserMemory && typeof input.browserMemory === "object"
+        ? input.browserMemory
+        : { ok: true, query: "", records: [], stats: null },
+  };
+}
+
 export function getSerializedOpenClawState() {
   return serializeOpenClawState();
 }
@@ -117,7 +151,8 @@ export async function connectOpenClaw(params = {}) {
     (typeof params?.target === "string" && params.target.trim() === "remote") ||
     (`${params?.driver ?? ""}`.trim() && `${params?.driver ?? ""}`.trim() !== "local-cli") ||
     `${params?.sshTarget ?? ""}`.trim() ||
-    `${params?.relayUrl ?? ""}`.trim()
+    `${params?.relayUrl ?? ""}`.trim() ||
+    `${params?.connectCode ?? ""}`.trim()
       ? "remote"
       : "local";
   const connectionConfig = normalizeConnectionConfig(
@@ -169,7 +204,8 @@ export async function disconnectOpenClaw(params = {}) {
     (typeof params?.target === "string" && params.target.trim() === "remote") ||
     (`${params?.driver ?? ""}`.trim() && `${params?.driver ?? ""}`.trim() !== "local-cli") ||
     `${params?.sshTarget ?? ""}`.trim() ||
-    `${params?.relayUrl ?? ""}`.trim()
+    `${params?.relayUrl ?? ""}`.trim() ||
+    `${params?.connectCode ?? ""}`.trim()
       ? "remote"
       : currentState.selectedTarget;
   const connectionConfig = normalizeConnectionConfig(
@@ -295,6 +331,24 @@ export async function getOpenClawRelayPairingState(params = {}) {
   });
 }
 
+export async function sendOpenClawRelayEnvelope(params = {}) {
+  return sendSabrinaRelayEnvelope(params?.relayUrl, params?.sessionId, {
+    type: params?.type,
+    from: params?.from,
+    to: params?.to,
+    payload: params?.payload,
+    ciphertext: params?.ciphertext,
+    nonce: params?.nonce,
+  });
+}
+
+export async function listOpenClawRelayEnvelopes(params = {}) {
+  return listSabrinaRelayEnvelopes(params?.relayUrl, params?.sessionId, {
+    recipient: params?.recipient,
+    afterSeq: params?.afterSeq,
+  });
+}
+
 export async function saveOpenClawBrowserMemory(params = {}) {
   const record = await saveBrowserMemoryRecord(params);
   return {
@@ -328,6 +382,29 @@ export async function getOpenClawRuntimeInsights() {
   });
 }
 
+export async function getOpenClawSupportSnapshot(params = {}) {
+  const state = serializeOpenClawState();
+  const runtimeInsights = await getOpenClawRuntimeInsights();
+  const turnJournal = await getOpenClawTurnJournal({
+    limit: params?.turnJournalLimit ?? params?.limit,
+    threadId: params?.threadId,
+    status: params?.status,
+  });
+  const browserMemory = await searchOpenClawBrowserMemory({
+    query: params?.memoryQuery ?? "",
+    limit: params?.browserMemoryLimit ?? params?.limit,
+  });
+
+  return buildOpenClawSupportSnapshot({
+    capturedAt: new Date().toISOString(),
+    state,
+    connectionState: state?.connectionState ?? null,
+    runtimeInsights,
+    turnJournal,
+    browserMemory,
+  });
+}
+
 export async function getOpenClawTurnJournal(params = {}) {
   return {
     ok: true,
@@ -349,4 +426,10 @@ export async function searchOpenClawTurnJournal(params = {}) {
     }),
     stats: getTurnJournalStats(),
   };
+}
+
+export async function pruneOpenClawTurnJournal(params = {}) {
+  return pruneTurnJournalEntries({
+    keepLatest: params?.keepLatest,
+  });
 }

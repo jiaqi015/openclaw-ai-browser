@@ -77,3 +77,40 @@ export async function getSabrinaRelayPairingRemoteStateByCode(relayUrl, code) {
     `/v1/pairings/by-code/${encodeURIComponent(normalizedCode)}`,
   );
 }
+
+export async function sendSabrinaRelayEnvelope(relayUrl, sessionId, payload = {}) {
+  const normalizedSessionId = `${sessionId ?? ""}`.trim();
+  if (!normalizedSessionId) {
+    throw new Error("缺少 relay sessionId。");
+  }
+
+  return requestRelay(
+    relayUrl,
+    `/v1/sessions/${encodeURIComponent(normalizedSessionId)}/envelopes`,
+    {
+      method: "POST",
+      body: payload,
+    },
+  );
+}
+
+export async function listSabrinaRelayEnvelopes(relayUrl, sessionId, params = {}) {
+  const normalizedSessionId = `${sessionId ?? ""}`.trim();
+  if (!normalizedSessionId) {
+    throw new Error("缺少 relay sessionId。");
+  }
+
+  const query = new URLSearchParams();
+  if (`${params?.recipient ?? ""}`.trim()) {
+    query.set("recipient", `${params.recipient}`.trim());
+  }
+  if (Number.isFinite(Number(params?.afterSeq))) {
+    query.set("afterSeq", `${Math.max(0, Math.trunc(Number(params.afterSeq)))}`);
+  }
+
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return requestRelay(
+    relayUrl,
+    `/v1/sessions/${encodeURIComponent(normalizedSessionId)}/envelopes${suffix}`,
+  );
+}

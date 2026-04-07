@@ -260,3 +260,24 @@ export function getTurnJournalStats() {
     statusCounts,
   };
 }
+
+export async function pruneTurnJournalEntries(options = {}) {
+  const keepLatest = Number.isFinite(options?.keepLatest)
+    ? Math.max(0, Math.min(maxStoredEntries, Math.trunc(options.keepLatest)))
+    : maxStoredEntries;
+  const beforeCount = state.entries.length;
+
+  state = {
+    entries: state.entries.slice(0, keepLatest),
+  };
+
+  if (state.entries.length !== beforeCount) {
+    await persistTurnJournalState();
+  }
+
+  return {
+    ok: true,
+    removed: Math.max(0, beforeCount - state.entries.length),
+    stats: getTurnJournalStats(),
+  };
+}

@@ -47,6 +47,12 @@ export const SABRINA_REMOTE_DRIVERS = Object.freeze([
   "relay-paired",
 ]);
 
+export const SABRINA_REMOTE_ENVELOPE_PARTIES = Object.freeze([
+  "browser",
+  "openclaw",
+  "relay",
+]);
+
 export function normalizeSabrinaTransport(value) {
   return `${value ?? "local"}`.trim() === "remote" ? "remote" : "local";
 }
@@ -103,6 +109,11 @@ export function normalizeSabrinaRelayUrl(value) {
 export function normalizeSabrinaConnectCode(value) {
   const normalized = `${value ?? ""}`.trim().toUpperCase();
   return normalized || null;
+}
+
+export function normalizeSabrinaRemoteEnvelopeParty(value) {
+  const normalized = `${value ?? ""}`.trim();
+  return SABRINA_REMOTE_ENVELOPE_PARTIES.includes(normalized) ? normalized : null;
 }
 
 export function resolveSabrinaConnectorRootDir(homeDir = os.homedir()) {
@@ -266,13 +277,19 @@ export function createSabrinaRemoteSessionContract(input = {}) {
 }
 
 export function createSabrinaRemoteEnvelope(input = {}) {
+  const payload =
+    input.payload && typeof input.payload === "object" ? { ...input.payload } : null;
+
   return {
     schemaVersion: SABRINA_REMOTE_ENVELOPE_SCHEMA_VERSION,
     sessionId: `${input.sessionId ?? ""}`.trim(),
     seq: Number.isFinite(Number(input.seq)) ? Number(input.seq) : 0,
     type: `${input.type ?? "message"}`.trim() || "message",
+    from: normalizeSabrinaRemoteEnvelopeParty(input.from) ?? "browser",
+    to: normalizeSabrinaRemoteEnvelopeParty(input.to) ?? "openclaw",
     ciphertext: `${input.ciphertext ?? ""}`.trim(),
     nonce: `${input.nonce ?? ""}`.trim(),
+    payload,
     sentAt:
       typeof input.sentAt === "string" && input.sentAt.trim()
         ? input.sentAt.trim()

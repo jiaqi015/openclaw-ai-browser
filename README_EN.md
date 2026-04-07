@@ -160,10 +160,15 @@ sequenceDiagram
 
 ## Docs
 
+- [Docs Guide](docs/DOCS_GUIDE.md) — reading order, role-based entry points, and how to establish current truth first
 - [Engineering System](docs/ENGINEERING_SYSTEM.md)
 - [Acceptance Matrix](docs/ACCEPTANCE_MATRIX.md)
 - [Iteration Loop](docs/ITERATION_LOOP.md)
 - [Browser/OpenClaw Architecture](docs/BROWSER_OPENCLAW_ARCHITECTURE.md)
+- [Turn Engine Design](docs/TURN_ENGINE_DESIGN.md) — Sabrina turn lifecycle, execution planning, receipt normalization
+- [System State](docs/SYSTEM_STATE.md) — what is true right now, what is not done yet, current gates, and next risks
+- [Next Phase Plan](docs/NEXT_PHASE_PLAN.md) — the next five workstreams, target outcomes, and acceptance points
+- [Claude Code Learnings](docs/CLAUDE_CODE_LEARNINGS.md) — what is worth learning from Claude Code and how it maps back to Sabrina
 - [Design Baseline](docs/DESIGN_BASELINE.md) — UI tone, thread system, component constraints and extension rules
 
 ## Contributing

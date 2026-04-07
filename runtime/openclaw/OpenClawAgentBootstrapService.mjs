@@ -24,6 +24,7 @@ import {
   resolveOpenClawStateDirFromContext,
 } from "./OpenClawTransportContext.mjs";
 import { supportsOpenClawRemoteCliExecution } from "./drivers/OpenClawDriverRegistry.mjs";
+import { invokeSabrinaRelayRpc } from "./relay/SabrinaRelayRpcService.mjs";
 
 export const sabrinaBrowserAgentId = "saburina-browser";
 export const sabrinaBrowserAgentName = "Saburina Browser";
@@ -154,7 +155,17 @@ export async function ensureSabrinaBrowserAgent() {
       }
 
       const stateDir = resolveOpenClawStateDirFromContext(transportContext);
-      const agentId = `${transportContext?.agentId ?? ""}`.trim() || "main";
+      const relaySnapshot = await invokeSabrinaRelayRpc({
+        relayUrl: transportContext.relayUrl,
+        connectCode: transportContext.connectCode,
+        method: "openclaw.snapshot",
+        params: {
+          agentId: transportContext.agentId,
+        },
+        timeoutMs: 6_000,
+      }).catch(() => null);
+      const agentId =
+        `${relaySnapshot?.result?.agentId ?? transportContext?.agentId ?? ""}`.trim() || "main";
       return {
         agentId,
         agentRecord: {
@@ -249,14 +260,27 @@ export async function buildLocalOpenClawBinding() {
   const { stateDir, config, agentId, agentRecord } = ensuredAgent;
 
   if (isOpenClawRemoteTransportContext(transportContext)) {
+    const relaySnapshot = supportsOpenClawRemoteCliExecution(transportContext)
+      ? null
+      : await invokeSabrinaRelayRpc({
+          relayUrl: transportContext.relayUrl,
+          connectCode: transportContext.connectCode,
+          method: "openclaw.snapshot",
+          params: {
+            agentId,
+          },
+          timeoutMs: 6_000,
+        }).catch(() => null);
     const gatewayStatus = supportsOpenClawRemoteCliExecution(transportContext)
       ? await execOpenClawJson(["gateway", "status", "--json"], {
           timeout: 12000,
           maxBuffer: 1024 * 1024,
           retries: 0,
         }).catch(() => null)
-      : null;
-    const gatewayReachable = Boolean(gatewayStatus?.rpc?.ok);
+      : relaySnapshot?.result?.gatewayStatus ?? null;
+    const gatewayReachable = supportsOpenClawRemoteCliExecution(transportContext)
+      ? Boolean(gatewayStatus?.rpc?.ok)
+      : Boolean(relaySnapshot?.result?.gateway?.ok);
     const remoteLabel =
       `${transportContext.label ?? ""}`.trim() ||
       `${transportContext.sshTarget ?? ""}`.trim() ||

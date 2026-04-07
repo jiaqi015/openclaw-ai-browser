@@ -14,8 +14,11 @@ import {
   disconnectOpenClaw,
   doctorOpenClaw,
   getOpenClawRelayPairingState,
+  listOpenClawRelayEnvelopes,
+  getOpenClawSupportSnapshot,
   getOpenClawRuntimeInsights,
   getSerializedOpenClawState,
+  sendOpenClawRelayEnvelope,
 } from "../../runtime/openclaw/OpenClawRuntimeService.mjs";
 
 let connectorServer = null;
@@ -159,6 +162,25 @@ async function handleConnectorRequest(req, res) {
       return;
     }
 
+    if (req.method === "GET" && url.pathname === "/v1/openclaw/support-snapshot") {
+      const snapshot = await getOpenClawSupportSnapshot({
+        limit: url.searchParams.get("limit")
+          ? Number(url.searchParams.get("limit"))
+          : undefined,
+        turnJournalLimit: url.searchParams.get("turnJournalLimit")
+          ? Number(url.searchParams.get("turnJournalLimit"))
+          : undefined,
+        browserMemoryLimit: url.searchParams.get("browserMemoryLimit")
+          ? Number(url.searchParams.get("browserMemoryLimit"))
+          : undefined,
+        threadId: url.searchParams.get("threadId") || undefined,
+        status: url.searchParams.get("status") || undefined,
+        memoryQuery: url.searchParams.get("memoryQuery") || undefined,
+      });
+      sendJson(res, 200, snapshot);
+      return;
+    }
+
     if (req.method === "GET" && url.pathname === "/v1/openclaw/doctor") {
       const report = await doctorOpenClaw({
         target: url.searchParams.get("target") || undefined,
@@ -187,9 +209,27 @@ async function handleConnectorRequest(req, res) {
       return;
     }
 
+    if (req.method === "GET" && url.pathname === "/v1/openclaw/relay-envelopes") {
+      const state = await listOpenClawRelayEnvelopes({
+        relayUrl: url.searchParams.get("relayUrl") || undefined,
+        sessionId: url.searchParams.get("sessionId") || undefined,
+        recipient: url.searchParams.get("recipient") || undefined,
+        afterSeq: url.searchParams.get("afterSeq") || undefined,
+      });
+      sendJson(res, 200, { ok: true, state });
+      return;
+    }
+
     if (req.method === "POST" && url.pathname === "/v1/openclaw/relay-pairing") {
       const payload = await readJsonBody(req);
       const state = await createOpenClawRelayConnectCode(payload ?? {});
+      sendJson(res, 200, { ok: true, state });
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/v1/openclaw/relay-envelopes") {
+      const payload = await readJsonBody(req);
+      const state = await sendOpenClawRelayEnvelope(payload ?? {});
       sendJson(res, 200, { ok: true, state });
       return;
     }

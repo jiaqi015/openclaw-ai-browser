@@ -25,6 +25,7 @@ import {
 } from "./OpenClawStatusService.mjs";
 import {
   getOpenClawTransportContext,
+  getOpenClawRemoteDriver,
   getOpenClawRemoteTargetRef,
   getOpenClawTransportLabel,
 } from "./OpenClawTransportContext.mjs";
@@ -56,6 +57,8 @@ import {
   getLocalPairingStatus,
 } from "./OpenClawPairingService.mjs";
 import { readPrimaryAgentWorkspaceMemory } from "./OpenClawWorkspaceMemoryService.mjs";
+import { supportsOpenClawRemoteCliExecution } from "./drivers/OpenClawDriverRegistry.mjs";
+import { invokeSabrinaRelayRpc } from "./relay/SabrinaRelayRpcService.mjs";
 
 export {
   buildLocalOpenClawBinding,
@@ -77,6 +80,13 @@ export { readPrimaryAgentWorkspaceMemory } from "./OpenClawWorkspaceMemoryServic
 
 const cachedSkillStatusByTransport = new Map();
 
+function isRelayRemoteContext(context = getOpenClawTransportContext()) {
+  return (
+    getOpenClawRemoteDriver(context) === "relay-paired" &&
+    !supportsOpenClawRemoteCliExecution(context)
+  );
+}
+
 function getSkillStatusCacheKey() {
   const context = getOpenClawTransportContext();
   const transportLabel = getOpenClawTransportLabel(context);
@@ -87,6 +97,7 @@ function getSkillStatusCacheKey() {
     stateDir: context?.stateDir ?? null,
     sshTarget: context?.sshTarget ?? null,
     sshPort: context?.sshPort ?? null,
+    connectCode: context?.connectCode ?? null,
     transportLabel,
   });
 }
@@ -100,7 +111,20 @@ async function getGatewaySkillStatusSnapshot(options = {}) {
     return cached.payload;
   }
 
-  const payload = await execGatewayMethodJson("skills.status");
+  const context = getOpenClawTransportContext();
+  const payload = isRelayRemoteContext(context)
+    ? (
+        await invokeSabrinaRelayRpc({
+          relayUrl: context.relayUrl,
+          connectCode: context.connectCode,
+          method: "openclaw.skills.status",
+          params: {
+            agentId: context.agentId,
+          },
+          timeoutMs: 6_000,
+        })
+      ).result
+    : await execGatewayMethodJson("skills.status");
   cachedSkillStatusByTransport.set(cacheKey, {
     payload,
     expiresAt: now + 20_000,
@@ -199,6 +223,22 @@ export async function getLocalSkillDetail(skillName) {
 }
 
 export async function getLocalGatewayStatus() {
+  const context = getOpenClawTransportContext();
+  if (isRelayRemoteContext(context)) {
+    const snapshot = (
+      await invokeSabrinaRelayRpc({
+        relayUrl: context.relayUrl,
+        connectCode: context.connectCode,
+        method: "openclaw.snapshot",
+        params: {
+          agentId: context.agentId,
+        },
+        timeoutMs: 6_000,
+      })
+    ).result;
+    return buildLocalGatewayStatus(snapshot?.gatewayStatus, snapshot?.gatewayHealth);
+  }
+
   const [statusPayload, healthPayload] = await Promise.all([
     execOpenClawJson(["gateway", "status", "--json"]),
     execOpenClawJson(["gateway", "health", "--json"]),

@@ -8,6 +8,12 @@ This document is the product-level boundary baseline for Sabrina's core loop:
 
 The goal is not "put prompts in a browser". The goal is to make Sabrina a native browser workspace that can reuse the OpenClaw ecosystem without losing browser truth, execution honesty, or user trust.
 
+Related reading:
+
+- [Docs Guide](./DOCS_GUIDE.md)
+- [System State](./SYSTEM_STATE.md)
+- [Turn Engine Design](./TURN_ENGINE_DESIGN.md)
+
 ## Product Thesis
 
 Sabrina only has defensible value if three things remain true at the same time:
@@ -384,6 +390,7 @@ Current implementation baseline:
 - remote connection config now carries a `driver` alongside optional SSH-specific fields
 - runtime transport probing fails fast for unsupported remote drivers instead of pretending every remote target is SSH-capable
 - plugin CLI exposes `--driver`, while `ssh-target` remains a driver-specific option for the current `ssh-cli` path
+- `relay-paired` now has a real connect-code lifecycle, relay claim state sync, and a minimal bidirectional envelope queue for browser/OpenClaw session traffic
 
 Current implementation:
 

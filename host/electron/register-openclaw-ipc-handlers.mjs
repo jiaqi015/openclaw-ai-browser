@@ -18,10 +18,14 @@ import {
   disconnectOpenClaw,
   doctorOpenClaw,
   getOpenClawConnectionState,
+  listOpenClawRelayEnvelopes,
   getOpenClawRelayPairingState,
+  getOpenClawSupportSnapshot,
   getSerializedOpenClawState,
+  pruneOpenClawTurnJournal,
   refreshOpenClawRuntimeState,
   saveOpenClawBrowserMemory,
+  sendOpenClawRelayEnvelope,
   getOpenClawTurnJournal,
   searchOpenClawTurnJournal,
   searchOpenClawBrowserMemory,
@@ -40,11 +44,20 @@ export function registerOpenClawIpcHandlers() {
     disconnectOpenClaw(payload ?? {}),
   );
   ipcMain.handle("openclaw:doctor", (_e, payload) => doctorOpenClaw(payload ?? {}));
+  ipcMain.handle("openclaw:get-support-snapshot", (_e, payload) =>
+    getOpenClawSupportSnapshot(payload ?? {}),
+  );
   ipcMain.handle("openclaw:create-relay-connect-code", (_e, payload) =>
     createOpenClawRelayConnectCode(payload ?? {}),
   );
   ipcMain.handle("openclaw:get-relay-pairing-state", (_e, payload) =>
     getOpenClawRelayPairingState(payload ?? {}),
+  );
+  ipcMain.handle("openclaw:send-relay-envelope", (_e, payload) =>
+    sendOpenClawRelayEnvelope(payload ?? {}),
+  );
+  ipcMain.handle("openclaw:list-relay-envelopes", (_e, payload) =>
+    listOpenClawRelayEnvelopes(payload ?? {}),
   );
   ipcMain.handle("openclaw:set-binding-target", (_e, payload) =>
     selectOpenClawBindingTarget(payload?.target),
@@ -87,6 +100,9 @@ export function registerOpenClawIpcHandlers() {
   );
   ipcMain.handle("openclaw:search-turn-journal", (_e, payload) =>
     searchOpenClawTurnJournal(payload ?? {}),
+  );
+  ipcMain.handle("openclaw:prune-turn-journal", (_e, payload) =>
+    pruneOpenClawTurnJournal(payload ?? {}),
   );
   ipcMain.handle("openclaw:run-local-agent", (_e, payload) =>
     runLocalAgentTurn(payload ?? {}),

@@ -1,5 +1,6 @@
 import http from "node:http";
 import { fileURLToPath } from "node:url";
+import { createSabrinaRemoteEnvelope } from "../../sabrina-protocol/index.mjs";
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, {
@@ -30,6 +31,8 @@ function isExpired(expiresAt, now = Date.now()) {
 function createRelayStore() {
   const pairingsById = new Map();
   const pairingsByCode = new Map();
+  const pairingsBySessionId = new Map();
+  const envelopesBySessionId = new Map();
 
   function upsertPairing(rawPairing = {}) {
     const pairing = {
@@ -64,6 +67,12 @@ function createRelayStore() {
 
     pairingsById.set(pairing.pairingId, pairing);
     pairingsByCode.set(pairing.code, pairing.pairingId);
+    if (pairing.sessionId) {
+      pairingsBySessionId.set(pairing.sessionId, pairing.pairingId);
+      if (!envelopesBySessionId.has(pairing.sessionId)) {
+        envelopesBySessionId.set(pairing.sessionId, []);
+      }
+    }
     return pairing;
   }
 
@@ -117,11 +126,62 @@ function createRelayStore() {
     return active;
   }
 
+  function getPairingBySessionId(sessionId) {
+    const normalizedSessionId = `${sessionId ?? ""}`.trim();
+    if (!normalizedSessionId) {
+      return null;
+    }
+    const pairingId = pairingsBySessionId.get(normalizedSessionId);
+    return pairingId ? getPairingById(pairingId) : null;
+  }
+
+  function appendEnvelope(sessionId, rawEnvelope = {}) {
+    const pairing = getPairingBySessionId(sessionId);
+    if (!pairing) {
+      throw new Error("Relay session not found.");
+    }
+
+    const normalizedSessionId = `${sessionId ?? ""}`.trim();
+    const existing = envelopesBySessionId.get(normalizedSessionId) ?? [];
+    const envelope = createSabrinaRemoteEnvelope({
+      ...rawEnvelope,
+      sessionId: normalizedSessionId,
+      seq: existing.length + 1,
+    });
+    const nextEnvelopes = [...existing, envelope].slice(-200);
+    envelopesBySessionId.set(normalizedSessionId, nextEnvelopes);
+    return envelope;
+  }
+
+  function listEnvelopes(sessionId, params = {}) {
+    const normalizedSessionId = `${sessionId ?? ""}`.trim();
+    if (!normalizedSessionId) {
+      return [];
+    }
+
+    const afterSeq = Number.isFinite(Number(params.afterSeq))
+      ? Math.max(0, Math.trunc(Number(params.afterSeq)))
+      : 0;
+    const recipient = `${params.recipient ?? ""}`.trim();
+    return (envelopesBySessionId.get(normalizedSessionId) ?? []).filter((envelope) => {
+      if (afterSeq > 0 && Number(envelope.seq) <= afterSeq) {
+        return false;
+      }
+      if (recipient && envelope.to !== recipient) {
+        return false;
+      }
+      return true;
+    });
+  }
+
   return {
     upsertPairing,
     getPairingById,
     getPairingByCode,
+    getPairingBySessionId,
     claimPairing,
+    appendEnvelope,
+    listEnvelopes,
   };
 }
 
@@ -176,6 +236,48 @@ export function createSabrinaRelayDevServer() {
           return;
         }
         sendJson(res, 200, { ok: true, pairing });
+        return;
+      }
+
+      if (
+        req.method === "GET" &&
+        url.pathname.startsWith("/v1/sessions/") &&
+        url.pathname.endsWith("/envelopes")
+      ) {
+        const sessionId = decodeURIComponent(
+          url.pathname.slice("/v1/sessions/".length, -"/envelopes".length),
+        );
+        const pairing = store.getPairingBySessionId(sessionId);
+        if (!pairing) {
+          sendJson(res, 404, { ok: false, error: "Relay session not found." });
+          return;
+        }
+        const envelopes = store.listEnvelopes(sessionId, {
+          recipient: url.searchParams.get("recipient") || undefined,
+          afterSeq: url.searchParams.get("afterSeq") || undefined,
+        });
+        sendJson(res, 200, {
+          ok: true,
+          pairing,
+          envelopes,
+        });
+        return;
+      }
+
+      if (
+        req.method === "POST" &&
+        url.pathname.startsWith("/v1/sessions/") &&
+        url.pathname.endsWith("/envelopes")
+      ) {
+        const sessionId = decodeURIComponent(
+          url.pathname.slice("/v1/sessions/".length, -"/envelopes".length),
+        );
+        const payload = await readJsonBody(req);
+        const envelope = store.appendEnvelope(sessionId, payload ?? {});
+        sendJson(res, 200, {
+          ok: true,
+          envelope,
+        });
         return;
       }
 

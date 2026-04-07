@@ -116,8 +116,13 @@ test("createSabrinaPairingSession and remote envelope create stable protocol rec
     sessionId: "session-1",
     seq: 3,
     type: "message",
+    from: "browser",
+    to: "openclaw",
     ciphertext: "abc",
     nonce: "nonce-1",
+    payload: {
+      kind: "probe.ping",
+    },
   });
 
   assert.equal(pairing.schemaVersion, SABRINA_PAIRING_SESSION_SCHEMA_VERSION);
@@ -125,6 +130,9 @@ test("createSabrinaPairingSession and remote envelope create stable protocol rec
   assert.equal(pairing.driver, "relay-paired");
   assert.equal(envelope.schemaVersion, SABRINA_REMOTE_ENVELOPE_SCHEMA_VERSION);
   assert.equal(envelope.seq, 3);
+  assert.equal(envelope.from, "browser");
+  assert.equal(envelope.to, "openclaw");
+  assert.equal(envelope.payload?.kind, "probe.ping");
 });
 
 test("createSabrinaMemoryRecord adds schema version and browser provenance metadata", () => {

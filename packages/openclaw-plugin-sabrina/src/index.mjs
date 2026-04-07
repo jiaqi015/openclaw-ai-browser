@@ -4,6 +4,19 @@ import {
   getSabrinaConnectorHealth,
   requestSabrinaConnector,
 } from "./bridge-client.mjs";
+import {
+  claimRelayCode,
+  listRelayEnvelopes,
+  sendRelayEnvelope,
+} from "./relay-http.mjs";
+import {
+  processRelayWorkerTick,
+  runRelayWorkerLoop,
+} from "./relay-worker.mjs";
+import {
+  execOpenClawCliCommand,
+  execOpenClawCliJson,
+} from "./openclaw-cli.mjs";
 
 function printJson(value) {
   console.log(JSON.stringify(value, null, 2));
@@ -13,6 +26,30 @@ function handleCliError(error) {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`Sabrina: ${message}`);
   process.exitCode = 1;
+}
+
+function parseRelayPayloadOption(value, text = "") {
+  if (`${value ?? ""}`.trim()) {
+    try {
+      const parsed = JSON.parse(`${value}`.trim());
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("payload must be a JSON object");
+      }
+      return parsed;
+    } catch (error) {
+      throw new Error(
+        `Invalid relay payload JSON: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  if (`${text ?? ""}`.trim()) {
+    return {
+      text: `${text}`.trim(),
+    };
+  }
+
+  return {};
 }
 
 function registerStatusCommand(rootCommand, api) {
@@ -71,11 +108,11 @@ function registerConnectCommand(rootCommand, api) {
       try {
         const requestedDriver =
           options.driver ||
-          (options.remote || options.sshTarget
-            ? "ssh-cli"
-            : options.relayUrl || options.connectCode
+          (options.relayUrl || options.connectCode
               ? "relay-paired"
-              : "local-cli");
+              : options.remote || options.sshTarget
+                ? "ssh-cli"
+                : "local-cli");
         const target =
           options.remote || options.sshTarget || options.relayUrl || options.connectCode || requestedDriver !== "local-cli" ? "remote" : "local";
         const result = await requestSabrinaConnector(
@@ -166,10 +203,10 @@ function registerDoctorCommand(rootCommand, api) {
         if (options.agent) params.set("agentId", options.agent);
         if (options.profile) params.set("profile", options.profile);
         if (options.stateDir) params.set("stateDir", options.stateDir);
-        if (!options.driver && (options.target === "remote" || options.sshTarget)) {
-          params.set("driver", "ssh-cli");
-        } else if (!options.driver && (options.relayUrl || options.connectCode)) {
+        if (!options.driver && (options.relayUrl || options.connectCode)) {
           params.set("driver", "relay-paired");
+        } else if (!options.driver && (options.target === "remote" || options.sshTarget)) {
+          params.set("driver", "ssh-cli");
         }
         const result = await requestSabrinaConnector(
           api.pluginConfig ?? {},
@@ -234,30 +271,6 @@ function registerRelayCodeCommand(rootCommand, api) {
     });
 }
 
-async function requestRelayJson(relayUrl, pathname, options = {}) {
-  const normalizedRelayUrl = `${relayUrl ?? ""}`.trim().replace(/\/+$/, "");
-  if (!normalizedRelayUrl) {
-    throw new Error("Relay URL is required.");
-  }
-
-  const response = await fetch(`${normalizedRelayUrl}${pathname}`, {
-    method: options.method ?? "GET",
-    headers: {
-      "content-type": "application/json",
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) {
-    const detail =
-      typeof payload?.error === "string" && payload.error.trim()
-        ? payload.error.trim()
-        : `${response.status} ${response.statusText}`.trim();
-    throw new Error(detail);
-  }
-  return payload;
-}
-
 function registerRelayClaimCommand(rootCommand) {
   rootCommand
     .command("relay-claim")
@@ -269,13 +282,10 @@ function registerRelayClaimCommand(rootCommand) {
     .option("--json", "Print raw JSON")
     .action(async (options) => {
       try {
-        const payload = await requestRelayJson(options.relayUrl, "/v1/pairings/claim", {
-          method: "POST",
-          body: {
-            code: options.connectCode,
-            openclawDeviceId: options.deviceId,
-            openclawLabel: options.label,
-          },
+        const payload = await claimRelayCode(options.relayUrl, {
+          code: options.connectCode,
+          openclawDeviceId: options.deviceId,
+          openclawLabel: options.label,
         });
 
         if (options.json) {
@@ -287,6 +297,171 @@ function registerRelayClaimCommand(rootCommand) {
         console.log(`Pairing: ${payload?.pairing?.pairingId ?? "unknown"}`);
         console.log(`Browser: ${payload?.pairing?.browserDisplayName ?? "unknown"}`);
         console.log(`Status: ${payload?.pairing?.status ?? "unknown"}`);
+      } catch (error) {
+        handleCliError(error);
+      }
+    });
+}
+
+function registerRelayPollCommand(rootCommand) {
+  rootCommand
+    .command("relay-poll")
+    .description("Poll relay envelopes for a claimed Sabrina relay session")
+    .requiredOption("--relay-url <url>", "Relay URL")
+    .requiredOption("--session-id <id>", "Claimed relay session id")
+    .option("--recipient <party>", "browser, openclaw, or relay", "openclaw")
+    .option("--after-seq <seq>", "Only return envelopes after this sequence number")
+    .option("--json", "Print raw JSON")
+    .action(async (options) => {
+      try {
+        const payload = await listRelayEnvelopes(options.relayUrl, options.sessionId, {
+          recipient: options.recipient,
+          afterSeq: options.afterSeq,
+        });
+
+        if (options.json) {
+          printJson(payload);
+          return;
+        }
+
+        const envelopes = Array.isArray(payload?.envelopes) ? payload.envelopes : [];
+        if (envelopes.length === 0) {
+          console.log("No relay envelopes available.");
+          return;
+        }
+
+        for (const envelope of envelopes) {
+          console.log(
+            `#${envelope.seq} ${envelope.from} -> ${envelope.to} ${envelope.type} ${envelope.sentAt}`,
+          );
+          if (envelope.payload && typeof envelope.payload === "object") {
+            console.log(JSON.stringify(envelope.payload, null, 2));
+          }
+        }
+      } catch (error) {
+        handleCliError(error);
+      }
+    });
+}
+
+function registerRelaySendCommand(rootCommand) {
+  rootCommand
+    .command("relay-send")
+    .description("Send one relay envelope into a claimed Sabrina relay session")
+    .requiredOption("--relay-url <url>", "Relay URL")
+    .requiredOption("--session-id <id>", "Claimed relay session id")
+    .option("--from <party>", "browser, openclaw, or relay", "openclaw")
+    .option("--to <party>", "browser, openclaw, or relay", "browser")
+    .option("--type <type>", "Envelope type", "message")
+    .option("--payload <json>", "JSON object payload")
+    .option("--text <text>", "Convenience text payload")
+    .option("--json", "Print raw JSON")
+    .action(async (options) => {
+      try {
+        const payload = await sendRelayEnvelope(options.relayUrl, options.sessionId, {
+          from: options.from,
+          to: options.to,
+          type: options.type,
+          payload: parseRelayPayloadOption(options.payload, options.text),
+        });
+
+        if (options.json) {
+          printJson(payload);
+          return;
+        }
+
+        console.log(
+          `Sent #${payload?.envelope?.seq ?? "?"} ${payload?.envelope?.from ?? options.from} -> ${payload?.envelope?.to ?? options.to} ${payload?.envelope?.type ?? options.type}`,
+        );
+      } catch (error) {
+        handleCliError(error);
+      }
+    });
+}
+
+function registerRelayWorkerCommand(rootCommand) {
+  rootCommand
+    .command("relay-worker")
+    .description("Run the Sabrina relay worker loop for a claimed remote session")
+    .requiredOption("--relay-url <url>", "Relay URL")
+    .option("--session-id <id>", "Claimed relay session id")
+    .option("--connect-code <code>", "Claim a Sabrina connect code before polling")
+    .option("--device-id <id>", "Optional OpenClaw device id used during claim")
+    .option("--label <label>", "Optional OpenClaw display label used during claim")
+    .option("--profile <profile>", "Target a specific OpenClaw profile")
+    .option("--state-dir <path>", "Target a specific OpenClaw state dir")
+    .option("--once", "Process one worker tick and exit")
+    .option("--after-seq <seq>", "Start polling after this sequence number")
+    .option("--poll-ms <ms>", "Polling interval in milliseconds", "1000")
+    .option("--idle-exit-seconds <seconds>", "Exit after being idle for this many seconds")
+    .option("--json", "Print raw JSON")
+    .action(async (options) => {
+      try {
+        let sessionId = `${options.sessionId ?? ""}`.trim();
+        let claimPayload = null;
+        if (!sessionId) {
+          if (!`${options.connectCode ?? ""}`.trim()) {
+            throw new Error("Relay worker requires either --session-id or --connect-code.");
+          }
+          claimPayload = await claimRelayCode(options.relayUrl, {
+            code: options.connectCode,
+            openclawDeviceId: options.deviceId,
+            openclawLabel: options.label,
+          });
+          sessionId = `${claimPayload?.pairing?.sessionId ?? ""}`.trim();
+        }
+        if (!sessionId) {
+          throw new Error("Relay worker could not resolve a claimed session id.");
+        }
+
+        const workerInput = {
+          relayUrl: options.relayUrl,
+          sessionId,
+          afterSeq: options.afterSeq,
+          pollIntervalMs: options.pollMs,
+          idleExitMs: Number.isFinite(Number(options.idleExitSeconds))
+            ? Math.max(0, Math.trunc(Number(options.idleExitSeconds) * 1000))
+            : 0,
+        };
+        const cliContext = {
+          profile: options.profile,
+          stateDir: options.stateDir,
+        };
+        const payload = options.once
+          ? await processRelayWorkerTick(workerInput, {
+              execOpenClawCliJson: (args, workerOptions) =>
+                execOpenClawCliJson(args, workerOptions, cliContext),
+              execOpenClawCliCommand: (args, workerOptions) =>
+                execOpenClawCliCommand(args, workerOptions, cliContext),
+            })
+          : await runRelayWorkerLoop(workerInput, {
+              execOpenClawCliJson: (args, workerOptions) =>
+                execOpenClawCliJson(args, workerOptions, cliContext),
+              execOpenClawCliCommand: (args, workerOptions) =>
+                execOpenClawCliCommand(args, workerOptions, cliContext),
+            });
+        const result = {
+          ok: true,
+          sessionId,
+          claim: claimPayload?.pairing ?? null,
+          worker: payload,
+        };
+
+        if (options.json) {
+          printJson(result);
+          return;
+        }
+
+        console.log(`Relay worker attached to ${sessionId}.`);
+        if (claimPayload?.pairing?.openclawLabel) {
+          console.log(`Label: ${claimPayload.pairing.openclawLabel}`);
+        }
+        if (options.once) {
+          console.log(`Processed ${payload.processedCount ?? 0} request(s).`);
+          return;
+        }
+        console.log(`Stopped: ${payload.stopped ?? "completed"}`);
+        console.log(`Processed: ${payload.processedCount ?? 0}`);
       } catch (error) {
         handleCliError(error);
       }
@@ -310,6 +485,9 @@ const sabrinaPlugin = {
         registerDoctorCommand(rootCommand, api);
         registerRelayCodeCommand(rootCommand, api);
         registerRelayClaimCommand(rootCommand);
+        registerRelayPollCommand(rootCommand);
+        registerRelaySendCommand(rootCommand);
+        registerRelayWorkerCommand(rootCommand);
       },
       { commands: ["sabrina"] },
     );

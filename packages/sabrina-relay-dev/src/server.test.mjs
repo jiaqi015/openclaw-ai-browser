@@ -46,6 +46,34 @@ test("relay dev server registers, claims, and retrieves pairings", async () => {
     const state = await stateResponse.json();
     assert.equal(state.pairing.status, "active");
     assert.equal(state.pairing.code, "BMX367");
+
+    const sendBrowserEnvelope = await fetch(
+      `${relay.url}/v1/sessions/${encodeURIComponent(claimed.pairing.sessionId)}/envelopes`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "probe.ping",
+          from: "browser",
+          to: "openclaw",
+          payload: {
+            pingId: "ping-1",
+          },
+        }),
+      },
+    );
+    const browserEnvelope = await sendBrowserEnvelope.json();
+    assert.equal(browserEnvelope.envelope.seq, 1);
+    assert.equal(browserEnvelope.envelope.to, "openclaw");
+
+    const listOpenClawEnvelopes = await fetch(
+      `${relay.url}/v1/sessions/${encodeURIComponent(claimed.pairing.sessionId)}/envelopes?recipient=openclaw`,
+    );
+    const openclawEnvelopes = await listOpenClawEnvelopes.json();
+    assert.equal(openclawEnvelopes.envelopes.length, 1);
+    assert.equal(openclawEnvelopes.envelopes[0].payload.pingId, "ping-1");
   } finally {
     await relay.close();
   }

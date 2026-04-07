@@ -1,4 +1,5 @@
 import { getSabrinaRelayPairingRemoteStateByCode } from "../relay/SabrinaRelayClient.mjs";
+import { probeSabrinaRelayRpc } from "../relay/SabrinaRelayRpcService.mjs";
 
 export const relayPairedDriver = Object.freeze({
   id: "relay-paired",
@@ -11,7 +12,7 @@ export const relayPairedDriver = Object.freeze({
   buildInvocation() {
     throw new Error("当前远程 driver relay-paired 尚未实现。");
   },
-  async probeTransport(_options = {}, context) {
+  async probeTransport(options = {}, context) {
     if (!context?.relayUrl) {
       return {
         ok: false,
@@ -39,11 +40,24 @@ export const relayPairedDriver = Object.freeze({
       }
 
       if (pairing.status === "active") {
+        const rpcProbe = await probeSabrinaRelayRpc({
+          relayUrl: context.relayUrl,
+          connectCode: context.connectCode,
+          timeoutMs: options?.timeout ?? 2_000,
+        });
+        if (rpcProbe.ok) {
+          return {
+            ok: true,
+            detail:
+              `${pairing.openclawLabel ? `${pairing.openclawLabel} · ` : ""}${rpcProbe.detail}`
+                .trim(),
+          };
+        }
         return {
           ok: false,
           detail:
             `连接码已被${pairing.openclawLabel ? ` ${pairing.openclawLabel}` : "远端 OpenClaw"}认领，` +
-            "但 relay 命令通道还没实现。",
+            `${rpcProbe.detail || "但 relay 命令通道还没就绪。"}`,
         };
       }
 
@@ -71,6 +85,5 @@ export const relayPairedDriver = Object.freeze({
         detail: error instanceof Error ? error.message : String(error),
       };
     }
-
   },
 });

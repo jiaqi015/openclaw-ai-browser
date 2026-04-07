@@ -7,6 +7,9 @@ import {
 
 type SabrinaDesktop = NonNullable<Window["sabrinaDesktop"]>;
 type SabrinaDesktopOpenClaw = NonNullable<SabrinaDesktop["openclaw"]>;
+type SabrinaSupportSnapshot = Awaited<
+  ReturnType<NonNullable<SabrinaDesktopOpenClaw["getSupportSnapshot"]>>
+>;
 type SabrinaTurnJournalSnapshot = Awaited<
   ReturnType<SabrinaDesktopOpenClaw["getTurnJournal"]>
 >;
@@ -19,6 +22,7 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     createEmptyOpenClawState("local"),
   );
   const [doctorReport, setDoctorReport] = useState<SabrinaOpenClawDoctorReport | null>(null);
+  const [supportSnapshot, setSupportSnapshot] = useState<SabrinaSupportSnapshot | null>(null);
   const [turnJournalSnapshot, setTurnJournalSnapshot] =
     useState<SabrinaTurnJournalSnapshot | null>(null);
   const [browserMemorySnapshot, setBrowserMemorySnapshot] =
@@ -57,8 +61,9 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
   const browserMemoryStats = browserMemorySnapshot?.stats ?? null;
 
   useEffect(() => {
-    const openclaw = desktop?.openclaw;
-    if (!openclaw?.getTurnJournal || !openclaw?.searchMemory) {
+  const openclaw = desktop?.openclaw;
+    if (!openclaw?.getSupportSnapshot && (!openclaw?.getTurnJournal || !openclaw?.searchMemory)) {
+      setSupportSnapshot(null);
       setTurnJournalSnapshot(null);
       setBrowserMemorySnapshot(null);
       return;
@@ -66,23 +71,40 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
 
     let mounted = true;
 
-    Promise.all([
-      openclaw.getTurnJournal({ limit: 3 }),
-      openclaw.searchMemory({ query: "", limit: 3 }),
-    ])
-      .then(([journalSnapshot, memorySnapshot]) => {
+    const loadSnapshots = openclaw.getSupportSnapshot
+      ? openclaw.getSupportSnapshot({
+          turnJournalLimit: 3,
+          browserMemoryLimit: 3,
+        })
+      : Promise.all([
+          openclaw.getTurnJournal({ limit: 3 }),
+          openclaw.searchMemory({ query: "", limit: 3 }),
+        ]).then(([journalSnapshot, memorySnapshot]) => ({
+          ok: true,
+          capturedAt: new Date().toISOString(),
+          state: null,
+          connectionState: null,
+          runtimeInsights: null,
+          turnJournal: journalSnapshot,
+          browserMemory: memorySnapshot,
+        }));
+
+    loadSnapshots
+      .then((snapshot) => {
         if (!mounted) {
           return;
         }
 
-        setTurnJournalSnapshot(journalSnapshot);
-        setBrowserMemorySnapshot(memorySnapshot);
+        setSupportSnapshot(snapshot);
+        setTurnJournalSnapshot(snapshot.turnJournal);
+        setBrowserMemorySnapshot(snapshot.browserMemory);
       })
       .catch(() => {
         if (!mounted) {
           return;
         }
 
+        setSupportSnapshot(null);
         setTurnJournalSnapshot(null);
         setBrowserMemorySnapshot(null);
       });
@@ -91,6 +113,53 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
       mounted = false;
     };
   }, [desktop, runtimeState.lastRefreshedAt, runtimeState.selectedTarget]);
+
+  useEffect(() => {
+    const openclaw = desktop?.openclaw;
+    if (!openclaw?.refreshState) {
+      return;
+    }
+    if (
+      runtimeState.selectedTarget !== "remote" ||
+      runtimeState.connectionConfig.driver !== "relay-paired" ||
+      !runtimeState.connectionConfig.relayUrl ||
+      !runtimeState.connectionConfig.connectCode
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    async function refreshRelayProjection() {
+      if (cancelled || typeof document !== "undefined" && document.visibilityState !== "visible") {
+        return;
+      }
+      try {
+        const nextState = await openclaw.refreshState({
+          target: "remote",
+        });
+        if (!cancelled) {
+          applyRuntimeState(nextState);
+        }
+      } catch {
+        // Keep the latest remote snapshot when relay polling fails.
+      }
+    }
+
+    const timer = window.setInterval(() => {
+      void refreshRelayProjection();
+    }, 5_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [
+    desktop,
+    runtimeState.connectionConfig.connectCode,
+    runtimeState.connectionConfig.driver,
+    runtimeState.connectionConfig.relayUrl,
+    runtimeState.selectedTarget,
+  ]);
 
   async function refreshOpenClawState(target = selectedBindingTargetRef.current) {
     const openclaw = desktop?.openclaw;
@@ -177,7 +246,10 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
 
     const target =
       params?.target ??
-      ((params?.driver && params.driver !== "local-cli") || params?.sshTarget || params?.relayUrl
+      ((params?.driver && params.driver !== "local-cli") ||
+      params?.sshTarget ||
+      params?.relayUrl ||
+      params?.connectCode
         ? "remote"
         : runtimeState.selectedTarget);
     const nextState = await openclaw.connect({
@@ -216,8 +288,10 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     const nextState = await openclaw.disconnect({
       target:
         params?.target ??
-        ((params?.driver && params.driver !== "local-cli") || params?.sshTarget
-          || params?.relayUrl
+        ((params?.driver && params.driver !== "local-cli") ||
+        params?.sshTarget ||
+        params?.relayUrl ||
+        params?.connectCode
           ? "remote"
           : runtimeState.selectedTarget),
       profile: params?.profile,
@@ -354,6 +428,7 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     pairingStatus,
     lastError,
     doctorReport,
+    supportSnapshot,
     selectedModel,
     modelOptions,
     turnJournalEntries,
