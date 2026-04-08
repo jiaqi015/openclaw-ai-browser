@@ -9,7 +9,7 @@ import {
   createBrowserTab,
   findBrowserTabIdByUrl,
 } from "../../runtime/browser/TabManager.mjs";
-import { generateGenTab } from "./GenTabIpcActionService.mjs";
+import { generateGenTab, refreshGenTabItem } from "./GenTabIpcActionService.mjs";
 
 export function registerGentabIpcHandlers(getMainWindow) {
   ipcMain.handle("gentab:get-state", (_e, payload) => {
@@ -73,6 +73,10 @@ export function registerGentabIpcHandlers(getMainWindow) {
 
   ipcMain.handle("gentab:generate", async (_e, payload) => {
     return generateGenTab(payload ?? {});
+  });
+
+  ipcMain.handle("gentab:refresh-item", async (_e, payload) => {
+    return refreshGenTabItem(payload ?? {});
   });
 
   ipcMain.handle("gentab:close", async (_e, payload) => {

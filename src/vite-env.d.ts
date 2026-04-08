@@ -770,6 +770,8 @@ declare global {
         description?: string;
         sourceUrl: string;
         sourceTitle: string;
+        sourceTabId?: string;
+        quote?: string;
         fields?: Record<string, string>;
         date?: string;
       }>;
@@ -782,6 +784,7 @@ declare global {
         userIntent: string;
         generatedAt: string;
         preferredType?: "auto" | "table" | "list" | "timeline" | "comparison" | "card-grid";
+        lastCellRefreshAt?: string;
       };
     };
   }
@@ -1132,6 +1135,18 @@ declare global {
           uiLocale?: "zh-CN" | "en-US";
           assistantLocaleMode?: "follow-ui" | "zh-CN" | "en-US";
         }) => Promise<GenTabGenerateResult>;
+        refreshItem: (params: {
+          genId: string;
+          itemId: string;
+          assistantLocaleMode?: "follow-ui" | "zh-CN" | "en-US";
+        }) => Promise<
+          | {
+              success: true;
+              item: NonNullable<GenTabGenerateResult["gentab"]>["items"][number];
+              gentab: NonNullable<GenTabGenerateResult["gentab"]>;
+            }
+          | { success: false; error?: string; item?: undefined; gentab?: undefined }
+        >;
         closeGenTab: (genId: string) => Promise<{ success: boolean }>;
         markGenerationCompleted: (genId: string) => void;
         onGenerationCompleted: (

@@ -38,7 +38,13 @@ export interface GenTabItem {
   sourceTitle: string;
   fields?: Record<string, string>;
   date?: string;
+  /** Exact text span the AI extracted this item from. Used for hover preview and liveness diffing. */
+  quote?: string;
+  /** Tab id from the Browser Context Package provenance at generation time. Enables liveness tracking against currently open tabs. */
+  sourceTabId?: string;
 }
+
+export type GenTabCellLiveness = "live" | "drifted" | "closed" | "unknown";
 
 export interface GenTabSection {
   id: string;
@@ -74,6 +80,8 @@ export interface GenTabData {
     userIntent: string;
     generatedAt: string;
     preferredType?: GenTabPreferredType;
+    /** Set by the backend whenever any single cell is refreshed via Live Cells. */
+    lastCellRefreshAt?: string;
   };
 }
 

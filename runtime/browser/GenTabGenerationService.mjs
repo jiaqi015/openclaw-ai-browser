@@ -51,6 +51,8 @@ Sabrina 已经先把这些页面组织成一个带 provenance 的 Browser Contex
         "description"?: string,
         "sourceUrl": string,
         "sourceTitle": string,
+        "sourceTabId"?: string,
+        "quote"?: string,
         "fields"?: Record<string, string>,
         "date"?: string
       }
@@ -71,6 +73,7 @@ Sabrina 已经先把这些页面组织成一个带 provenance 的 Browser Contex
 10. 只输出 JSON。
 11. ${getGenTabLanguageInstruction(assistantLocale)}
 12. 如果 Browser Context Package 标记了缺失引用页，请不要假装看到了它们的内容。
+13. 【Live Cells 字段】每个 item 必须尽量填写 sourceTabId（从下方 provenance 里对应网页的"来源标签页 ID"复制），以及 quote（从该网页原文中摘取 30-120 字、最能支撑该 item 结论的连续原文片段，严禁改写或翻译原文）。这两个字段是支撑单元格活性追踪的关键，若确实无法取到请省略，不要编造。
 
 Browser Context Package provenance：
 - 来源标签页：${normalizedInput.sourceTabIds.length > 0 ? normalizedInput.sourceTabIds.join(", ") : "未知"}
@@ -84,6 +87,115 @@ ${renderGenTabExecutionSummary(normalizedInput)}
 以下是网页材料：
 
 ${normalizedInput.entries.map(renderGenTabEntryBlock).join("\n\n")}`;
+}
+
+/**
+ * Prompt for re-extracting a single GenTab item from a fresh page context.
+ * Used by the Live Cells refresh flow so we don't have to regenerate the
+ * entire GenTab when only one row's source has drifted.
+ */
+export function buildRefreshItemPrompt({
+  item,
+  context,
+  userIntent,
+  assistantLocale = "zh-CN",
+}) {
+  const itemSnapshot = JSON.stringify(
+    {
+      id: item?.id ?? "",
+      title: item?.title ?? "",
+      description: item?.description ?? "",
+      fields: item?.fields ?? {},
+      quote: item?.quote ?? "",
+      date: item?.date ?? "",
+    },
+    null,
+    2,
+  );
+
+  const pageBlock = [
+    `标题: ${context?.title ?? ""}`,
+    `URL: ${context?.url ?? ""}`,
+    context?.leadText ? `导语: ${context.leadText}` : "",
+    `正文:\n${context?.contentText ?? context?.contentPreview ?? ""}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return `你是 Sabrina 的 GenTab 单元格刷新器。用户当前 GenTab 的一行记录已经存在，你的任务是基于最新的源网页，重新抽取这一行同结构的字段。
+
+用户对这个 GenTab 的总体意图是：“${sanitizeGenTabText(userIntent, 400) || "整理这些页面为结构化工作台"}”。
+
+这是该行**原始**的结构（保持相同的 field key 集合，不要新增/删除列）：
+
+${itemSnapshot}
+
+这是这个条目绑定的源网页的**最新**内容：
+
+${pageBlock}
+
+输出必须是纯 JSON，不要解释，不要 markdown，不要代码块。严格返回：
+
+{
+  "success": boolean,
+  "error"?: string,
+  "item"?: {
+    "id": string,
+    "title": string,
+    "description"?: string,
+    "fields"?: Record<string, string>,
+    "date"?: string,
+    "quote"?: string
+  }
+}
+
+要求：
+1. id 必须与原始条目相同。
+2. fields 的 key 必须完全等于原始条目的 key 集合；若某个 key 在新页面里确实查不到，请将该 key 的 value 设为 "—"（em dash）而不是删掉。
+3. title/description 可以根据新页面微调，但不要偏离原 item 主题。
+4. quote 必须从新页面原文中摘取 30-120 字连续原文，严禁改写或翻译。如果新页面已经完全不再包含相关内容，请返回 {"success": false, "error": "源页面已不再包含相关内容"}。
+5. 如果新页面与这个条目的主题已经完全无关（例如跳转到登录页或 404），请返回 {"success": false, "error": "..."}。
+6. ${getGenTabLanguageInstruction(assistantLocale)}
+7. 只输出 JSON。`;
+}
+
+/**
+ * Merge a freshly-extracted item back into the original, preserving fields
+ * that the refresh prompt is not supposed to touch (sourceUrl, sourceTitle,
+ * sourceTabId). Field keys are clamped to the original key set so a runaway
+ * model can't change the table shape.
+ */
+export function normalizeRefreshedItem(rawItem, originalItem) {
+  if (!rawItem || typeof rawItem !== "object" || !originalItem) {
+    return null;
+  }
+
+  const originalFieldKeys = Object.keys(originalItem.fields ?? {});
+  const nextFields = {};
+  for (const key of originalFieldKeys) {
+    const rawValue = rawItem?.fields?.[key];
+    const normalized = sanitizeGenTabText(rawValue, 120);
+    nextFields[key] = normalized || "—";
+  }
+
+  const rawQuote = typeof rawItem?.quote === "string" ? rawItem.quote.trim() : "";
+  const quote = rawQuote ? rawQuote.slice(0, 600) : originalItem.quote;
+
+  return {
+    ...originalItem,
+    // id must stay the same
+    id: originalItem.id,
+    title: sanitizeGenTabText(rawItem?.title, 120) || originalItem.title,
+    description:
+      sanitizeGenTabText(rawItem?.description, 240) || originalItem.description || undefined,
+    date: sanitizeGenTabText(rawItem?.date, 80) || originalItem.date || undefined,
+    fields: originalFieldKeys.length > 0 ? nextFields : originalItem.fields,
+    quote,
+    // provenance fields are never touched by the refresh prompt
+    sourceUrl: originalItem.sourceUrl,
+    sourceTitle: originalItem.sourceTitle,
+    sourceTabId: originalItem.sourceTabId,
+  };
 }
 
 export function extractJsonFromOutput(output) {
@@ -253,6 +365,15 @@ function normalizeGenTabItems(rawItems, sources, entries) {
         }
       : null);
 
+  // Build a lookup from URL -> provenance tabId so we can backfill sourceTabId
+  // for items where the model forgot to echo it.
+  const urlToTabId = new Map();
+  for (const entry of entries) {
+    if (entry?.url && entry?.tabId) {
+      urlToTabId.set(entry.url, entry.tabId);
+    }
+  }
+
   for (const [index, item] of (Array.isArray(rawItems) ? rawItems : []).entries()) {
     const title = sanitizeGenTabText(item?.title, 120);
     if (!title) {
@@ -272,12 +393,21 @@ function normalizeGenTabItems(rawItems, sources, entries) {
       fields[normalizedKey] = normalizedValue;
     }
 
+    const explicitTabId = `${item?.sourceTabId ?? ""}`.trim();
+    const sourceTabId = explicitTabId || urlToTabId.get(sourceUrl) || undefined;
+    // Keep the quote close to the original — only trim whitespace, don't
+    // rewrite via sanitizeGenTabText which collapses newlines aggressively.
+    const rawQuote = typeof item?.quote === "string" ? item.quote.trim() : "";
+    const quote = rawQuote ? rawQuote.slice(0, 600) : undefined;
+
     items.push({
       id: `${item?.id ?? `item-${index + 1}`}`.trim() || `item-${index + 1}`,
       title,
       description: sanitizeGenTabText(item?.description, 240) || undefined,
       sourceUrl,
       sourceTitle,
+      sourceTabId,
+      quote,
       fields: Object.keys(fields).length > 0 ? fields : undefined,
       date: sanitizeGenTabText(item?.date, 80) || undefined,
     });
@@ -293,6 +423,8 @@ function normalizeGenTabItems(rawItems, sources, entries) {
     description: sanitizeGenTabText(entry.leadText || entry.contentPreview, 220) || undefined,
     sourceUrl: entry.url,
     sourceTitle: sanitizeGenTabText(entry.title, 120) || entry.url,
+    sourceTabId: entry.tabId || undefined,
+    quote: undefined,
     fields:
       entry.headings?.length > 0
         ? {

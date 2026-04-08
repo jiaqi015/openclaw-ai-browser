@@ -72,6 +72,8 @@ export function useGenTabSurfaceState(params: {
     null,
   );
   const [runtimeHydrated, setRuntimeHydrated] = useState(false);
+  const [refreshingItemIds, setRefreshingItemIds] = useState<Set<string>>(() => new Set());
+  const [itemRefreshErrors, setItemRefreshErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setState(createInitialGenTabState());
@@ -80,6 +82,8 @@ export function useGenTabSurfaceState(params: {
     setPreferredType("auto");
     setPendingMetadata(null);
     setRuntimeHydrated(false);
+    setRefreshingItemIds(new Set());
+    setItemRefreshErrors({});
   }, [genTabId]);
 
   useEffect(() => {
@@ -362,6 +366,81 @@ export function useGenTabSurfaceState(params: {
     void queueGeneration();
   }
 
+  async function refreshItem(itemId: string) {
+    if (!genTabId || !itemId) {
+      return;
+    }
+    if (!desktop?.gentab?.refreshItem) {
+      setItemRefreshErrors((current) => ({
+        ...current,
+        [itemId]: translate(uiLocale, "error.gentabUnsupported"),
+      }));
+      return;
+    }
+
+    setRefreshingItemIds((current) => {
+      const next = new Set(current);
+      next.add(itemId);
+      return next;
+    });
+    setItemRefreshErrors((current) => {
+      if (!current[itemId]) return current;
+      const next = { ...current };
+      delete next[itemId];
+      return next;
+    });
+
+    try {
+      const result = await desktop.gentab.refreshItem({
+        genId: genTabId,
+        itemId,
+        assistantLocaleMode,
+      });
+
+      if (!result.success) {
+        setItemRefreshErrors((current) => ({
+          ...current,
+          [itemId]:
+            ("error" in result && result.error) ||
+            translate(uiLocale, "error.generationFailed"),
+        }));
+        return;
+      }
+
+      const nextItem = result.item;
+      const nextLastCellRefreshAt =
+        result.gentab?.metadata?.lastCellRefreshAt ?? new Date().toISOString();
+      setState((current) => {
+        if (!current.gentab) return current;
+        return {
+          ...current,
+          gentab: {
+            ...current.gentab,
+            items: current.gentab.items.map((candidate) =>
+              candidate.id === nextItem.id ? nextItem : candidate,
+            ),
+            metadata: {
+              ...current.gentab.metadata,
+              lastCellRefreshAt: nextLastCellRefreshAt,
+            },
+          },
+        };
+      });
+    } catch (error) {
+      setItemRefreshErrors((current) => ({
+        ...current,
+        [itemId]: error instanceof Error ? error.message : String(error),
+      }));
+    } finally {
+      setRefreshingItemIds((current) => {
+        if (!current.has(itemId)) return current;
+        const next = new Set(current);
+        next.delete(itemId);
+        return next;
+      });
+    }
+  }
+
   function handleCancel() {
     if (!genTabId) {
       return;
@@ -383,6 +462,9 @@ export function useGenTabSurfaceState(params: {
     pendingMetadata,
     preferredType,
     refineIntent,
+    refreshItem,
+    refreshingItemIds,
+    itemRefreshErrors,
     setActiveView,
     setPreferredType,
     setRefineIntent,

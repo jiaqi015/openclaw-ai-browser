@@ -161,6 +161,7 @@ contextBridge.exposeInMainWorld("sabrinaDesktop", {
     getState: (params) => ipcRenderer.invoke("gentab:get-state", params),
     setPending: (params) => ipcRenderer.invoke("gentab:set-pending", params),
     generate: (params) => ipcRenderer.invoke("gentab:generate", params),
+    refreshItem: (params) => ipcRenderer.invoke("gentab:refresh-item", params),
     closeGenTab: (genId) => ipcRenderer.invoke("gentab:close", { genId }),
     markGenerationCompleted: (genId) => {
       ipcRenderer.send("gentab:generation-completed", { genId });

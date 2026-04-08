@@ -46,8 +46,19 @@ import {
 } from "../turns/TurnJournalStore.mjs";
 import { setOpenClawTransportContext } from "./OpenClawTransportContext.mjs";
 
+let activeConnectionOperationId = 0;
+
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function beginConnectionOperation() {
+  activeConnectionOperationId += 1;
+  return activeConnectionOperationId;
+}
+
+function isActiveConnectionOperation(operationId) {
+  return operationId === activeConnectionOperationId;
 }
 
 export function buildOpenClawRuntimeInsights(input = {}) {
@@ -156,6 +167,7 @@ export async function beginOpenClawBindingSetup(params = {}) {
 }
 
 export async function connectOpenClaw(params = {}) {
+  const operationId = beginConnectionOperation();
   const target =
     (typeof params?.target === "string" && params.target.trim() === "remote") ||
     (`${params?.driver ?? ""}`.trim() && `${params?.driver ?? ""}`.trim() !== "local-cli") ||
@@ -194,7 +206,13 @@ export async function connectOpenClaw(params = {}) {
   });
 
   const bindingSetupState = await beginBindingSetup({ target });
+  if (!isActiveConnectionOperation(operationId)) {
+    return serializeOpenClawState();
+  }
   const nextState = await refreshOpenClawState({ target, connectionConfig });
+  if (!isActiveConnectionOperation(operationId)) {
+    return serializeOpenClawState();
+  }
   const finalizedState = await patchOpenClawState({
     selectedTarget: target,
     connectionConfig,
@@ -215,6 +233,9 @@ export async function connectOpenClaw(params = {}) {
   });
 
   if (target === "remote") {
+    if (!isActiveConnectionOperation(operationId)) {
+      return serializeOpenClawState();
+    }
     return saveOpenClawSavedConnection({
       connectionConfig,
       status: finalizedState?.connectionState?.status,
@@ -228,6 +249,7 @@ export async function connectOpenClaw(params = {}) {
 }
 
 export async function disconnectOpenClaw(params = {}) {
+  const operationId = beginConnectionOperation();
   const currentState = serializeOpenClawState();
   const target =
     (typeof params?.target === "string" && params.target.trim() === "remote") ||
@@ -264,6 +286,9 @@ export async function disconnectOpenClaw(params = {}) {
     bindingSetupState: createDefaultBindingSetupState(target),
     lastError: "",
   });
+  if (!isActiveConnectionOperation(operationId)) {
+    return serializeOpenClawState();
+  }
   return refreshOpenClawState({ target, connectionConfig });
 }
 

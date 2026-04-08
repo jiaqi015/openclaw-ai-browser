@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, Loader2, RefreshCw, Sparkles, X } from "lucide-react";
 import gentabIcon from "../assets/gentab-icon.svg";
 import {
@@ -10,7 +10,43 @@ import {
 import { cn } from "../lib/utils";
 import { useGenTabSurfaceState } from "../application/use-gentab-surface-state";
 import { useUiPreferences } from "../application/use-ui-preferences";
-import { gentabRenderers } from "./gentab-renderers";
+import { getSabrinaDesktop } from "../lib/sabrina-desktop";
+import { gentabRenderers, type LiveTabMap } from "./gentab-renderers";
+
+/**
+ * Subscribes to desktop browser state and returns a tabId -> current url map.
+ * Used by the GenTab surface to feed the Live Cells indicator without forcing
+ * the parent shell to pass the snapshot down as a prop.
+ */
+function useLiveTabMap(): LiveTabMap {
+  const desktop = getSabrinaDesktop();
+  const [tabs, setTabs] = useState<SabrinaDesktopTab[]>([]);
+
+  useEffect(() => {
+    if (!desktop) {
+      return;
+    }
+    let mounted = true;
+    desktop.getSnapshot().then((snapshot) => {
+      if (mounted) setTabs(snapshot.tabs);
+    });
+    const unsubscribe = desktop.onStateChange((snapshot) => {
+      if (mounted) setTabs(snapshot.tabs);
+    });
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, [desktop]);
+
+  return useMemo(() => {
+    const map: LiveTabMap = new Map();
+    for (const tab of tabs) {
+      map.set(tab.tabId, tab.url);
+    }
+    return map;
+  }, [tabs]);
+}
 
 const genTabViewTypes: GenTabType[] = ["comparison", "table", "timeline", "list", "card-grid"];
 
@@ -30,6 +66,9 @@ export function GenTabSurface(props: {
     pendingMetadata,
     preferredType,
     refineIntent,
+    refreshItem,
+    refreshingItemIds,
+    itemRefreshErrors,
     setActiveView,
     setPreferredType,
     setRefineIntent,
@@ -42,6 +81,7 @@ export function GenTabSurface(props: {
 
   const activeRenderer =
     gentabRenderers[(activeView as GenTabType) || "table"] || gentabRenderers.table;
+  const liveTabMap = useLiveTabMap();
 
   return (
     <div className="surface-screen absolute inset-0 overflow-y-auto">
@@ -346,17 +386,29 @@ export function GenTabSurface(props: {
               {activeRenderer.render({
                 gentab: state.gentab,
                 uiLocale,
+                liveTabMap,
+                refreshingItemIds,
+                itemRefreshErrors,
+                onRefreshItem: refreshItem,
                 onNavigate: (targetUrl) => {
                   window.sabrinaDesktop!.browser.openUrlInNewTab(targetUrl);
                 },
               })}
             </div>
 
-            <div className="border-t border-white/5 px-1 pt-1 text-xs text-white/28">
-              {t("gentab.generatedMeta", {
-                count: state.gentab.metadata.sourceTabIds.length,
-                time: new Date(state.gentab.metadata.generatedAt).toLocaleString(uiLocale),
-              })}
+            <div className="border-t border-white/5 px-1 pt-1 text-xs text-white/28 flex flex-wrap items-center gap-x-4">
+              <span>
+                {t("gentab.generatedMeta", {
+                  count: state.gentab.metadata.sourceTabIds.length,
+                  time: new Date(state.gentab.metadata.generatedAt).toLocaleString(uiLocale),
+                })}
+              </span>
+              {state.gentab.metadata.lastCellRefreshAt ? (
+                <span className="text-white/40">
+                  · 最近单元格刷新：
+                  {new Date(state.gentab.metadata.lastCellRefreshAt).toLocaleString(uiLocale)}
+                </span>
+              ) : null}
             </div>
           </>
         ) : null}

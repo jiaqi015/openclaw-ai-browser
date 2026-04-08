@@ -279,21 +279,22 @@ export async function refreshOpenClawState(options = {}) {
 
 export async function setOpenClawSelectedTarget(target, options = {}) {
   const statusOverride = typeof options?.status === "string" ? options.status : null;
+  const normalizedTarget = normalizeTarget(target);
+  const nextBindingSetupState = {
+    ...createDefaultBindingSetupState(normalizedTarget),
+    ...(statusOverride ? { status: statusOverride } : {}),
+  };
   const nextState = {
     ...state,
-    selectedTarget: normalizeTarget(target),
+    selectedTarget: normalizedTarget,
     connectionConfig: normalizeConnectionConfig(
       {
         ...state.connectionConfig,
-        transport: normalizeTarget(target),
+        transport: normalizedTarget,
       },
       target,
     ),
-    bindingSetupState: {
-      ...state.bindingSetupState,
-      target: normalizeTarget(target),
-      ...(statusOverride ? { status: statusOverride } : {}),
-    },
+    bindingSetupState: nextBindingSetupState,
   };
   await commitOpenClawState(nextState);
 
@@ -345,10 +346,7 @@ export async function selectOpenClawSavedConnection(savedConnectionId) {
 
   const nextTarget = normalizeTarget(savedConnection.transport);
   const nextConnectionConfig = createConnectionConfigFromSavedRecord(savedConnection);
-  const nextBindingSetupState = {
-    ...state.bindingSetupState,
-    target: nextTarget,
-  };
+  const nextBindingSetupState = createDefaultBindingSetupState(nextTarget);
 
   return commitOpenClawState({
     ...state,

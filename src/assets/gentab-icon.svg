@@ -8,7 +8,7 @@
   <circle cx="512" cy="512" r="480" fill="url(#sphereGradient)" stroke="#66CCFF" stroke-width="12"/>
   <g stroke="#66CCFF" stroke-width="8">
     <rect x="160" y="48" width="160" height="100" fill="#A3D9FF" opacity="0.9"/>
-    <rect x="328" y="36" width="220" width="220" height="112" fill="#91D3FF" opacity="0.8"/>
+    <rect x="328" y="36" width="220" height="112" fill="#91D3FF" opacity="0.8"/>
     <rect x="556" y="56" width="144" height="88" fill="#80B8F0" opacity="0.8"/>
     <rect x="100" y="280" width="100" height="200" fill="#8AC6FF" opacity="0.85"/>
     <rect x="148" y="352" width="180" height="140" fill="#FFFFFF" opacity="0.95"/>
