@@ -17,6 +17,7 @@ import { NewTabSurface } from "../components/new-tab-surface";
 import { useAppController } from "../shell/useAppController";
 import { useUiPreferences } from "./use-ui-preferences";
 import { useSkillPreferences } from "../state/useSkillPreferences";
+import { detectCodingGenTabIntent } from "../lib/coding-gentab-intent";
 
 type AppControllerState = ReturnType<typeof useAppController>;
 type UiPreferences = ReturnType<typeof useUiPreferences>["preferences"];
@@ -352,6 +353,23 @@ export function useAppShellState({
     },
     onSelectThread: controller.selectThread,
     onSend: () => {
+      // Chat-native routing: if the message clearly describes a creative page
+      // request, route directly to the Coding GenTab agent instead of chat.
+      // Conditions: lobster connected, on a real (non-sabrina://) page, not
+      // already generating, and no composer skill selected (skill takes priority).
+      const intentText = controller.composerText.trim();
+      const primaryTab = controller.primaryGenTabSourceTab;
+      const isRegularPage = primaryTab !== null && !primaryTab.url.startsWith("sabrina://");
+      if (
+        detectCodingGenTabIntent(intentText) &&
+        hasConnectedLobster &&
+        isRegularPage &&
+        !controller.generatingGenTabId &&
+        !controller.selectedComposerSkill
+      ) {
+        void controller.handleOpenCodingGenTabGenerator({ userIntent: intentText });
+        return;
+      }
       void handleChat();
     },
     onSendToOpenClaw: () => {

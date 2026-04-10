@@ -29,19 +29,80 @@ function sanitize(value, maxLen = 800) {
   return s.length > maxLen ? `${s.slice(0, maxLen)}…` : s;
 }
 
+/**
+ * Extract numeric facts that are likely to be key data points:
+ * prices, specs, ratings, dates.  Returns an array of short fact strings
+ * (≤ 25 chars) de-duplicated, capped at 24 entries.
+ */
+function extractKeyFacts(text) {
+  if (!text) return [];
+  const patterns = [
+    // Prices: ¥12,999 / $999.99 / €1,299 / £899
+    /[¥$€£]\s*[\d,]+(?:\.\d+)?/g,
+    // Chinese RMB written differently: 12999元 / 12,999元
+    /[\d,]+(?:\.\d+)?\s*元/g,
+    // Specs with units: 24GB / 4.0GHz / 500W / 4K / 144Hz / 0.1ms
+    /\d+(?:\.\d+)?\s*(?:GB|TB|MB|KB|GHz|MHz|Hz|W|K|nm|ms|fps|FPS|MP|mAh|rpm|RPM)\b/gi,
+    // Ratings/scores: 9.5分 / 4.8/5 / 98% / 4.8★
+    /\d+(?:\.\d+)?\s*[分\/]\s*\d*(?:\s*[★☆])?/g,
+    /\d+(?:\.\d+)?%/g,
+    // Dates: 2024年3月15日 / 2024-03-15
+    /\d{4}年\d{1,2}月(?:\d{1,2}日)?/g,
+    /\d{4}-\d{2}-\d{2}/g,
+  ];
+  const seen = new Set();
+  const facts = [];
+  for (const pattern of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      const fact = match[0].replace(/\s+/g, "").trim();
+      if (fact.length >= 2 && fact.length <= 25 && !seen.has(fact)) {
+        seen.add(fact);
+        facts.push(fact);
+        if (facts.length >= 24) return facts;
+      }
+    }
+  }
+  return facts;
+}
+
 function renderContextBlock(ctx, index) {
   const parts = [
     `### 网页 ${index + 1}`,
     `标题: ${sanitize(ctx.title ?? ctx.sourceTitle ?? "", 200)}`,
     `URL: ${sanitize(ctx.url ?? ctx.sourceUrl ?? "", 300)}`,
   ];
-  if (ctx.leadText) parts.push(`导语: ${sanitize(ctx.leadText, 400)}`);
+
+  // Meta description — best single-line summary of what the page is about
+  const description = ctx.metadata?.description ?? "";
+  if (description) parts.push(`简介: ${sanitize(description, 300)}`);
+
+  // User's text selection takes priority over everything else
   if (ctx.selectedText) parts.push(`用户选中文字: ${sanitize(ctx.selectedText, 600)}`);
-  if (ctx.headings?.length) {
-    parts.push(`页面标题层级: ${ctx.headings.slice(0, 10).map((h) => h.text ?? h).join(" / ")}`);
+
+  // Key facts: prices, specs, ratings — extracted by regex from the full text
+  const rawText = ctx.contentText ?? ctx.contentPreview ?? ctx.leadText ?? "";
+  const keyFacts = extractKeyFacts(rawText);
+  if (keyFacts.length >= 2) {
+    parts.push(`关键数值: ${keyFacts.join(" · ")}`);
   }
-  const body = ctx.contentText ?? ctx.contentPreview ?? ctx.leadText ?? "";
-  if (body) parts.push(`\n正文摘录:\n${sanitize(body, 2400)}`);
+
+  // Structured sections (heading + paragraph summary) — much more useful than raw text
+  const sections = Array.isArray(ctx.sections) ? ctx.sections.filter((s) => s?.title && s?.summary) : [];
+  if (sections.length >= 2) {
+    // Prefer sections over raw dump — they're already structured
+    parts.push(`\n页面章节:`);
+    for (const s of sections.slice(0, 8)) {
+      parts.push(`  [${sanitize(s.title, 80)}] ${sanitize(s.summary, 400)}`);
+    }
+  } else {
+    // Fallback: headings + lead + raw content
+    if (ctx.headings?.length) {
+      parts.push(`标题层级: ${ctx.headings.slice(0, 10).map((h) => h.text ?? h).join(" / ")}`);
+    }
+    if (ctx.leadText && !description) parts.push(`导语: ${sanitize(ctx.leadText, 400)}`);
+    if (rawText) parts.push(`\n正文摘录:\n${sanitize(rawText, 2400)}`);
+  }
+
   return parts.filter(Boolean).join("\n");
 }
 

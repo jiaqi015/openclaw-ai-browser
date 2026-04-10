@@ -29,6 +29,63 @@ test("buildCodingGenTabPrompt: contains user intent and context", () => {
   assert.match(prompt, /"html"/);
 });
 
+test("buildCodingGenTabPrompt: surfaces key facts (prices, specs) prominently", () => {
+  const prompt = buildCodingGenTabPrompt(
+    "GPU 对比",
+    [
+      {
+        title: "RTX 4090",
+        url: "https://store.com/4090",
+        contentText: "RTX 4090 售价 ¥12999 显存 24GB TDP 450W 评分 9.2分/10",
+        sections: [],
+      },
+    ],
+  );
+  // Key facts should be extracted and surfaced
+  assert.match(prompt, /关键数值/);
+  assert.match(prompt, /¥12999/);
+  assert.match(prompt, /24GB/);
+  assert.match(prompt, /450W/);
+});
+
+test("buildCodingGenTabPrompt: uses sections when available instead of raw contentText", () => {
+  const prompt = buildCodingGenTabPrompt(
+    "了解产品",
+    [
+      {
+        title: "产品页",
+        url: "https://example.com",
+        contentText: "噪音很多的原始文字".repeat(500), // lots of noise
+        sections: [
+          { title: "产品规格", summary: "内存 16GB，处理器 M3 Pro，续航 18小时" },
+          { title: "价格方案", summary: "标准版 ¥9999，高配版 ¥13999" },
+        ],
+      },
+    ],
+  );
+  assert.match(prompt, /产品规格/);
+  assert.match(prompt, /16GB/);
+  assert.match(prompt, /¥9999/);
+  // Should prefer sections over raw dump
+  assert.match(prompt, /页面章节/);
+});
+
+test("buildCodingGenTabPrompt: uses meta description when present", () => {
+  const prompt = buildCodingGenTabPrompt(
+    "了解这家餐厅",
+    [
+      {
+        title: "米其林餐厅",
+        url: "https://example.com",
+        contentText: "some content",
+        metadata: { description: "北京顶级日料，人均1500元，预订需提前两周" },
+      },
+    ],
+  );
+  assert.match(prompt, /简介/);
+  assert.match(prompt, /北京顶级日料/);
+});
+
 test("buildCodingGenTabPrompt: handles missing context gracefully", () => {
   const prompt = buildCodingGenTabPrompt("do something", []);
   assert.match(prompt, /do something/);
