@@ -5,7 +5,7 @@
 </p>
 
 <h1 align="center">Sabrina</h1>
-<p align="center"><strong>OpenClaw 在浏览器里的原生工作台</strong></p>
+<p align="center"><strong>一体的记忆 · 共用的 Skills · 覆盖日常 90% 电脑场景</strong></p>
 
 <p align="center">
   <a href="https://github.com/jiaqi015/openclaw-ai-browser/stargazers"><img src="https://img.shields.io/github/stars/jiaqi015/openclaw-ai-browser?style=social" alt="Stars" /></a>
@@ -16,6 +16,7 @@
 </p>
 
 <p align="center">只有 IM 通道的 OpenClaw，是不完整的。<br/><strong>Sabrina 是它缺失的浏览器入口。</strong></p>
+<p align="center">OpenClaw 管 IM，Sabrina 管浏览器。<br/>同一套 Skills，同一份记忆，同一个 AI 系统。</p>
 
 ---
 
@@ -28,9 +29,9 @@
 
 ## 能做什么
 
-> **Sabrina 的价值 = OpenClaw 的能力 × 浏览器的上下文。**
->
-> 你在 OpenClaw 里积累的 skills、agent、模型策略、记忆约定——在浏览器里全部直接生效，不用重新配置，不用重新授权。
+OpenClaw 用户每天大量时间在浏览器里——查资料、读文档、看竞品、整理信息。这些场景里，IM 通道的 OpenClaw 帮不上忙。
+
+Sabrina 补上这一块：**浏览器里的每一个页面，都能直接接入你在 OpenClaw 里已有的全部能力。** Skills 不用重新配，记忆不会断，模型策略继续生效。
 
 打开一个网页，侧边栏里 Sabrina 已经知道你在看什么。页面就是输入，OpenClaw 就是引擎。
 

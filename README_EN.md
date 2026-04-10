@@ -5,7 +5,7 @@
 </p>
 
 <h1 align="center">Sabrina</h1>
-<p align="center"><strong>The native browser workspace for OpenClaw</strong></p>
+<p align="center"><strong>Unified memory · Shared skills · 90% of your daily computer use, covered</strong></p>
 
 <p align="center">
   <a href="https://github.com/jiaqi015/openclaw-ai-browser/stargazers"><img src="https://img.shields.io/github/stars/jiaqi015/openclaw-ai-browser?style=social" alt="Stars" /></a>
@@ -16,6 +16,7 @@
 </p>
 
 <p align="center">OpenClaw through IM alone is incomplete.<br/><strong>Sabrina is the browser presence it's been missing.</strong></p>
+<p align="center">OpenClaw handles IM. Sabrina handles the browser.<br/>Same skills. Same memory. One AI system.</p>
 
 ---
 
@@ -28,9 +29,9 @@
 
 ## What It Does
 
-> **Sabrina's value = OpenClaw's capabilities × browser context.**
->
-> The skills, agents, model policies, and memory conventions you've built in OpenClaw — they all work directly in the browser. No reconfiguring. No re-authorizing.
+OpenClaw users spend a huge chunk of their day in the browser — researching, reading docs, checking competitors, organizing information. In all of those moments, OpenClaw's IM channel can't help.
+
+Sabrina closes that gap: **every page in your browser becomes a direct entry point into the full capabilities you've already built in OpenClaw.** Skills don't need reconfiguring. Memory doesn't break. Your model policies keep working.
 
 Open any webpage — the sidebar already knows what you're looking at. The page is the input. OpenClaw is the engine.
 
