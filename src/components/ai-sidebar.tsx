@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronRight, History, Sparkles, Swords, X } from "lucide-react";
+import { ChevronRight, History, Loader2, Sparkles, Swords, Wand2, X } from "lucide-react";
 import type {
   SabrinaTabReferenceCandidate,
   SabrinaThreadSummary,
@@ -46,6 +46,12 @@ export function AiSidebar(props: {
     success: boolean;
     error?: string;
   }>;
+  onOpenCodingGenTabGenerator: (params?: {
+    userIntent?: string;
+  }) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
   onOpenSkills: () => void;
   onOpenSettings: () => void;
   onResizeStart: (event: ReactMouseEvent<HTMLDivElement>) => void;
@@ -85,6 +91,7 @@ export function AiSidebar(props: {
     onChangeReferenceQuery,
     onComposerChange,
     onOpenGenTabGenerator,
+    onOpenCodingGenTabGenerator,
     onOpenSkills,
     onOpenSettings,
     onResizeStart,
@@ -164,6 +171,56 @@ export function AiSidebar(props: {
           </button>
         </div>
       </div>
+
+      {/* ── Coding Agent Entry Point ────────────────────────────────────────── */}
+      {hasConnectedLobster ? (() => {
+        const isRegularPage =
+          primaryGenTabSourceTab !== null &&
+          !primaryGenTabSourceTab.url.startsWith("sabrina://");
+        const isGenerating = generatingGenTabId !== null;
+        const canClick = isRegularPage && !isGenerating;
+
+        return (
+          <div className="px-3 pt-3 pb-2 border-b border-white/5">
+            <button
+              type="button"
+              disabled={!canClick}
+              onClick={async () => {
+                if (!canClick) return;
+                await onOpenCodingGenTabGenerator({ userIntent: composerText.trim() || undefined });
+              }}
+              className={cn(
+                "w-full flex items-center gap-3 rounded-2xl border px-3.5 py-2.5 text-left transition-all duration-150",
+                canClick
+                  ? "border-apple-pink/20 bg-apple-pink/8 hover:bg-apple-pink/14 active:scale-[0.98] cursor-pointer"
+                  : "border-white/8 bg-white/[0.03] cursor-not-allowed opacity-50",
+              )}
+            >
+              <div className={cn(
+                "flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px]",
+                canClick ? "bg-apple-pink/18" : "bg-white/8",
+              )}>
+                {isGenerating
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin text-apple-pink/70" />
+                  : <Wand2 className={cn("h-3.5 w-3.5", canClick ? "text-apple-pink/80" : "text-white/30")} />
+                }
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className={cn("text-[12px] font-semibold leading-snug", canClick ? "text-apple-pink/90" : "text-white/30")}>
+                  创意网页
+                </div>
+                <div className="mt-0.5 truncate text-[10.5px] text-white/35">
+                  {isGenerating
+                    ? "正在生成中…"
+                    : isRegularPage
+                    ? `为 ${primaryGenTabSourceTab!.host || "此页面"} 生成交互网页`
+                    : "请先打开一个网页"}
+                </div>
+              </div>
+            </button>
+          </div>
+        );
+      })() : null}
 
       <div className="h-14 px-5 flex flex-col justify-center border-b border-white/5">
         <div className="flex items-center justify-between mb-1">
@@ -291,6 +348,7 @@ export function AiSidebar(props: {
               generatingGenTabId={generatingGenTabId}
               hasConnectedLobster={hasConnectedLobster}
               onOpenGenTabGenerator={onOpenGenTabGenerator}
+              onOpenCodingGenTabGenerator={onOpenCodingGenTabGenerator}
               primarySourceTab={primaryGenTabSourceTab}
               selectedReferenceTabs={selectedReferenceTabs}
               totalSourcePageCount={totalGenTabSourcePageCount}

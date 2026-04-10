@@ -741,6 +741,20 @@ declare global {
     network: SabrinaNetworkEvent[];
   }
 
+  interface CodingGenTabData {
+    schemaVersion: "coding";
+    type: "coding";
+    title: string;
+    intent: string;
+    designChoice: string;
+    html: string;
+    metadata: {
+      sourceTabIds: string[];
+      userIntent: string;
+      generatedAt: string;
+    };
+  }
+
   interface GenTabGenerateResult {
     success: boolean;
     error?: string;
@@ -1147,6 +1161,20 @@ declare global {
             }
           | { success: false; error?: string; item?: undefined; gentab?: undefined }
         >;
+        generateCoding: (params: {
+          genId: string;
+          referenceTabIds: string[];
+          userIntent?: string;
+          assistantLocaleMode?: "follow-ui" | "zh-CN" | "en-US";
+        }) => Promise<
+          | { success: true; gentab: CodingGenTabData }
+          | { success: false; error?: string; gentab?: undefined }
+        >;
+        createCodingGenTab: (params: {
+          genId: string;
+          referenceTabIds: string[];
+          userIntent?: string;
+        }) => Promise<{ success: boolean; tab?: SabrinaDesktopTab; error?: string }>;
         closeGenTab: (genId: string) => Promise<{ success: boolean }>;
         markGenerationCompleted: (genId: string) => void;
         onGenerationCompleted: (

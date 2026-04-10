@@ -20,7 +20,7 @@ export function normalizeTarget(target) {
   return `${target ?? "local"}`.trim() === "remote" ? "remote" : "local";
 }
 
-function normalizeDriver(driver, transport = "local") {
+function normalizeDriver(driver, transport = "local", config = {}) {
   const normalizedRemoteDriver = normalizeSabrinaRemoteDriver(driver);
   if (normalizedRemoteDriver) {
     return normalizedRemoteDriver;
@@ -29,7 +29,16 @@ function normalizeDriver(driver, transport = "local") {
   if (normalized === "local-cli") {
     return "local-cli";
   }
-  return normalizeTarget(transport) === "remote" ? "ssh-cli" : "local-cli";
+  if (normalizeTarget(transport) !== "remote") {
+    return "local-cli";
+  }
+  if (normalizeSshTarget(config?.sshTarget)) {
+    return "ssh-cli";
+  }
+  if (normalizeRelayUrl(config?.relayUrl) || normalizeConnectCode(config?.connectCode)) {
+    return "relay-paired";
+  }
+  return "relay-paired";
 }
 
 function normalizeSshTarget(value) {
@@ -86,7 +95,7 @@ function buildSavedConnectionName(config, input = {}) {
   }
 
   if (config.driver === "ssh-cli" && config.sshTarget) {
-    return config.sshTarget;
+    return config.label || config.name || config.sshTarget;
   }
 
   if (config.driver === "relay-paired" && config.relayUrl) {
@@ -143,7 +152,7 @@ export function createSavedConnectionRecord(input = {}) {
     id: buildSavedConnectionId(connectionConfig, input),
     name,
     transport: connectionConfig.transport,
-    driver: connectionConfig.driver ?? (target === "remote" ? "ssh-cli" : "local-cli"),
+    driver: connectionConfig.driver ?? (target === "remote" ? "relay-paired" : "local-cli"),
     profile: connectionConfig.profile,
     stateDir: connectionConfig.stateDir,
     sshTarget: connectionConfig.sshTarget ?? null,
@@ -218,7 +227,7 @@ export function normalizeConnectionConfig(rawConfig = {}, fallbackTarget = "loca
   return {
     enabled: rawConfig?.enabled === true,
     transport,
-    driver: normalizeDriver(rawConfig?.driver, transport),
+    driver: normalizeDriver(rawConfig?.driver, transport, rawConfig),
     profile: normalizeOpenClawProfile(rawConfig?.profile),
     stateDir: normalizeOpenClawStateDir(rawConfig?.stateDir),
     sshTarget: normalizeSshTarget(rawConfig?.sshTarget),

@@ -115,6 +115,7 @@ export function useAppController(uiLocale: UiLocale) {
   const {
     generatingGenTabId,
     handleOpenGenTabGenerator,
+    handleOpenCodingGenTabGenerator,
     handleCloseGenTab,
   } = useGenTabController({
     activeTabId: activeTab?.tabId ?? null,
@@ -221,6 +222,7 @@ export function useAppController(uiLocale: UiLocale) {
     toggleReference,
     generatingGenTabId,
     handleOpenGenTabGenerator,
+    handleOpenCodingGenTabGenerator,
     handleCloseGenTab,
     ...aiChatActions,
     ...desktopActions,

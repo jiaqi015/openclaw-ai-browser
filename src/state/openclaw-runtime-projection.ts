@@ -36,7 +36,7 @@ export function createEmptyOpenClawState(
     connectionConfig: {
       enabled: false,
       transport: target,
-      driver: isRemote ? "ssh-cli" : "local-cli",
+      driver: isRemote ? "relay-paired" : "local-cli",
       profile: null,
       stateDir: null,
       sshTarget: null,
@@ -62,7 +62,7 @@ export function createEmptyOpenClawState(
             target: targetLabel,
           }),
       commandHint: isRemote
-        ? "openclaw sabrina connect --remote --driver ssh-cli --ssh-target <user@host>"
+        ? "openclaw sabrina connect --remote --driver relay-paired --relay-url <url> --connect-code <code>"
         : "openclaw sabrina connect",
       doctorHint: translate(
         locale,
@@ -75,7 +75,7 @@ export function createEmptyOpenClawState(
       remoteSessionContract: {
         contractVersion: "1",
         transport: target,
-        driver: isRemote ? "ssh-cli" : "local-cli",
+        driver: isRemote ? "relay-paired" : "local-cli",
         profile: null,
         stateDir: null,
         sshTarget: null,

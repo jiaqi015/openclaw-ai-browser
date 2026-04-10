@@ -9,7 +9,7 @@ import {
   createBrowserTab,
   findBrowserTabIdByUrl,
 } from "../../runtime/browser/TabManager.mjs";
-import { generateGenTab, refreshGenTabItem } from "./GenTabIpcActionService.mjs";
+import { generateGenTab, generateCodingGenTab, refreshGenTabItem } from "./GenTabIpcActionService.mjs";
 
 export function registerGentabIpcHandlers(getMainWindow) {
   ipcMain.handle("gentab:get-state", (_e, payload) => {
@@ -77,6 +77,33 @@ export function registerGentabIpcHandlers(getMainWindow) {
 
   ipcMain.handle("gentab:refresh-item", async (_e, payload) => {
     return refreshGenTabItem(payload ?? {});
+  });
+
+  ipcMain.handle("gentab:generate-coding", async (_e, payload) => {
+    return generateCodingGenTab(payload ?? {});
+  });
+
+  // Create a coding GenTab tab — navigates to sabrina://gentab/<id>?v=coding
+  ipcMain.handle("gentab:create-coding", async (_e, payload) => {
+    const genId = `${payload?.genId ?? ""}`.trim();
+    const referenceTabIds = normalizeReferenceTabIds(payload?.referenceTabIds);
+    const userIntent = payload?.userIntent;
+
+    if (!genId) return { success: false, error: "缺少 GenTab id" };
+
+    await setPendingGenTabMetadata(genId, { referenceTabIds, userIntent, preferredType: "auto" });
+
+    try {
+      const url = `sabrina://gentab/${genId}?v=coding`;
+      const tab = createBrowserTab(url, { activate: true });
+      return { success: true, tab };
+    } catch (error) {
+      await clearPendingGenTabMetadata(genId);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   });
 
   ipcMain.handle("gentab:close", async (_e, payload) => {

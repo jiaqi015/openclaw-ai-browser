@@ -57,9 +57,6 @@ const CONNECT_GUIDE_URL =
   "https://github.com/jiaqi015/openclaw-ai-browser/blob/main/docs/CONNECT_OPENCLAW.md";
 
 function getSavedConnectionHeadline(savedConnection: SabrinaOpenClawSavedConnection) {
-  if (savedConnection.driver === "ssh-cli" && savedConnection.sshTarget) {
-    return savedConnection.sshTarget;
-  }
   if (savedConnection.driver === "relay-paired" && savedConnection.relayUrl) {
     return savedConnection.relayUrl;
   }
@@ -248,6 +245,12 @@ export function OpenClawSettingsSurface(props: {
     preferences: { uiLocale },
     t,
   } = useUiPreferences();
+  const legacyTargetLabel =
+    connectionConfig.sshTarget || connectionConfig.label || connectionState?.transportLabel || "";
+  const getSavedConnectionMethodLabel = (savedConnection: SabrinaOpenClawSavedConnection) =>
+    savedConnection.driver === "relay-paired"
+      ? t("openclaw.savedConnections.method.relay")
+      : t("openclaw.savedConnections.method.legacySsh");
   const remoteContract = connectionState?.remoteSessionContract ?? null;
   const skillSummary = skillCatalog?.summary ?? null;
   const doctorWarnings = (doctorReport?.checks ?? []).filter(
@@ -462,7 +465,7 @@ export function OpenClawSettingsSurface(props: {
                             {headline}
                           </div>
                           <div className="mt-2 text-[12px] leading-5 text-white/38">
-                            {savedConnection.driver} ·{" "}
+                            {getSavedConnectionMethodLabel(savedConnection)} ·{" "}
                             {savedConnection.lastConnectedAt
                               ? t("openclaw.savedConnections.lastConnected", {
                                   value: formatTimestamp(savedConnection.lastConnectedAt, uiLocale),
@@ -471,6 +474,11 @@ export function OpenClawSettingsSurface(props: {
                                   value: formatTimestamp(savedConnection.lastUsedAt, uiLocale),
                                 })}
                           </div>
+                          {savedConnection.driver === "ssh-cli" ? (
+                            <div className="mt-2 text-[12px] leading-5 text-amber-200/78">
+                              {t("openclaw.savedConnections.legacyNotice")}
+                            </div>
+                          ) : null}
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <button
@@ -513,7 +521,7 @@ export function OpenClawSettingsSurface(props: {
             <div className="surface-panel rounded-2xl border p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <h3 className="text-sm font-medium text-white/78">Remote Action</h3>
+                  <h3 className="text-sm font-medium text-white/78">{t("openclaw.remoteAction.title")}</h3>
                   <p className="mt-1 text-[12px] leading-5 text-white/45">
                     {connectionState.doctorHint}
                   </p>
@@ -525,9 +533,18 @@ export function OpenClawSettingsSurface(props: {
                   }}
                   className="surface-button-system rounded-xl border px-3 py-1.5 text-[12px] font-medium text-white/74 transition-colors"
                 >
-                  {copiedCommand === connectionState.commandHint ? "Copied" : "Copy command"}
+                  {copiedCommand === connectionState.commandHint
+                    ? t("openclaw.remoteAction.copied")
+                    : t("openclaw.remoteAction.copy")}
                 </button>
               </div>
+              {connectionConfig.driver === "ssh-cli" && legacyTargetLabel ? (
+                <p className="mt-3 text-[12px] leading-5 text-amber-200/78">
+                  {t("binding.remote.legacySshTarget", {
+                    target: legacyTargetLabel,
+                  })}
+                </p>
+              ) : null}
               <pre className="mt-3 overflow-x-auto rounded-xl border border-white/8 bg-black/20 px-3 py-3 text-[12px] leading-5 text-white/72">
                 <code>{connectionState.commandHint}</code>
               </pre>

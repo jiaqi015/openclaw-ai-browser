@@ -48,3 +48,17 @@ test("transport context resolves relay remote target refs", () => {
     setOpenClawTransportContext(previous);
   }
 });
+
+test("transport context defaults bare remote transport to relay-paired", () => {
+  const previous = getOpenClawTransportContext();
+  try {
+    const next = setOpenClawTransportContext({
+      transport: "remote",
+      label: "relay-default",
+    });
+
+    assert.equal(next.driver, "relay-paired");
+  } finally {
+    setOpenClawTransportContext(previous);
+  }
+});

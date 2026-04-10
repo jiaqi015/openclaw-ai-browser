@@ -339,6 +339,7 @@ export function useAppShellState({
     onChangeReferenceQuery: controller.setReferenceQuery,
     onComposerChange: controller.setComposerText,
     onOpenGenTabGenerator: controller.handleOpenGenTabGenerator,
+    onOpenCodingGenTabGenerator: controller.handleOpenCodingGenTabGenerator,
     onOpenSkills: () => {
       void openInternalTab("skills");
     },

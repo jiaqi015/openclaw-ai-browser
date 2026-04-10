@@ -8,7 +8,7 @@ function quoteIfNeeded(value) {
 }
 
 export function buildSabrinaRemoteConnectCommand(config = {}) {
-  const driver = `${config?.driver ?? ""}`.trim() || "ssh-cli";
+  const driver = `${config?.driver ?? ""}`.trim() || "relay-paired";
   if (driver === "relay-paired") {
     const relayUrl = `${config?.relayUrl ?? ""}`.trim() || "<url>";
     const connectCode = `${config?.connectCode ?? ""}`.trim() || "<code>";

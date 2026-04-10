@@ -33,6 +33,12 @@ export function AiSidebarGenTabLauncher(props: {
     success: boolean;
     error?: string;
   }>;
+  onOpenCodingGenTabGenerator: (params?: {
+    userIntent?: string;
+  }) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
   primarySourceTab: SabrinaTabReferenceCandidate | null;
   selectedReferenceTabs: SabrinaTabReferenceCandidate[];
   totalSourcePageCount: number;
@@ -45,6 +51,7 @@ export function AiSidebarGenTabLauncher(props: {
     generatingGenTabId,
     hasConnectedLobster,
     onOpenGenTabGenerator,
+    onOpenCodingGenTabGenerator,
     primarySourceTab,
     selectedReferenceTabs,
     totalSourcePageCount,
@@ -88,12 +95,14 @@ export function AiSidebarGenTabLauncher(props: {
     setGenTabInlineError("");
   }, [hasConnectedLobster, selectedReferenceTabs.length]);
 
-  if (!hasConnectedLobster || selectedReferenceTabs.length < 1) {
+  if (selectedReferenceTabs.length < 1) {
     return null;
   }
 
   return (
     <div className="mt-2 space-y-2">
+      {/* Classic structured GenTab */}
+      {selectedReferenceTabs.length >= 1 ? (<>
       <button
         onClick={() => {
           if (!canStartGenTab) {
@@ -238,6 +247,7 @@ export function AiSidebarGenTabLauncher(props: {
           </motion.div>
         ) : null}
       </AnimatePresence>
+      </>) : null}
     </div>
   );
 }

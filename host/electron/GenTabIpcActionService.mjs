@@ -11,6 +11,13 @@ import {
   normalizeGeneratedGenTab,
   normalizeRefreshedItem,
 } from "../../runtime/browser/GenTabGenerationService.mjs";
+import {
+  buildCodingGenTabPrompt,
+  buildCodingGenTabRefinementPrompt,
+  buildCodingGenTabVerifyPrompt,
+  normalizeCodingGenTabResult,
+  normalizeCodingGenTabVerifyResult,
+} from "../../runtime/browser/GenTabCodingService.mjs";
 import { buildBrowserContextPackageFromTabSet } from "../../runtime/browser/BrowserContextPackageService.mjs";
 import { executeGenTabTurn } from "../../runtime/turns/TurnEngine.mjs";
 import { buildTurnJournalEntry } from "../../runtime/turns/TurnJournalService.mjs";
@@ -257,4 +264,135 @@ export async function refreshGenTabItem(payload = {}, dependencies = {}) {
     item: nextItem,
     gentab: nextGenTab,
   };
+}
+
+/**
+ * Coding GenTab — the creative coding agent path.
+ *
+ * Instead of asking the agent to output structured JSON data that gets piped
+ * through a renderer, we ask it to produce a self-contained interactive HTML
+ * file. The result is stored in GenTabStore with schemaVersion "coding" and
+ * rendered via an iframe on the frontend.
+ *
+ * Two-pass generation:
+ *   Pass 1 — creative generation: the agent builds the full HTML page
+ *   Pass 2 — self-verification: the agent reviews its own output for data
+ *             accuracy, interaction completeness, and placeholder leaks.
+ *             If it finds issues it returns fixed HTML; otherwise {"ok":true}.
+ *             This pass is best-effort: failure falls back to pass 1 output.
+ * Refinement runs skip the verify pass (already passed verification once).
+ */
+export async function generateCodingGenTab(payload = {}, dependencies = {}) {
+  const genId = `${payload?.genId ?? ""}`.trim();
+  const referenceTabIds = normalizeReferenceTabIds(payload?.referenceTabIds);
+  const userIntent = `${payload?.userIntent ?? ""}`.trim();
+  const assistantLocaleMode = payload?.assistantLocaleMode;
+  // Refinement fields — present only when refining an existing GenTab
+  const refinementText = `${payload?.refinementText ?? ""}`.trim();
+  const originalHtml = `${payload?.originalHtml ?? ""}`.trim();
+
+  if (!genId) return { success: false, error: "缺少 GenTab id" };
+  if (referenceTabIds.length === 0) return { success: false, error: "请至少提供一个来源标签页" };
+
+  const getContextSnapshot =
+    typeof dependencies?.getContextSnapshotForTab === "function"
+      ? dependencies.getContextSnapshotForTab
+      : getContextSnapshotForTab;
+  const runAgentTurn =
+    typeof dependencies?.runLocalAgentTurn === "function"
+      ? dependencies.runLocalAgentTurn
+      : runLocalAgentTurn;
+  const persistGenTabData =
+    typeof dependencies?.saveGenTabData === "function"
+      ? dependencies.saveGenTabData
+      : saveGenTabData;
+  const clearPendingMetadata =
+    typeof dependencies?.clearPendingGenTabMetadata === "function"
+      ? dependencies.clearPendingGenTabMetadata
+      : clearPendingGenTabMetadata;
+
+  const assistantLocale =
+    assistantLocaleMode === "en" ? "en" : "zh-CN";
+
+  // Step 1: Gather context snapshots for all reference tabs
+  const contexts = [];
+  for (const tabId of referenceTabIds) {
+    try {
+      const ctx = await getContextSnapshot(tabId);
+      if (ctx) contexts.push(ctx);
+    } catch {
+      // Skip tabs we can't read; don't abort the whole generation
+    }
+  }
+
+  if (contexts.length === 0) {
+    return { success: false, error: "无法读取任何来源标签页的内容" };
+  }
+
+  // Step 2: Build the creative prompt and call the agent
+  // Use the refinement prompt if the user provided a modification request + original HTML
+  const isRefinement = refinementText.length > 0 && originalHtml.length > 100;
+  const prompt = isRefinement
+    ? buildCodingGenTabRefinementPrompt(refinementText, originalHtml, contexts, assistantLocale)
+    : buildCodingGenTabPrompt(userIntent, contexts, assistantLocale);
+
+  let response;
+  try {
+    response = await runAgentTurn({ message: prompt });
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  if (!response?.text) {
+    return { success: false, error: "模型未返回有效内容" };
+  }
+
+  // Step 3: Parse and validate
+  const result = normalizeCodingGenTabResult(response.text, {
+    sourceTabIds: referenceTabIds,
+    userIntent,
+  });
+
+  if (!result) return { success: false, error: "模型输出无法解析为有效的 GenTab" };
+  if (!result.success) return { success: false, error: result.error };
+
+  // Step 3.5: Self-verification pass (best-effort — never blocks delivery)
+  // Skip verify for refinement runs: the original already passed once
+  let finalHtml = result.html;
+  if (!isRefinement) {
+    try {
+      const verifyPrompt = buildCodingGenTabVerifyPrompt(result.html, contexts, assistantLocale);
+      const verifyResponse = await runAgentTurn({ message: verifyPrompt });
+      if (verifyResponse?.text) {
+        const verifyResult = normalizeCodingGenTabVerifyResult(verifyResponse.text);
+        if (verifyResult && !verifyResult.ok && verifyResult.html) {
+          // Agent found issues and produced fixed HTML — use the improved version
+          finalHtml = verifyResult.html;
+        }
+        // verifyResult.ok === true OR verifyResult === null → keep original HTML
+      }
+    } catch {
+      // Verification failure is non-fatal — use original HTML
+    }
+  }
+
+  const finalResult = finalHtml !== result.html
+    ? { ...result, html: finalHtml }
+    : result;
+
+  // Step 4: Persist
+  try {
+    await persistGenTabData(genId, finalResult);
+    await clearPendingMetadata(genId);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  return { success: true, gentab: finalResult };
 }

@@ -107,9 +107,59 @@ export function useGenTabController(params: {
     setGeneratingGenTabId((current) => (current === genId ? null : current));
   }
 
+  /**
+   * Opens a Coding GenTab — the creative coding agent path.
+   * Creates a tab at sabrina://gentab/<id>?v=coding; the CodingGenTabSurface
+   * takes it from there.
+   */
+  async function handleOpenCodingGenTabGenerator(
+    nextParams?: OpenGenTabParams,
+  ): Promise<OpenGenTabResult> {
+    if (!desktop?.gentab?.createCodingGenTab) {
+      return { success: false, error: "当前环境暂不支持 Coding GenTab。" };
+    }
+    if (!binding) {
+      return { success: false, error: "请先连接你的龙虾，再生成 GenTab。" };
+    }
+    if (!activeTabId) {
+      return { success: false, error: "当前没有可用页面，暂时无法生成 GenTab。" };
+    }
+    if (generatingGenTabId) {
+      return { success: false, error: "当前已有一个 GenTab 正在生成，请完成后再试。" };
+    }
+
+    const userIntent = nextParams?.userIntent?.trim() || composerText.trim() || "";
+    const genId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const sourceTabIds = Array.from(new Set([activeTabId, ...selectedReferenceIds]));
+
+    setGeneratingGenTabId(genId);
+
+    try {
+      const result = await desktop.gentab.createCodingGenTab({
+        genId,
+        referenceTabIds: sourceTabIds,
+        userIntent,
+      });
+
+      if (!result.success) {
+        setGeneratingGenTabId(null);
+        return { success: false, error: result.error || "Coding GenTab 标签页创建失败。" };
+      }
+
+      return { success: true, genId };
+    } catch (error) {
+      setGeneratingGenTabId(null);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
   return {
     generatingGenTabId,
     handleOpenGenTabGenerator,
+    handleOpenCodingGenTabGenerator,
     handleCloseGenTab,
   };
 }

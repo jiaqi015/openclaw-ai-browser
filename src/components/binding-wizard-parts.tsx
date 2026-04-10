@@ -286,9 +286,7 @@ export function BindingRemoteStatusPanel({
   | "onGetRelayPairingState"
 >) {
   const { t } = useUiPreferences();
-  const [driver, setDriver] = useState<"ssh-cli" | "relay-paired">("ssh-cli");
-  const [sshTarget, setSshTarget] = useState("");
-  const [sshPort, setSshPort] = useState("");
+  const driver = "relay-paired" as const;
   const [relayUrl, setRelayUrl] = useState("");
   const [connectCode, setConnectCode] = useState("");
   const [label, setLabel] = useState("");
@@ -300,21 +298,16 @@ export function BindingRemoteStatusPanel({
   const [relayPairingError, setRelayPairingError] = useState("");
   const [copiedWorkerCommand, setCopiedWorkerCommand] = useState(false);
   const [savedNotice, setSavedNotice] = useState("");
+  const isLegacySshTarget =
+    connectionConfig?.transport === "remote" &&
+    connectionConfig.driver === "ssh-cli" &&
+    Boolean(connectionConfig.sshTarget || connectionConfig.label);
 
   useEffect(() => {
     if (connectionConfig?.transport !== "remote") {
       return;
     }
 
-    setDriver(
-      connectionConfig.driver === "relay-paired" ? "relay-paired" : "ssh-cli",
-    );
-    setSshTarget(connectionConfig.sshTarget ?? "");
-    setSshPort(
-      typeof connectionConfig.sshPort === "number" && Number.isFinite(connectionConfig.sshPort)
-        ? `${connectionConfig.sshPort}`
-        : "",
-    );
     setRelayUrl(connectionConfig.relayUrl ?? "");
     setConnectCode(connectionConfig.connectCode ?? "");
     setLabel(connectionConfig.label ?? "");
@@ -326,17 +319,13 @@ export function BindingRemoteStatusPanel({
   }, [
     connectionConfig?.agentId,
     connectionConfig?.connectCode,
-    connectionConfig?.driver,
     connectionConfig?.label,
     connectionConfig?.relayUrl,
-    connectionConfig?.sshPort,
-    connectionConfig?.sshTarget,
     connectionConfig?.transport,
   ]);
 
   useEffect(() => {
     if (
-      driver !== "relay-paired" ||
       !relayUrl.trim() ||
       !connectCode.trim() ||
       !onGetRelayPairingState
@@ -380,14 +369,12 @@ export function BindingRemoteStatusPanel({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [connectCode, driver, onGetRelayPairingState, relayUrl]);
+  }, [connectCode, onGetRelayPairingState, relayUrl]);
 
   function buildRemotePayload() {
     return {
       target: "remote" as const,
       driver,
-      sshTarget: sshTarget.trim() || undefined,
-      sshPort: sshPort.trim() ? Number(sshPort.trim()) : undefined,
       relayUrl: relayUrl.trim() || undefined,
       connectCode: connectCode.trim() || undefined,
       label: label.trim() || undefined,
@@ -495,6 +482,15 @@ export function BindingRemoteStatusPanel({
         : relayPairing?.status === "rejected"
           ? t("binding.remote.status.rejected")
           : t("binding.remote.status.pending");
+  const hasRelayUrl = Boolean(relayUrl.trim());
+  const hasConnectCode = Boolean(connectCode.trim());
+  const isRelayClaimed = relayPairing?.status === "active";
+  const canSaveRemote = hasRelayUrl;
+  const canGenerateRelayCode = hasRelayUrl && !isGeneratingRelayCode;
+  const canProbeRemote = hasRelayUrl && hasConnectCode;
+  const canDoctorRemote = hasRelayUrl || hasConnectCode;
+  const canConnectRemote =
+    hasRelayUrl && hasConnectCode && (isRelayClaimed || connectionState?.status === "connected");
 
   return (
     <div className="surface-panel self-start rounded-[24px] border p-5">
@@ -514,118 +510,54 @@ export function BindingRemoteStatusPanel({
       </p>
 
       <div className="mt-4 space-y-3">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {(
-            [
-              {
-                id: "ssh-cli" as const,
-                title: t("binding.remote.method.ssh"),
-                description: t("binding.remote.method.sshDescription"),
-              },
-              {
-                id: "relay-paired" as const,
-                title: t("binding.remote.method.code"),
-                description: t("binding.remote.method.codeDescription"),
-              },
-            ] as const
-          ).map((method) => (
-            <button
-              key={method.id}
-              type="button"
-              onClick={() => setDriver(method.id)}
-              className={cn(
-                "surface-card-selectable rounded-2xl border px-3.5 py-3 text-left transition-colors",
-                driver === method.id && "surface-card-selectable-active",
-              )}
-            >
-              <div className="text-sm font-medium text-white/88">{method.title}</div>
-              <div className="mt-1 text-[12px] leading-5 text-white/45">{method.description}</div>
-            </button>
-          ))}
+        {isLegacySshTarget ? (
+          <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3.5">
+            <p className="text-sm font-medium text-amber-100">
+              {t("binding.remote.legacySshTitle")}
+            </p>
+            <p className="mt-1 text-[12px] leading-5 text-amber-100/80">
+              {t("binding.remote.legacySshDescription")}
+            </p>
+          </div>
+        ) : null}
+
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
+            {t("binding.remote.relayUrl")}
+          </label>
+          <input
+            value={relayUrl}
+            onChange={(event) => setRelayUrl(event.target.value)}
+            placeholder={t("binding.remote.relayPlaceholder")}
+            className="surface-input h-11 w-full rounded-2xl border px-3 text-sm text-white/80 outline-none placeholder:text-white/25"
+          />
         </div>
 
-        {driver === "ssh-cli" ? (
-          <>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
-                {t("binding.remote.sshTarget")}
-              </label>
-              <input
-                value={sshTarget}
-                onChange={(event) => setSshTarget(event.target.value)}
-                placeholder={t("binding.remote.sshPlaceholder")}
-                className="surface-input h-11 w-full rounded-2xl border px-3 text-sm text-white/80 outline-none placeholder:text-white/25"
-              />
-            </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
+              {t("binding.remote.connectCode")}
+            </label>
+            <input
+              value={connectCode}
+              onChange={(event) => setConnectCode(event.target.value.toUpperCase())}
+              placeholder={t("binding.remote.connectCodePlaceholder")}
+              className="surface-input h-11 w-full rounded-2xl border px-3 text-sm uppercase tracking-[0.16em] text-white/80 outline-none placeholder:text-white/25"
+            />
+          </div>
 
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
-                  {t("binding.remote.sshPort")}
-                </label>
-                <input
-                  value={sshPort}
-                  onChange={(event) => setSshPort(event.target.value.replace(/[^\d]/g, ""))}
-                  inputMode="numeric"
-                  placeholder="22"
-                  className="surface-input h-11 w-full rounded-2xl border px-3 text-sm text-white/80 outline-none placeholder:text-white/25"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
-                  {t("binding.remote.agent")}
-                </label>
-                <input
-                  value={agentId}
-                  onChange={(event) => setAgentId(event.target.value)}
-                  placeholder={t("binding.remote.agentPlaceholder")}
-                  className="surface-input h-11 w-full rounded-2xl border px-3 text-sm text-white/80 outline-none placeholder:text-white/25"
-                />
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
-                {t("binding.remote.relayUrl")}
-              </label>
-              <input
-                value={relayUrl}
-                onChange={(event) => setRelayUrl(event.target.value)}
-                placeholder={t("binding.remote.relayPlaceholder")}
-                className="surface-input h-11 w-full rounded-2xl border px-3 text-sm text-white/80 outline-none placeholder:text-white/25"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
-                  {t("binding.remote.connectCode")}
-                </label>
-                <input
-                  value={connectCode}
-                  onChange={(event) => setConnectCode(event.target.value.toUpperCase())}
-                  placeholder={t("binding.remote.connectCodePlaceholder")}
-                  className="surface-input h-11 w-full rounded-2xl border px-3 text-sm uppercase tracking-[0.16em] text-white/80 outline-none placeholder:text-white/25"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
-                  {t("binding.remote.agent")}
-                </label>
-                <input
-                  value={agentId}
-                  onChange={(event) => setAgentId(event.target.value)}
-                  placeholder={t("binding.remote.agentPlaceholder")}
-                  className="surface-input h-11 w-full rounded-2xl border px-3 text-sm text-white/80 outline-none placeholder:text-white/25"
-                />
-              </div>
-            </div>
-          </>
-        )}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
+              {t("binding.remote.agent")}
+            </label>
+            <input
+              value={agentId}
+              onChange={(event) => setAgentId(event.target.value)}
+              placeholder={t("binding.remote.agentPlaceholder")}
+              className="surface-input h-11 w-full rounded-2xl border px-3 text-sm text-white/80 outline-none placeholder:text-white/25"
+            />
+          </div>
+        </div>
 
         <div className="space-y-1.5">
           <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
@@ -639,59 +571,75 @@ export function BindingRemoteStatusPanel({
           />
         </div>
 
-        {driver === "relay-paired" ? (
-          <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3.5">
-            <p className="text-[12px] leading-5 text-amber-100/85">
-              {t("binding.remote.relayPending")}
-            </p>
-          </div>
-        ) : null}
+        <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3.5">
+          <p className="text-[12px] leading-5 text-amber-100/85">
+            {t("binding.remote.relayPending")}
+          </p>
+        </div>
 
       </div>
 
       <div className="mt-4 flex flex-wrap gap-3">
         <button
           type="button"
+          disabled={!canSaveRemote || isSavingRemote}
           onClick={() => {
             void handleSaveRemote();
           }}
-          className="surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white/72 transition-colors"
+          className={cn(
+            "surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white/72 transition-colors",
+            (!canSaveRemote || isSavingRemote) && "cursor-not-allowed opacity-50",
+          )}
         >
           {isSavingRemote ? t("binding.processing") : t("binding.remote.saveAction")}
         </button>
-        {driver === "relay-paired" ? (
-          <button
-            type="button"
-            onClick={() => {
-              void handleGenerateRelayCode();
-            }}
-            className="surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white/86 transition-colors"
-          >
-            {isGeneratingRelayCode
-              ? t("binding.processing")
-              : t("binding.remote.generateCodeAction")}
-          </button>
-        ) : null}
         <button
           type="button"
+          disabled={!canGenerateRelayCode}
+          onClick={() => {
+            void handleGenerateRelayCode();
+          }}
+          className={cn(
+            "surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white/86 transition-colors",
+            !canGenerateRelayCode && "cursor-not-allowed opacity-50",
+          )}
+        >
+          {isGeneratingRelayCode
+            ? t("binding.processing")
+            : t("binding.remote.generateCodeAction")}
+        </button>
+        <button
+          type="button"
+          disabled={!canConnectRemote}
           onClick={() => onConnectRemote?.(buildRemotePayload())}
-          className="surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white transition-colors"
+          className={cn(
+            "surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white transition-colors",
+            !canConnectRemote && "cursor-not-allowed opacity-50",
+          )}
         >
           {t("binding.remote.connectAction")}
         </button>
         <button
           type="button"
+          disabled={!canProbeRemote || isCheckingRemote}
           onClick={() => {
             void handleCheckRemote();
           }}
-          className="surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white/72 transition-colors"
+          className={cn(
+            "surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white/72 transition-colors",
+            (!canProbeRemote || isCheckingRemote) && "cursor-not-allowed opacity-50",
+          )}
         >
           {isCheckingRemote ? t("binding.processing") : t("binding.remote.checkAction")}
         </button>
         <button
           type="button"
+          disabled={!canDoctorRemote}
           onClick={() => onDoctorRemote?.(buildRemotePayload())}
-          className="surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white/58 transition-colors"
+          className={cn(
+            "surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white/58 transition-colors",
+            !canDoctorRemote && "cursor-not-allowed opacity-50",
+          )}
         >
           {t("binding.remote.doctorAction")}
         </button>
@@ -741,7 +689,7 @@ export function BindingRemoteStatusPanel({
         </div>
       ) : null}
 
-      {driver === "relay-paired" && !relayPairing ? (
+      {!relayPairing ? (
         <p className="mt-2 text-[12px] leading-5 text-white/42">
           {t("binding.remote.generateCodeHint")}
         </p>

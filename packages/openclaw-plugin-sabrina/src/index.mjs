@@ -97,9 +97,9 @@ function registerConnectCommand(rootCommand, api) {
     .option("--profile <profile>", "Target a specific OpenClaw profile")
     .option("--state-dir <path>", "Target a specific OpenClaw state dir")
     .option("--remote", "Use a remote OpenClaw control plane")
-    .option("--driver <driver>", "Remote driver (currently ssh-cli is implemented)")
-    .option("--ssh-target <target>", "SSH target for the ssh-cli remote driver (for example root@example.com)")
-    .option("--ssh-port <port>", "Optional SSH port for the ssh-cli driver")
+    .option("--driver <driver>", "Remote driver (relay-paired by default; ssh-cli is legacy/internal)")
+    .option("--ssh-target <target>", "Legacy SSH target for the ssh-cli fallback (for example root@example.com)")
+    .option("--ssh-port <port>", "Optional SSH port for the legacy ssh-cli fallback")
     .option("--relay-url <url>", "Relay URL for the relay-paired remote driver")
     .option("--connect-code <code>", "Short-lived connect code for the relay-paired driver")
     .option("--label <label>", "Friendly label for the remote OpenClaw")
@@ -111,8 +111,10 @@ function registerConnectCommand(rootCommand, api) {
           options.driver ||
           (options.relayUrl || options.connectCode
               ? "relay-paired"
-              : options.remote || options.sshTarget
+              : options.sshTarget
                 ? "ssh-cli"
+                : options.remote
+                  ? "relay-paired"
                 : "local-cli");
         const target =
           options.remote || options.sshTarget || options.relayUrl || options.connectCode || requestedDriver !== "local-cli" ? "remote" : "local";
@@ -181,9 +183,9 @@ function registerDoctorCommand(rootCommand, api) {
     .command("doctor")
     .description("Run Sabrina connector diagnostics")
     .option("--target <target>", "local or remote", "local")
-    .option("--driver <driver>", "Remote driver (currently ssh-cli is implemented)")
-    .option("--ssh-target <target>", "SSH target for the ssh-cli remote driver")
-    .option("--ssh-port <port>", "Optional SSH port for the ssh-cli driver")
+    .option("--driver <driver>", "Remote driver (relay-paired by default; ssh-cli is legacy/internal)")
+    .option("--ssh-target <target>", "Legacy SSH target for the ssh-cli fallback")
+    .option("--ssh-port <port>", "Optional SSH port for the legacy ssh-cli fallback")
     .option("--relay-url <url>", "Relay URL for the relay-paired remote driver")
     .option("--connect-code <code>", "Short-lived connect code for the relay-paired driver")
     .option("--label <label>", "Friendly label for the remote OpenClaw")
@@ -206,8 +208,10 @@ function registerDoctorCommand(rootCommand, api) {
         if (options.stateDir) params.set("stateDir", options.stateDir);
         if (!options.driver && (options.relayUrl || options.connectCode)) {
           params.set("driver", "relay-paired");
-        } else if (!options.driver && (options.target === "remote" || options.sshTarget)) {
+        } else if (!options.driver && options.sshTarget) {
           params.set("driver", "ssh-cli");
+        } else if (!options.driver && options.target === "remote") {
+          params.set("driver", "relay-paired");
         }
         const result = await requestSabrinaConnector(
           api.pluginConfig ?? {},
@@ -234,9 +238,9 @@ function registerProbeCommand(rootCommand, api) {
     .command("probe")
     .description("Run Sabrina quick connection checks before connecting")
     .option("--target <target>", "local or remote", "local")
-    .option("--driver <driver>", "Remote driver (ssh-cli or relay-paired)")
-    .option("--ssh-target <target>", "SSH target for the ssh-cli remote driver")
-    .option("--ssh-port <port>", "Optional SSH port for the ssh-cli driver")
+    .option("--driver <driver>", "Remote driver (relay-paired by default; ssh-cli is legacy/internal)")
+    .option("--ssh-target <target>", "Legacy SSH target for the ssh-cli fallback")
+    .option("--ssh-port <port>", "Optional SSH port for the legacy ssh-cli fallback")
     .option("--relay-url <url>", "Relay URL for the relay-paired remote driver")
     .option("--connect-code <code>", "Short-lived connect code for the relay-paired driver")
     .option("--label <label>", "Friendly label for the remote OpenClaw")
@@ -259,8 +263,10 @@ function registerProbeCommand(rootCommand, api) {
         if (options.stateDir) params.set("stateDir", options.stateDir);
         if (!options.driver && (options.relayUrl || options.connectCode)) {
           params.set("driver", "relay-paired");
-        } else if (!options.driver && (options.target === "remote" || options.sshTarget)) {
+        } else if (!options.driver && options.sshTarget) {
           params.set("driver", "ssh-cli");
+        } else if (!options.driver && options.target === "remote") {
+          params.set("driver", "relay-paired");
         }
 
         const result = await requestSabrinaConnector(

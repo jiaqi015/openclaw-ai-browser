@@ -9,7 +9,7 @@ import {
   normalizeSabrinaTransport,
 } from "../../packages/sabrina-protocol/index.mjs";
 
-function normalizeOpenClawDriver(value, transportHint = "local") {
+function normalizeOpenClawDriver(value, transportHint = "local", context = {}) {
   const normalizedRemoteDriver = normalizeSabrinaRemoteDriver(value);
   if (normalizedRemoteDriver) {
     return normalizedRemoteDriver;
@@ -18,7 +18,16 @@ function normalizeOpenClawDriver(value, transportHint = "local") {
   if (normalized === "local-cli") {
     return "local-cli";
   }
-  return normalizeSabrinaTransport(transportHint) === "remote" ? "ssh-cli" : "local-cli";
+  if (normalizeSabrinaTransport(transportHint) !== "remote") {
+    return "local-cli";
+  }
+  if (normalizeSshTarget(context?.sshTarget)) {
+    return "ssh-cli";
+  }
+  if (normalizeRelayUrl(context?.relayUrl) || normalizeConnectCode(context?.connectCode)) {
+    return "relay-paired";
+  }
+  return "relay-paired";
 }
 
 function normalizeSshTarget(value) {
@@ -71,9 +80,23 @@ export function getOpenClawTransportContext() {
 
 export function setOpenClawTransportContext(nextContext = {}) {
   const transport = normalizeSabrinaTransport(nextContext.transport ?? transportContext.transport);
+  const mergedContext = {
+    ...transportContext,
+    ...nextContext,
+    transport,
+  };
+  const requestedDriver = Object.prototype.hasOwnProperty.call(nextContext, "driver")
+    ? nextContext.driver
+    : transport === transportContext.transport
+      ? transportContext.driver
+      : undefined;
   transportContext = Object.freeze({
     transport,
-    driver: normalizeOpenClawDriver(nextContext.driver ?? transportContext.driver, transport),
+    driver: normalizeOpenClawDriver(
+      requestedDriver,
+      transport,
+      mergedContext,
+    ),
     profile: normalizeOpenClawProfile(nextContext.profile ?? transportContext.profile),
     stateDir: normalizeOpenClawStateDir(nextContext.stateDir ?? transportContext.stateDir),
     sshTarget: normalizeSshTarget(nextContext.sshTarget ?? transportContext.sshTarget),

@@ -258,7 +258,7 @@ export async function getBindingSetupState(params) {
         target: "remote",
         statusOverride: "degraded",
         transportLabel,
-        note: "请先提供远程控制面目标。",
+        note: "请先填写 Relay 地址并生成连接码。",
       });
     }
 
@@ -350,7 +350,7 @@ export async function beginBindingSetup(params) {
         target: "remote",
         statusOverride: "degraded",
         transportLabel,
-        note: "请先提供远程控制面目标。",
+        note: "请先填写 Relay 地址并生成连接码。",
       });
     }
 

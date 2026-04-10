@@ -27,6 +27,17 @@ test("normalizeConnectionConfig derives remote driver defaults without losing re
   assert.equal(config.sshPort, 2222);
 });
 
+test("normalizeConnectionConfig defaults remote targets to relay-paired when no legacy ssh target is present", () => {
+  const config = normalizeConnectionConfig({
+    transport: "remote",
+    label: "relay-remote",
+  }, "remote");
+
+  assert.equal(config.transport, "remote");
+  assert.equal(config.driver, "relay-paired");
+  assert.equal(config.label, "relay-remote");
+});
+
 test("normalizeConnectionConfig keeps relay remote metadata", () => {
   const config = normalizeConnectionConfig({
     transport: "remote",
@@ -124,7 +135,7 @@ test("createConnectionState localizes remote summaries and doctor hints in Engli
     assert.match(state.detail, /Current target: jd-remote/);
     assert.equal(
       state.doctorHint,
-      "If remote OpenClaw is already reachable, you can connect directly or run doctor first.",
+      "Make sure the relay URL, connect code, and remote worker are ready before connecting.",
     );
   } finally {
     setCurrentUiLocale(previousLocale);
@@ -139,8 +150,8 @@ test("createDefaultBindingSetupState localizes remote defaults in English", () =
     const state = createDefaultBindingSetupState("remote");
 
     assert.equal(state.title, "Connect remote OpenClaw");
-    assert.equal(state.description, "Reuse a remote OpenClaw control plane.");
-    assert.equal(state.note, "Provide a remote control-plane target first.");
+    assert.equal(state.description, "Reuse a remote OpenClaw control plane with a pairing code.");
+    assert.equal(state.note, "Enter the relay URL and generate a connect code first.");
   } finally {
     setCurrentUiLocale(previousLocale);
   }

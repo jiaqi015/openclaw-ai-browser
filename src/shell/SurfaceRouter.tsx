@@ -5,7 +5,10 @@ import { DiagnosticsSurface } from "../components/diagnostics-surface";
 import { GeneralSettingsSurface } from "../components/general-settings-surface";
 import { GenTabSurface } from "../components/gentab-surface";
 import { OpenClawSettingsSurface } from "../components/openclaw-settings-surface";
+import { CodingGenTabSurface } from "../components/coding-gentab-surface";
+import { PulseSurface } from "../components/pulse-surface";
 import { parseGenTabIdFromUrl } from "../lib/gentab-url";
+import { buildMockGpuPulse } from "../lib/pulse-mock";
 
 export function SurfaceRouter(props: {
   binding: SabrinaOpenClawBinding | null;
@@ -175,6 +178,30 @@ export function SurfaceRouter(props: {
 
   const genTabId = parseGenTabIdFromUrl(currentUrl);
   if (genTabId !== null) {
+    // Coding GenTab: URL has ?v=coding query param OR the pending metadata
+    // will identify it. The CodingGenTabSurface handles both states (loading
+    // theatre and done iframe). Legacy GenTabSurface stays for non-coding tabs.
+    const isCoding = /[?&]v=coding\b/.test(currentUrl);
+    if (isCoding) {
+      return (
+        <CodingGenTabSurface
+          url={currentUrl}
+          onCloseGenTab={onCloseGenTab}
+        />
+      );
+    }
+
+    // Pulse demo flag (kept for design iteration)
+    const isPulse = /[?&]pulse=1\b/.test(currentUrl) || genTabId.startsWith("pulse-demo");
+    if (isPulse) {
+      return (
+        <PulseSurface
+          pulse={buildMockGpuPulse()}
+          onClose={() => onCloseGenTab(genTabId)}
+        />
+      );
+    }
+
     return <GenTabSurface url={currentUrl} onCloseGenTab={onCloseGenTab} />;
   }
 
