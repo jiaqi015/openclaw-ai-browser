@@ -28,15 +28,19 @@
 
 ## What It Does
 
-Open any webpage — the sidebar already knows what you're looking at. No copying. No describing. No pasting links.
+> **Sabrina's value = OpenClaw's capabilities × browser context.**
+>
+> The skills, agents, model policies, and memory conventions you've built in OpenClaw — they all work directly in the browser. No reconfiguring. No re-authorizing.
+
+Open any webpage — the sidebar already knows what you're looking at. The page is the input. OpenClaw is the engine.
 
 **Common use cases:**
 
-- 📖 **Research & compare** — Open 5 competitor pages, reference them all at once, get a comparison in one shot
-- 📝 **Extract & summarize** — Ask "summarize the key points" while reading; context is auto-injected, no select-all needed
-- ⚡ **Skill shortcuts** — Use the current page as input to trigger any OpenClaw skill — write a report, translate, file an issue, in one step
-- 🗂️ **GenTab** — Select multiple reference tabs, generate a structured result page (comparison table / list / timeline / card grid) in one click
-- 🧵 **Thread memory** — Close and reopen — the context is still there; conversation history auto-archives by page and site
+- ⚡ **Skills straight to the browser** — Trigger any OpenClaw skill directly on any webpage. Reading competitor docs? File an issue in one click. Reviewing a contract? Generate a summary. Browsing a codebase? Run your review skill — page content becomes the input automatically, no copying needed
+- 🗂️ **GenTab × OpenClaw generation** — Select multiple reference tabs, let OpenClaw generate a structured result page (comparison table / list / timeline). Turn multi-tab research into a usable artifact, not just a chat log
+- 🤖 **Handoff to background tasks** — Trigger from the browser, OpenClaw completes it asynchronously. Keep browsing — results come back when it's done
+- 🧵 **Memory follows the page** — Conversation history auto-archives by page and site, reusing your existing OpenClaw memory conventions. Next time you open the same page, context is still there
+- 📎 **Multiple tabs as context** — Reference several open tabs at once and feed the full information density of your browser session directly to OpenClaw — not one paste at a time
 
 ---
 
