@@ -180,6 +180,19 @@ export function findBrowserTabIdByUrl(url) {
   return null;
 }
 
+/**
+ * Update the display title of a browser tab by tabId, then emit state.
+ * Used for virtual sabrina:// tabs whose title isn't driven by page-title-updated.
+ */
+export function updateBrowserTabTitle(tabId, title) {
+  const normalized = `${title ?? ""}`.trim();
+  if (!normalized || !tabId) return;
+  const tab = browserTabs.get(tabId);
+  if (!tab) return;
+  tab.title = normalized;
+  emitState();
+}
+
 export function serializeState() {
   return {
     tabs: [...browserTabs.values()].map((tab) => serializeBrowserTab(tab)),

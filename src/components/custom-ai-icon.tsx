@@ -1,10 +1,16 @@
 import { cn } from "../lib/utils";
+import { useUiPreferences } from "../application/use-ui-preferences";
 
 export function ChatTextIcon({ className }: { className?: string }) {
+  const {
+    preferences: { uiLocale },
+  } = useUiPreferences();
+  const label = uiLocale === "en-US" ? "Ask Claw" : "问问 Claw";
+
   return (
     <div className={cn("flex items-center justify-center", className)}>
-      <span className="text-[12px] font-bold text-apple-pink drop-shadow-[0_0_8px_rgba(255,42,133,0.3)]">
-        Chat
+      <span className="whitespace-nowrap text-[11px] font-bold leading-none text-apple-pink drop-shadow-[0_0_8px_rgba(255,42,133,0.3)]">
+        {label}
       </span>
     </div>
   );

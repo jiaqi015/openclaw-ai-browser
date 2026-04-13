@@ -1166,9 +1166,11 @@ declare global {
           referenceTabIds: string[];
           userIntent?: string;
           assistantLocaleMode?: "follow-ui" | "zh-CN" | "en-US";
+          refinementText?: string;
+          originalHtml?: string;
         }) => Promise<
-          | { success: true; gentab: CodingGenTabData }
-          | { success: false; error?: string; gentab?: undefined }
+          | { success: true; gentab: CodingGenTabData; wasFixed?: boolean }
+          | { success: false; error?: string; gentab?: undefined; wasFixed?: undefined }
         >;
         createCodingGenTab: (params: {
           genId: string;
@@ -1179,6 +1181,9 @@ declare global {
         markGenerationCompleted: (genId: string) => void;
         onGenerationCompleted: (
           listener: (genId: string) => void,
+        ) => () => void;
+        onCodingProgress?: (
+          listener: (event: { genId: string; stage: string; label: string }) => void,
         ) => () => void;
       };
       browser?: {

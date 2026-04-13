@@ -175,6 +175,13 @@ contextBridge.exposeInMainWorld("sabrinaDesktop", {
         ipcRenderer.removeListener("gentab:generation-completed", wrapped);
       };
     },
+    onCodingProgress: (listener) => {
+      const wrapped = (_event, payload) => listener(payload);
+      ipcRenderer.on("gentab:coding-progress", wrapped);
+      return () => {
+        ipcRenderer.removeListener("gentab:coding-progress", wrapped);
+      };
+    },
   },
   browser: {
     openUrlInNewTab: (url) => ipcRenderer.invoke("browser:create-tab", { input: url }),

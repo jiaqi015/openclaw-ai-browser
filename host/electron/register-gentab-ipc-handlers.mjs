@@ -8,6 +8,7 @@ import {
   closeBrowserTab,
   createBrowserTab,
   findBrowserTabIdByUrl,
+  updateBrowserTabTitle,
 } from "../../runtime/browser/TabManager.mjs";
 import { generateGenTab, generateCodingGenTab, refreshGenTabItem } from "./GenTabIpcActionService.mjs";
 
@@ -79,8 +80,25 @@ export function registerGentabIpcHandlers(getMainWindow) {
     return refreshGenTabItem(payload ?? {});
   });
 
-  ipcMain.handle("gentab:generate-coding", async (_e, payload) => {
-    return generateCodingGenTab(payload ?? {});
+  ipcMain.handle("gentab:generate-coding", async (e, payload) => {
+    const genId = `${payload?.genId ?? ""}`.trim();
+    const sendProgress = (stage, label) => {
+      try {
+        if (!e.sender.isDestroyed()) {
+          e.sender.send("gentab:coding-progress", { genId, stage, label });
+        }
+      } catch {}
+    };
+    const result = await generateCodingGenTab(payload ?? {}, { sendProgress });
+    // After successful generation, update the browser tab's display title so it
+    // shows the GenTab's human title in the tab strip instead of "gentab".
+    if (result?.success && result.gentab?.title) {
+      const tabId =
+        findBrowserTabIdByUrl(`sabrina://gentab/${genId}?v=coding`) ??
+        findBrowserTabIdByUrl(`sabrina://gentab/${genId}`);
+      if (tabId) updateBrowserTabTitle(tabId, result.gentab.title);
+    }
+    return result;
   });
 
   // Create a coding GenTab tab — navigates to sabrina://gentab/<id>?v=coding

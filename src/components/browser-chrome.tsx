@@ -227,7 +227,7 @@ export function BrowserChrome(props: {
               sidebarOpen && "surface-icon-button-active",
             )}
           >
-            <ChatTextIcon className="w-10 h-5" />
+            <ChatTextIcon className="h-5 px-1" />
           </button>
         </div>
       </div>

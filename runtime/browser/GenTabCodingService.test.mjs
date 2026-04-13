@@ -1,9 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildCodingGenTabPlanPrompt,
   buildCodingGenTabPrompt,
   buildCodingGenTabRefinementPrompt,
   buildCodingGenTabVerifyPrompt,
+  normalizeCodingGenTabPlan,
   normalizeCodingGenTabResult,
   normalizeCodingGenTabVerifyResult,
 } from "./GenTabCodingService.mjs";
@@ -199,6 +201,18 @@ test("buildCodingGenTabVerifyPrompt: contains the generated HTML and context", (
   assert.ok(prompt.includes("占位符"), "should mention placeholder check");
 });
 
+test("buildCodingGenTabVerifyPrompt: includes plan adherence check when plan provided", () => {
+  const plan = { title: "GPU 决斗台", design: "三张对决卡片 + 帮我选按钮", keyData: [] };
+  const prompt = buildCodingGenTabVerifyPrompt(VALID_HTML, [], "zh-CN", plan);
+  assert.ok(prompt.includes("三张对决卡片"), "should include plan design in adherence check");
+  assert.ok(prompt.includes("设计方案符合"), "should mention plan adherence check");
+});
+
+test("buildCodingGenTabVerifyPrompt: no plan section when plan is null", () => {
+  const prompt = buildCodingGenTabVerifyPrompt(VALID_HTML, []);
+  assert.ok(!prompt.includes("设计方案符合"), "should not mention plan adherence when no plan");
+});
+
 test("buildCodingGenTabVerifyPrompt: truncates very long HTML", () => {
   const longHtml = "A".repeat(50_000);
   const prompt = buildCodingGenTabVerifyPrompt(longHtml, []);
@@ -250,4 +264,110 @@ test("normalizeCodingGenTabVerifyResult: returns null for empty/null input", () 
 
 test("normalizeCodingGenTabVerifyResult: returns null for unparseable output", () => {
   assert.equal(normalizeCodingGenTabVerifyResult("sorry I can't do that"), null);
+});
+
+// ---------------------------------------------------------------------------
+// buildCodingGenTabPlanPrompt tests
+// ---------------------------------------------------------------------------
+
+test("buildCodingGenTabPlanPrompt: contains user intent and context", () => {
+  const prompt = buildCodingGenTabPlanPrompt(
+    "比较三张 GPU",
+    [
+      { title: "RTX 4090 商品页", url: "https://store.com/4090", contentText: "RTX 4090 价格 ¥12999 显存 24GB" },
+      { title: "RTX 4080 商品页", url: "https://store.com/4080", contentText: "RTX 4080 价格 ¥8499 显存 16GB" },
+    ],
+  );
+  assert.match(prompt, /比较三张 GPU/);
+  assert.match(prompt, /RTX 4090/);
+  // Should include the output schema
+  assert.match(prompt, /"design"/);
+  assert.match(prompt, /"keyData"/);
+  assert.match(prompt, /"title"/);
+});
+
+test("buildCodingGenTabPlanPrompt: handles empty context gracefully", () => {
+  const prompt = buildCodingGenTabPlanPrompt("make something cool", []);
+  assert.match(prompt, /make something cool/);
+  assert.match(prompt, /无网页内容/);
+});
+
+// ---------------------------------------------------------------------------
+// normalizeCodingGenTabPlan tests
+// ---------------------------------------------------------------------------
+
+test("normalizeCodingGenTabPlan: parses valid JSON", () => {
+  const raw = JSON.stringify({
+    title: "GPU 决斗台",
+    design: "三张对决卡片 + 「帮我选」按钮，按下后动画宣告胜者",
+    keyData: ["RTX 4090: ¥12999 / 24GB", "RTX 4080: ¥8499 / 16GB"],
+  });
+  const plan = normalizeCodingGenTabPlan(raw);
+  assert.equal(plan?.title, "GPU 决斗台");
+  assert.match(plan?.design ?? "", /三张对决卡片/);
+  assert.equal(Array.isArray(plan?.keyData), true);
+  assert.equal(plan?.keyData.length, 2);
+});
+
+test("normalizeCodingGenTabPlan: strips markdown code fences", () => {
+  const raw = "```json\n" + JSON.stringify({
+    title: "T",
+    design: "一个交互卡片组",
+    keyData: ["数据1"],
+  }) + "\n```";
+  const plan = normalizeCodingGenTabPlan(raw);
+  assert.ok(plan !== null);
+  assert.equal(plan?.title, "T");
+});
+
+test("normalizeCodingGenTabPlan: returns null for invalid input", () => {
+  assert.equal(normalizeCodingGenTabPlan(""), null);
+  assert.equal(normalizeCodingGenTabPlan(null), null);
+  assert.equal(normalizeCodingGenTabPlan("   "), null);
+  assert.equal(normalizeCodingGenTabPlan("not json at all"), null);
+  // Missing design field → null
+  assert.equal(normalizeCodingGenTabPlan(JSON.stringify({ title: "T", keyData: [] })), null);
+  // Empty design → null
+  assert.equal(normalizeCodingGenTabPlan(JSON.stringify({ title: "T", design: "  ", keyData: [] })), null);
+});
+
+// ---------------------------------------------------------------------------
+// buildCodingGenTabPrompt with plan tests
+// ---------------------------------------------------------------------------
+
+test("buildCodingGenTabPrompt: uses plan when provided — focused implementation prompt", () => {
+  const plan = {
+    title: "GPU 决斗台",
+    design: "三张对决卡片 + 帮我选按钮",
+    keyData: ["RTX 4090: ¥12999", "RTX 4080: ¥8499"],
+  };
+  const prompt = buildCodingGenTabPrompt(
+    "比较 GPU",
+    [{ title: "GPU 页", url: "https://store.com", contentText: "RTX 4090 ¥12999" }],
+    "zh-CN",
+    plan,
+  );
+  // Plan-guided prompt uses a focused implementation format
+  assert.match(prompt, /GPU 决斗台/);          // plan.title present
+  assert.match(prompt, /三张对决卡片/);         // plan.design present
+  assert.match(prompt, /RTX 4090: ¥12999/);   // keyData present
+  // Should NOT include first-step and second-step planning paragraphs (design already decided)
+  assert.ok(!prompt.includes("第一步"), "should not re-plan when plan is provided");
+  assert.ok(!prompt.includes("第二步"), "should not re-plan when plan is provided");
+  // Should be shorter than the full creative brief (no creative thinking section)
+  const fullPrompt = buildCodingGenTabPrompt("比较 GPU",
+    [{ title: "GPU 页", url: "https://store.com", contentText: "RTX 4090 ¥12999" }]);
+  assert.ok(prompt.length < fullPrompt.length, "plan-guided prompt should be shorter than full creative brief");
+});
+
+test("buildCodingGenTabPrompt: no plan section when plan is null", () => {
+  const prompt = buildCodingGenTabPrompt(
+    "比较 GPU",
+    [{ title: "GPU 页", url: "https://store.com", contentText: "some content" }],
+    "zh-CN",
+    null,
+  );
+  assert.ok(!prompt.includes("已确定的设计方案"), "should not include plan section when plan is null");
+  assert.match(prompt, /第一步/);
+  assert.match(prompt, /第二步/);
 });

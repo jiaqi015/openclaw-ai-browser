@@ -12,9 +12,11 @@ import {
   normalizeRefreshedItem,
 } from "../../runtime/browser/GenTabGenerationService.mjs";
 import {
+  buildCodingGenTabPlanPrompt,
   buildCodingGenTabPrompt,
   buildCodingGenTabRefinementPrompt,
   buildCodingGenTabVerifyPrompt,
+  normalizeCodingGenTabPlan,
   normalizeCodingGenTabResult,
   normalizeCodingGenTabVerifyResult,
 } from "../../runtime/browser/GenTabCodingService.mjs";
@@ -310,6 +312,11 @@ export async function generateCodingGenTab(payload = {}, dependencies = {}) {
     typeof dependencies?.clearPendingGenTabMetadata === "function"
       ? dependencies.clearPendingGenTabMetadata
       : clearPendingGenTabMetadata;
+  // sendProgress is optional — defaults to no-op so tests don't need to provide it
+  const sendProgress =
+    typeof dependencies?.sendProgress === "function"
+      ? dependencies.sendProgress
+      : () => {};
 
   const assistantLocale =
     assistantLocaleMode === "en" ? "en" : "zh-CN";
@@ -329,12 +336,35 @@ export async function generateCodingGenTab(payload = {}, dependencies = {}) {
     return { success: false, error: "无法读取任何来源标签页的内容" };
   }
 
-  // Step 2: Build the creative prompt and call the agent
-  // Use the refinement prompt if the user provided a modification request + original HTML
+  sendProgress("reading", `已读取 ${contexts.length} 个标签页`);
+
   const isRefinement = refinementText.length > 0 && originalHtml.length > 100;
+
+  // Step 2: Plan turn (new — skip for refinement runs)
+  let plan = null;
+  if (!isRefinement) {
+    try {
+      const planPrompt = buildCodingGenTabPlanPrompt(userIntent, contexts, assistantLocale);
+      const planResponse = await runAgentTurn({ message: planPrompt });
+      if (planResponse?.text) {
+        plan = normalizeCodingGenTabPlan(planResponse.text);
+      }
+    } catch {
+      // Planning failure is non-fatal — continue with plan=null
+    }
+    if (plan) {
+      sendProgress("thinking", plan.design);
+    } else {
+      sendProgress("thinking", "确定设计方案…");
+    }
+  }
+
+  // Step 3: Code turn — signal BEFORE the LLM call so the UI shows "coding" during the wait
+  sendProgress("coding", "正在生成代码…");
+
   const prompt = isRefinement
     ? buildCodingGenTabRefinementPrompt(refinementText, originalHtml, contexts, assistantLocale)
-    : buildCodingGenTabPrompt(userIntent, contexts, assistantLocale);
+    : buildCodingGenTabPrompt(userIntent, contexts, assistantLocale, plan);
 
   let response;
   try {
@@ -350,7 +380,7 @@ export async function generateCodingGenTab(payload = {}, dependencies = {}) {
     return { success: false, error: "模型未返回有效内容" };
   }
 
-  // Step 3: Parse and validate
+  // Parse and validate
   const result = normalizeCodingGenTabResult(response.text, {
     sourceTabIds: referenceTabIds,
     userIntent,
@@ -359,12 +389,13 @@ export async function generateCodingGenTab(payload = {}, dependencies = {}) {
   if (!result) return { success: false, error: "模型输出无法解析为有效的 GenTab" };
   if (!result.success) return { success: false, error: result.error };
 
-  // Step 3.5: Self-verification pass (best-effort — never blocks delivery)
+  // Step 4: Self-verification pass (best-effort — never blocks delivery)
   // Skip verify for refinement runs: the original already passed once
   let finalHtml = result.html;
   if (!isRefinement) {
+    sendProgress("checking", "自检中…");
     try {
-      const verifyPrompt = buildCodingGenTabVerifyPrompt(result.html, contexts, assistantLocale);
+      const verifyPrompt = buildCodingGenTabVerifyPrompt(result.html, contexts, assistantLocale, plan);
       const verifyResponse = await runAgentTurn({ message: verifyPrompt });
       if (verifyResponse?.text) {
         const verifyResult = normalizeCodingGenTabVerifyResult(verifyResponse.text);
@@ -379,11 +410,14 @@ export async function generateCodingGenTab(payload = {}, dependencies = {}) {
     }
   }
 
-  const finalResult = finalHtml !== result.html
+  const wasFixed = finalHtml !== result.html;
+  sendProgress("done", wasFixed ? "已自动修复部分问题" : "");
+
+  const finalResult = wasFixed
     ? { ...result, html: finalHtml }
     : result;
 
-  // Step 4: Persist
+  // Step 5: Persist
   try {
     await persistGenTabData(genId, finalResult);
     await clearPendingMetadata(genId);
@@ -394,5 +428,5 @@ export async function generateCodingGenTab(payload = {}, dependencies = {}) {
     };
   }
 
-  return { success: true, gentab: finalResult };
+  return { success: true, gentab: finalResult, wasFixed };
 }

@@ -3,11 +3,11 @@
  *
  *  1. On mount — read pending metadata from the store (referenceTabIds, userIntent)
  *  2. Auto-start generation via gentab.generateCoding (no user button press)
- *  3. Expose { status, stage, stageLabel, gentab, error } to the surface
+ *  3. Subscribe to real IPC progress events from the main process
+ *  4. Expose { status, stage, stageLabel, gentab, error } to the surface
  *
- * "Stage" is a UI concept used by the loading theatre. Even though generation
- * is a single async IPC call, we advance through stages on a timer to give
- * the impression of a working agent. The real call runs in parallel.
+ * Stage advances are driven by real IPC progress events from the main process.
+ * A light fallback timer shows "reading" after a few seconds if no events arrive.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -56,10 +56,7 @@ const STAGES: StageInfo[] = [
   },
 ];
 
-// Advance through stages at these millisecond intervals (approximate)
-const STAGE_DURATIONS_MS = [4_000, 8_000, 20_000, 10_000];
-
-export type CodingGenTabStatus = "idle" | "generating" | "done" | "error";
+export type CodingGenTabStatus = "idle" | "generating" | "refining" | "done" | "error";
 
 export interface CodingGenTabState {
   status: CodingGenTabStatus;
@@ -100,6 +97,7 @@ export function useCodingGenTabState(params: {
   const [progressPct, setProgressPct] = useState(0);
   const [gentab, setGentab] = useState<CodingGenTabData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [wasFixed, setWasFixed] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   // Refinement: when set, the next generation run uses these instead of starting fresh
   const pendingMetaRef = useRef<SabrinaPendingGenTabMetadata | null>(null);
@@ -130,30 +128,57 @@ export function useCodingGenTabState(params: {
     progressRafRef.current = requestAnimationFrame(tick);
   }, []);
 
-  // Stage timer: advances UI stages while the IPC call runs in background
-  const stageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Fallback timer: if no real progress events arrive within 8s, show "reading" stage
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasReceivedProgressRef = useRef(false);
 
-  const startStageTimer = useCallback(() => {
-    let idx = 0;
-    const advance = () => {
-      if (idx >= STAGES.length) return;
-      const info = STAGES[idx];
-      setStageInfo(info);
-      animateProgress(info.progressPct);
-      idx++;
-      if (idx < STAGES.length) {
-        stageTimerRef.current = setTimeout(advance, STAGE_DURATIONS_MS[idx - 1]);
+  const startFallbackTimer = useCallback(() => {
+    hasReceivedProgressRef.current = false;
+    fallbackTimerRef.current = setTimeout(() => {
+      if (!hasReceivedProgressRef.current) {
+        const readingStage = STAGES.find((s) => s.stage === "reading") ?? IDLE_STAGE;
+        setStageInfo(readingStage);
+        animateProgress(readingStage.progressPct);
       }
-    };
-    advance();
+    }, 2_000);
   }, [animateProgress]);
 
-  const stopStageTimer = useCallback(() => {
-    if (stageTimerRef.current) {
-      clearTimeout(stageTimerRef.current);
-      stageTimerRef.current = null;
+  const stopFallbackTimer = useCallback(() => {
+    if (fallbackTimerRef.current) {
+      clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
     }
   }, []);
+
+  // Slow-crawl timer: during the coding stage (30-60s) the progress bar would
+  // otherwise sit motionless at 65%. We creep it toward 82% (just below the
+  // checking stage waypoint at 88%) so the user sees ongoing motion.
+  // The crawl uses asymptotic easing — it approaches 82% but never reaches it,
+  // which is honest: we don't know exactly how long coding will take.
+  const crawlTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopCrawl = useCallback(() => {
+    if (crawlTimerRef.current) {
+      clearInterval(crawlTimerRef.current);
+      crawlTimerRef.current = null;
+    }
+  }, []);
+
+  const startCrawl = useCallback(() => {
+    stopCrawl();
+    // Tick every 1.2s; move 3% of remaining distance toward the 82% cap each tick.
+    // From 65% this reaches ~75% after 30s and ~79% after 60s — noticeably moving
+    // without falsely promising completion.
+    const CRAWL_CAP = 82;
+    crawlTimerRef.current = setInterval(() => {
+      const curr = currentProgressRef.current;
+      if (curr >= CRAWL_CAP) {
+        stopCrawl();
+        return;
+      }
+      animateProgress(curr + (CRAWL_CAP - curr) * 0.03);
+    }, 1_200);
+  }, [animateProgress, stopCrawl]);
 
   // Main generation effect — fires on mount and on retry
   useEffect(() => {
@@ -161,10 +186,37 @@ export function useCodingGenTabState(params: {
 
     let cancelled = false;
 
+    // Subscribe to real progress events from main process
+    const stageMap: Record<string, CodingGenTabStage> = {
+      reading: "reading",
+      thinking: "thinking",
+      coding: "coding",
+      checking: "checking",
+    };
+
+    const unsubProgress = desktop.gentab.onCodingProgress?.((event: { genId: string; stage: string; label: string }) => {
+      if (event.genId !== genId || cancelled) return;
+      const mappedStage = stageMap[event.stage];
+      if (mappedStage) {
+        hasReceivedProgressRef.current = true;
+        // Stop crawl before jumping to the real next waypoint
+        stopCrawl();
+        const stageData = STAGES.find((s) => s.stage === mappedStage) ?? IDLE_STAGE;
+        setStageInfo({ ...stageData, sublabel: event.label || stageData.sublabel });
+        animateProgress(stageData.progressPct);
+        // During the long coding stage, creep the bar forward so it doesn't freeze
+        if (mappedStage === "coding") {
+          startCrawl();
+        }
+      }
+    });
+
     async function run() {
       if (!desktop) return;
-      setStatus("generating");
-      startStageTimer();
+      // If refinementTextRef is already set, this is a refine/fix pass — show different status
+      const isRefinePass = refinementTextRef.current.length > 0;
+      setStatus(isRefinePass ? "refining" : "generating");
+      startFallbackTimer();
 
       // Load pending metadata to know which tabs to reference
       let pendingMeta: SabrinaPendingGenTabMetadata | null = null;
@@ -174,7 +226,7 @@ export function useCodingGenTabState(params: {
           // Check if already generated (user navigated back to a done coding gentab)
           const existing = stateResult.gentab as unknown as CodingGenTabData | undefined;
           if (existing?.schemaVersion === "coding") {
-            stopStageTimer();
+            stopFallbackTimer();
             setGentab(existing);
             setStatus("done");
             animateProgress(100);
@@ -193,7 +245,7 @@ export function useCodingGenTabState(params: {
       const effectiveMeta = pendingMeta ?? pendingMetaRef.current;
 
       if (!effectiveMeta || !effectiveMeta.referenceTabIds?.length) {
-        stopStageTimer();
+        stopFallbackTimer();
         setError("找不到来源标签页，无法生成 GenTab");
         setStageInfo(buildErrorStage("找不到来源标签页，无法生成 GenTab"));
         setStatus("error");
@@ -218,7 +270,7 @@ export function useCodingGenTabState(params: {
       } catch (err) {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : String(err);
-        stopStageTimer();
+        stopFallbackTimer();
         setError(msg);
         setStageInfo(buildErrorStage(msg));
         setStatus("error");
@@ -226,7 +278,7 @@ export function useCodingGenTabState(params: {
       }
 
       if (cancelled) return;
-      stopStageTimer();
+      stopFallbackTimer();
 
       if (!result.success) {
         const msg = ("error" in result && result.error) ? result.error : "生成失败";
@@ -236,8 +288,10 @@ export function useCodingGenTabState(params: {
         return;
       }
 
+      stopCrawl();
       animateProgress(100);
       setGentab(result.gentab);
+      setWasFixed(result.wasFixed === true);
       setStatus("done");
       desktop.gentab.markGenerationCompleted(genId);
     }
@@ -246,11 +300,13 @@ export function useCodingGenTabState(params: {
 
     return () => {
       cancelled = true;
-      stopStageTimer();
+      unsubProgress?.();
+      stopFallbackTimer();
+      stopCrawl();
       if (progressRafRef.current) cancelAnimationFrame(progressRafRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [genId, desktop, startStageTimer, stopStageTimer, animateProgress, retryKey]);
+  }, [genId, desktop, startFallbackTimer, stopFallbackTimer, startCrawl, stopCrawl, animateProgress, retryKey]);
 
   const handleClose = useCallback(() => {
     onClose?.(genId);
@@ -261,6 +317,7 @@ export function useCodingGenTabState(params: {
     originalHtmlRef.current = "";
     setGentab(null);
     setError(null);
+    setWasFixed(false);
     setStatus("idle");
     setStageInfo(IDLE_STAGE);
     setProgressPct(0);
@@ -272,10 +329,13 @@ export function useCodingGenTabState(params: {
   const handleRefine = useCallback(
     (refinementText: string, currentHtml: string) => {
       if (!refinementText.trim()) return;
+      // Set refs BEFORE resetting status so run() can read isRefinePass correctly
       refinementTextRef.current = refinementText.trim();
       originalHtmlRef.current = currentHtml;
       setGentab(null);
       setError(null);
+      setWasFixed(false);
+      // Use "idle" so the useEffect fires; run() will detect refinementTextRef and set "refining"
       setStatus("idle");
       setStageInfo(IDLE_STAGE);
       setProgressPct(0);
@@ -291,6 +351,7 @@ export function useCodingGenTabState(params: {
     progressPct,
     gentab,
     error,
+    wasFixed,
     handleClose,
     handleRetry,
     handleRefine,
