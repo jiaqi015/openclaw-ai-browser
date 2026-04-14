@@ -19,6 +19,7 @@
  */
 
 import { getGenTabLanguageInstruction } from "../../shared/localization.mjs";
+import { extractJsonFromOutput } from "./GenTabGenerationService.mjs";
 
 // ---------------------------------------------------------------------------
 // Context rendering helpers (mirrors GenTabGenerationService patterns)
@@ -27,6 +28,17 @@ import { getGenTabLanguageInstruction } from "../../shared/localization.mjs";
 function sanitize(value, maxLen = 800) {
   const s = `${value ?? ""}`.trim();
   return s.length > maxLen ? `${s.slice(0, maxLen)}…[已截断，原文 ${s.length} 字符]` : s;
+}
+
+/** Strip fences + find boundaries + JSON.parse. Returns parsed object or null. */
+function parseJsonOutput(raw) {
+  const text = `${raw ?? ""}`.trim();
+  if (!text) return null;
+  try {
+    return JSON.parse(extractJsonFromOutput(text));
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -117,7 +129,6 @@ function renderContextBlock(ctx, index, customLabel) {
     `URL: ${sanitize(ctx.url ?? ctx.sourceUrl ?? "", 300)}`,
   ];
 
-  // Description — check multiple field locations tests and real-world contexts use
   const description =
     ctx.description ??
     ctx.og?.description ??
@@ -167,7 +178,8 @@ function renderContextBlock(ctx, index, customLabel) {
  * Injects today's date (zh-CN locale) and labels the first context as primary.
  */
 function buildContextSection(contexts) {
-  if (!contexts || contexts.length === 0) return "无网页内容";
+  const list = Array.isArray(contexts) ? contexts : [];
+  if (list.length === 0) return "无网页内容";
 
   const today = new Date().toLocaleDateString("zh-CN", {
     year: "numeric",
@@ -175,16 +187,15 @@ function buildContextSection(contexts) {
     day: "numeric",
     weekday: "long",
   });
-  const header = `> 当前日期：${today}\n`;
 
-  const blocks = contexts
+  const blocks = list
     .map((ctx, i) => {
       const label = i === 0 ? `### ⭐ 网页 1（主要来源）` : undefined;
       return renderContextBlock(ctx, i, label);
     })
     .join("\n\n---\n\n");
 
-  return header + "\n" + blocks;
+  return `> 当前日期：${today}\n\n${blocks}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -197,26 +208,44 @@ function buildContextSection(contexts) {
  */
 const TECH_SPEC = `## 技术规格
 
-- 输出：**单个完整 HTML 文件**，所有 CSS 和 JS 内联
-- CSS 方案：**原生 CSS**（CSS 自定义属性 + flex/grid），不要用 Tailwind CDN
-- 允许的外部资源（按需使用）：
-  - Chart.js: \`<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>\`
-  - Animate.css: \`<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>\`
-  - Alpine.js: \`<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>\`
-  - Google Fonts: \`<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">\`
-- 不允许：React、Vue、npm 依赖、外部 fetch 请求、localStorage 持久化
-- 所有数据硬编码在 HTML/JS 里
-- 深色主题：背景 \`#0d0d0d\` 或 \`#111111\`，文字用 rgba(255,255,255, 0.85/0.5/0.3) 三级层次
-- 行数建议 200–500 行，追求质量不追求量
-- 必须在 Chromium 里直接运行，无需构建步骤
+- 单个完整 HTML 文件，CSS 和 JS 全部内联
+- **禁止** Tailwind CDN、React、Vue、npm 依赖、fetch 请求、localStorage
+- 允许的 CDN（按需）：Chart.js, Animate.css, Alpine.js, Google Fonts
+- 200–400 行代码，Chromium 直接运行
+
+## CSS 起手式（必须使用）
+
+所有 HTML 文件的 <head> 必须包含以下 viewport meta 和 CSS 变量起手式，在此基础上自定义 --accent 颜色：
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #0d0d0d; --surface: #1a1a1a; --surface-2: #242424;
+    --border: rgba(255,255,255,0.08);
+    --text-1: rgba(255,255,255,0.9);
+    --text-2: rgba(255,255,255,0.5);
+    --text-3: rgba(255,255,255,0.3);
+    --accent: #818cf8;           /* 根据内容主题自定义这个颜色 */
+    --accent-glow: rgba(129,140,248,0.12);
+    --radius: 12px;
+    --font: 'Inter', -apple-system, system-ui, sans-serif;
+  }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text-1); font-family: var(--font); min-height: 100vh; }
+</style>
 
 ## 视觉调性
 
-- 深色玻璃感 UI，不是企业软件，是有设计意识的产品
-- 关键信息大字号突出（价格/核心数字用 2rem+ 或 font-weight: 700）
-- 至少一处 CSS transition 或 animation，让页面有生命感
-- 按钮和可交互元素要有明确的 :hover/:active 反馈
-- 文字层级清晰（primary rgba(255,255,255,0.9) / secondary 0.5 / muted 0.3）`;
+- 深色玻璃感，不是企业后台——有设计温度的产品
+- 关键数字用 2rem+ 或 font-weight:700 突出，seconday 用 --text-2，muted 用 --text-3
+- 至少一处 CSS transition 或 animation
+- 所有可交互元素必须有 :hover/:active 反馈
+- 页面首屏（不滚动时）必须有完整的核心内容，不能只有标题和大片空白
+
+## 错误兜底
+
+在 </body> 之前加入：
+<script>window.onerror=function(m,s,l){document.body.insertAdjacentHTML('beforeend','<div style="position:fixed;bottom:12px;left:12px;right:12px;padding:10px 14px;background:#2d1b1b;color:#f87171;border-radius:8px;font-size:12px;z-index:9999">⚠️ '+m+'</div>')}</script>`;
 
 // ---------------------------------------------------------------------------
 // Refinement prompt
@@ -239,7 +268,7 @@ export function buildCodingGenTabRefinementPrompt(
   assistantLocale = "zh-CN",
 ) {
   const normalizedRequest = sanitize(refinementText, 600);
-  const contextSection = buildContextSection(Array.isArray(contexts) ? contexts : []);
+  const contextSection = buildContextSection(contexts);
   const langInstruction = getGenTabLanguageInstruction(assistantLocale);
   const truncatedHtml = truncateHtml(originalHtml);
 
@@ -255,10 +284,11 @@ export function buildCodingGenTabRefinementPrompt(
 
 ## 规则
 
-1. **最小改动原则** — 只改用户要求改的部分，其余一律保留
-2. **风格冻结** — 保留原有的深色主题、字体、动画、交互逻辑
-3. **数据来源** — 如果修改需要补充数据，从下方"网页内容"里提取，不能捏造
-4. ${NO_PLACEHOLDER_RULE}
+1. **最小改动** — 只改用户要求的部分，其余保留
+2. **级联修复** — 如果改动导致 JS 变量引用断裂、CSS 选择器不匹配、或数据绑定断裂，必须一并修复
+3. **风格冻结** — 保留原有的深色主题、字体、动画、交互逻辑
+4. **数据来源** — 补充数据从"网页内容"提取，不能捏造
+5. ${NO_PLACEHOLDER_RULE}
 
 ---
 
@@ -310,7 +340,7 @@ ${contextSection}`;
  */
 export function buildCodingGenTabPlanPrompt(userIntent, contexts, assistantLocale = "zh-CN") {
   const normalizedIntent = sanitize(userIntent, 600) || "帮我用好这些网页";
-  const contextSection = buildContextSection(Array.isArray(contexts) ? contexts : []);
+  const contextSection = buildContextSection(contexts);
   const langInstruction = getGenTabLanguageInstruction(assistantLocale);
 
   return `${JSON_OUTPUT_CONSTRAINT}
@@ -325,32 +355,46 @@ export function buildCodingGenTabPlanPrompt(userIntent, contexts, assistantLocal
 
 ## 你的任务
 
-用 2-3 秒思考：这件事最有表达力的形式是什么？选定一个主要交互。
+先判断数据本质属于哪一类，再选形式：
 
-几个参考方向（不是强制，是启发）：
-- 三个商品比价 → 三张对决卡片 + 「帮我选」按钮，按下后动画宣告胜者
-- 一篇长文要点 → 可以翻转/展开的知识卡片组
-- 行程计划 → 有真实城市感的"旅程地图"时间轴
-- 技术文档 → 可以交互演示的功能清单，带状态切换
-- 新闻摘要 → 仿真的「今日版面」，有大小标题层级感
+| 数据类型 | 特征 | 推荐形式 | 主交互 |
+|---------|------|---------|-------|
+| 对比型 | 2-5 个同类实体（商品、方案、选项） | 卡片对决 / 并排擂台 | 「帮我选」按钮，动画宣告胜者 |
+| 时序型 | 有时间线、步骤、流程、日程 | 横向时间轴 / 进度条 | 点击节点展开详情 |
+| 层级型 | 有分类、标签、多维属性 | 可翻转/折叠的卡片组 | 翻转、展开、切换标签 |
+| 单体型 | 一个主体的详细规格（一个产品、一家餐厅） | 仪表盘 / 大数字英雄区 | 切换维度或数据视图 |
+| 列表型 | 10+ 同质条目（新闻、搜索结果、评论） | 可搜索/可过滤的卡片流 | 实时搜索或标签过滤 |
+| 叙事型 | 长文要点、知识总结、教程 | 知识卡片组 / 报纸版面 | 翻转展开、分页浏览 |
+
+1. 从网页内容判断数据类型
+2. 从上表选一个形式（或组合，但主交互只能有一个）
+3. 用一句话描述：控件 + 交互动作 + 视觉结果
+
+**不合格的 design（直接被系统拒绝）：**
+- "展示信息" / "可视化数据" / "交互式页面"（无法编码）
+- "让用户能够……"（说功能不说形态）
+- 缺少三要素中的任何一个（控件名称、交互动作、视觉结果）
 
 ---
 
 ## 输出格式
 
-直接输出 JSON 对象，字段说明：
-- \`title\`: GenTab 标题（简短有力，不带 GenTab 字样）
-- \`design\`: **必须具体** — 点名用了什么控件/布局，主要交互是什么
-  - ✅ 好例子："三张对决卡片 + 「帮我选」按钮，按下后放大胜者并弱化败者"
-  - ✅ 好例子："可横向滑动的时间轴，每个节点点击后展开详情卡片"
-  - ❌ 坏例子："展示信息" / "可视化数据" / "交互式页面"（过于抽象）
-- \`keyData\`: 从网页里提取的关键数据点（具体数值，如价格、规格、日期）
+直接输出 JSON 对象：
 
 {
-  "title": "...",
-  "design": "...",
-  "keyData": ["¥12999", "24GB 内存", "2024-03-15"]
+  "title": "GPU 擂台赛",
+  "design": "三张对决卡片横排，底部一个「帮我选」按钮，点击后胜者放大+发光、败者半透明缩小",
+  "layout": "header(标题) → cards-row(3张卡片 flex) → action-bar(按钮居中) → result-zone(胜者展示)",
+  "accent": "#818cf8",
+  "keyData": ["¥12999", "24GB", "450W"]
 }
+
+字段说明：
+- \`title\`: 简短有力，不带 GenTab 字样
+- \`design\`: 控件 + 交互动作 + 视觉结果，缺一不可
+- \`layout\`: 从上到下的布局骨架，用 → 连接区块，括号内写区块内容
+- \`accent\`: 推荐的主题强调色（hex），根据内容氛围选
+- \`keyData\`: 3-5 个最关键的数值（价格优先、规格次之）
 
 ${langInstruction}
 
@@ -365,28 +409,18 @@ ${contextSection}`;
  * Parse the planner's response. Returns { title, design, keyData } or null.
  */
 export function normalizeCodingGenTabPlan(rawText) {
-  const text = `${rawText ?? ""}`.trim();
-  if (!text) return null;
-  try {
-    const stripped = text
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```\s*$/, "")
-      .trim();
-    const start = stripped.indexOf("{");
-    const end = stripped.lastIndexOf("}");
-    if (start < 0 || end <= start) return null;
-    const parsed = JSON.parse(stripped.slice(start, end + 1));
-    if (!parsed.design || typeof parsed.design !== "string" || !parsed.design.trim()) return null;
-    return {
-      title: sanitize(parsed.title ?? "", 120),
-      design: sanitize(parsed.design, 400),
-      keyData: Array.isArray(parsed.keyData)
-        ? parsed.keyData.map((s) => sanitize(String(s ?? ""), 100)).filter(Boolean)
-        : [],
-    };
-  } catch {
-    return null;
-  }
+  const parsed = parseJsonOutput(rawText);
+  if (!parsed) return null;
+  if (!parsed.design || typeof parsed.design !== "string" || !parsed.design.trim()) return null;
+  return {
+    title: sanitize(parsed.title ?? "", 120),
+    design: sanitize(parsed.design, 400),
+    layout: sanitize(parsed.layout ?? "", 300),
+    accent: /^#[0-9a-f]{3,8}$/i.test(`${parsed.accent ?? ""}`.trim()) ? parsed.accent.trim() : "",
+    keyData: Array.isArray(parsed.keyData)
+      ? parsed.keyData.map((s) => sanitize(String(s ?? ""), 100)).filter(Boolean)
+      : [],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -405,11 +439,9 @@ export function normalizeCodingGenTabPlan(rawText) {
  */
 export function buildCodingGenTabPrompt(userIntent, contexts, assistantLocale = "zh-CN", plan = null) {
   const normalizedIntent = sanitize(userIntent, 600) || "帮我用好这些网页";
-  const contextSection = buildContextSection(Array.isArray(contexts) ? contexts : []);
+  const contextSection = buildContextSection(contexts);
   const langInstruction = getGenTabLanguageInstruction(assistantLocale);
 
-  // When a plan exists, use a focused implementation prompt — no creative thinking needed.
-  // This is shorter, faster, and produces better output because the design is already decided.
   if (plan) {
     return buildCodingGenTabFromPlanPrompt(plan, normalizedIntent, contextSection, langInstruction);
   }
@@ -425,30 +457,28 @@ export function buildCodingGenTabPrompt(userIntent, contexts, assistantLocale = 
 
 ---
 
-## 创作思路（必读）
+## 创作方法
 
-**第一步：想清楚这件事的"形"**
+**第一步：判断数据类型 → 选形式**
 
-在写任何代码之前，先想：这些数据的本质是什么？最有表达力的形式是什么？
+| 数据类型 | 推荐形式 | 主交互 |
+|---------|---------|-------|
+| 对比型（2-5 个同类） | 卡片对决 / 擂台 | 「帮我选」动画宣告胜者 |
+| 时序型（步骤/日程） | 横向时间轴 | 点击节点展开 |
+| 层级型（分类/多维） | 可翻转/折叠卡片组 | 翻转、切换标签 |
+| 单体型（一个主体） | 仪表盘 / 英雄区 | 切换维度 |
+| 列表型（10+ 条目） | 可搜索卡片流 | 实时搜索或过滤 |
+| 叙事型（长文要点） | 知识卡片 / 报纸版面 | 翻转展开 |
 
-几个参考方向（不是强制，是启发）：
-- 三个商品比价 → 不是三列表格，是一场"决斗"——三个选手卡片，一个「帮我选」按钮按下去用动画宣布胜者
-- 一篇长文要点 → 不是 bullet list，是一张可以翻转/展开的知识卡片组
-- 行程计划 → 不是日程表，是一张有真实城市感的"旅程地图"时间轴
-- 技术文档 → 不是摘要段落，是可以交互演示的功能清单，带状态切换
-- 新闻摘要 → 不是标题列表，是一张仿真的「今日版面」，有大小标题层级感
+**第二步：一个主交互，只有一个**
 
-**第二步：选定一个主要交互**
+用户打开就知道能做什么。**禁止**同页面多个独立控件组、隐藏菜单、多张不相关数据表。200–400 行代码。
 
-一张 GenTab 只有一个"玩法"。用户打开就知道能做什么：
-- 一个大按钮（「帮我选」「开始对比」「查看答案」）
-- 一组可以点击/翻转/拖拽的卡片
-- 一个实时过滤/搜索框
-- 一个可以拖动的对比拉杆
+**第三步：真实数据**
 
-**第三步：用真实数据**
+所有数据从网页内容提取。${NO_PLACEHOLDER_RULE}
 
-所有具体数据（价格、名称、日期、规格、引语）都从我给你的网页内容里提取。${NO_PLACEHOLDER_RULE}这张 GenTab 打开就是真实可用的。
+如果数据量不足以支撑选定的设计，缩减设计适配数据（3 个产品就做 3 张卡片，不要凑 12 张）。
 
 ---
 
@@ -497,6 +527,8 @@ function buildCodingGenTabFromPlanPrompt(plan, normalizedIntent, contextSection,
   const keyDataLine = plan.keyData?.length
     ? plan.keyData.join(" / ")
     : "（从网页内容中提取）";
+  // Escape quotes so plan.title (untrusted LLM output) can't corrupt the prompt JSON example
+  const safeTitle = (plan.title || normalizedIntent).replace(/"/g, '\\"').replace(/`/g, "\\`");
 
   return `${JSON_OUTPUT_CONSTRAINT}
 
@@ -506,11 +538,11 @@ function buildCodingGenTabFromPlanPrompt(plan, normalizedIntent, contextSection,
 
 ## 任务
 
-标题：${plan.title || normalizedIntent}
-形态与交互：**${plan.design}**
+标题：${safeTitle}
+形态与交互：**${plan.design}**${plan.layout ? `\n布局骨架：\`${plan.layout}\`` : ""}${plan.accent ? `\n主题色：\`--accent: ${plan.accent}\`` : ""}
 关键数据：${keyDataLine}
 
-直接写代码，不要重新考虑设计。严格按照上面的形态实现，不要改方向。
+严格按照上面的形态和布局实现，不要改方向。
 
 ---
 
@@ -532,14 +564,14 @@ ${TECH_SPEC}
 
 直接输出 JSON 对象，字段说明：
 - \`success\`: 固定为 true
-- \`title\`: "${plan.title || normalizedIntent}"
+- \`title\`: "${safeTitle}"
 - \`intent\`: 一句话描述这张页面在帮用户做什么
 - \`designChoice\`: 实现了什么交互（一两句话，设计师视角）
 - \`html\`: 完整的 HTML 字符串，所有双引号用 \\" 转义，所有换行用 \\n
 
 {
   "success": true,
-  "title": "${plan.title || normalizedIntent}",
+  "title": "${safeTitle}",
   "intent": "...",
   "designChoice": "...",
   "html": "..."
@@ -566,27 +598,7 @@ export function normalizeCodingGenTabResult(rawText, { sourceTabIds, userIntent 
   const text = `${rawText ?? ""}`.trim();
   if (!text) return null;
 
-  // Try JSON extraction (reuses same logic as extractJsonFromOutput)
-  let parsed = null;
-  try {
-    // Remove markdown code fences if present
-    const stripped = text
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```\s*$/, "")
-      .trim();
-    // Find first { and last } to handle surrounding text
-    const start = stripped.indexOf("{");
-    const end = stripped.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      parsed = JSON.parse(stripped.slice(start, end + 1));
-    } else {
-      // No JSON object found at all — try direct HTML rescue
-      parsed = rescueHtmlFromFreeformOutput(text);
-    }
-  } catch {
-    // JSON parse failed — try to rescue HTML if agent went rogue
-    parsed = rescueHtmlFromFreeformOutput(text);
-  }
+  const parsed = parseJsonOutput(text) ?? rescueHtmlFromFreeformOutput(text);
 
   if (!parsed) return null;
   if (parsed.success === false) {
@@ -638,7 +650,7 @@ export function normalizeCodingGenTabResult(rawText, { sourceTabIds, userIntent 
  * @param {object|null} plan       — the plan from the planning turn (if available)
  */
 export function buildCodingGenTabVerifyPrompt(generatedHtml, contexts, assistantLocale = "zh-CN", plan = null) {
-  const contextSection = buildContextSection(Array.isArray(contexts) ? contexts : []);
+  const contextSection = buildContextSection(contexts);
   const langInstruction = getGenTabLanguageInstruction(assistantLocale);
   const truncatedHtml = truncateHtml(generatedHtml);
 
@@ -662,11 +674,13 @@ export function buildCodingGenTabVerifyPrompt(generatedHtml, contexts, assistant
 
 逐条检查以下要点，把发现的问题列出来：
 
-1. **数据准确** — 页面里出现的每一个具体数据（价格、名称、日期、规格、引语）必须能在"原始网页内容"里找到依据。如果有捏造数据，把它改成正确的或去掉。
-2. **交互可用** — 所有可点击元素（按钮、卡片、拖动条）必须绑定了有效的事件处理函数，点击后有可见反应。
-3. **无占位符** — 不允许出现 TODO、[INSERT]、"示例"、"sample"、"placeholder" 等字眼。把它们替换成真实内容或删除。
-4. **JS 无明显错误** — 检查是否有未定义变量、语法明显错误、或空函数体（function () {}）影响交互的情况。
+1. **数据准确** — 每一个具体数据（价格、名称、日期、规格）必须能在"原始网页内容"里找到依据。捏造的数据改正或去掉。
+2. **交互可用** — 所有可点击元素必须绑定有效事件处理函数，点击后有可见反应。空函数体 \`function(){}\` 视为不可用。
+3. **无占位符** — 不允许出现 TODO、[INSERT]、"示例"、"sample"、"placeholder"。替换为真实内容或删除。
+4. **JS 无错** — 未定义变量、语法错误、空函数体。
 ${planCheck}
+6. **首屏完整** — 不滚动时能看到核心内容（标题+主要数据+主交互），不能只有标题和大片空白。
+7. **CSS 起手式** — 必须有 viewport meta 和 :root 变量（--bg, --text-1 等），必须有 onerror 兜底脚本。缺失则补上。
 
 **第二步：根据诊断输出 JSON**
 
@@ -677,19 +691,26 @@ ${planCheck}
 
 ## 输出格式
 
-先写 \`<analysis>\` 诊断块（会被系统自动剥离），再紧跟 JSON：
+**必须**先写 \`<analysis>\` 诊断块（系统自动剥离，不占用输出），再紧跟 JSON。
+即使全部通过也必须写，空 analysis 块不可接受。
 
 <analysis>
-[逐条写检查结论，发现的问题和修复计划]
+1 数据准确：[结论]
+2 交互可用：[结论]
+3 无占位符：[结论]
+4 JS 无错：[结论]
+${planCheck ? `5 方案符合：[结论]\n` : ""}6 首屏完整：[结论]
+7 CSS 起手式：[结论]
+问题清单：[逐条列出，或"无"]
 </analysis>
 
-情况 A — 没有问题：
+情况 A — 全部通过：
 {"ok": true}
 
 情况 B — 发现问题并已修复：
 {
   "ok": false,
-  "fixes": ["修复了什么（一句话）"],
+  "fixes": ["修复描述，每条一句话，如：价格 ¥999 改正为网页中的 ¥1299"],
   "html": "完整的修复后 HTML 字符串，所有双引号用 \\" 转义，所有换行用 \\n"
 }
 
@@ -721,27 +742,16 @@ ${contextSection}`;
 export function normalizeCodingGenTabVerifyResult(rawText) {
   const text = `${rawText ?? ""}`.trim();
   if (!text) return null;
-  try {
-    // Strip <analysis>...</analysis> scratchpad before JSON parsing
-    const withoutAnalysis = text.replace(/<analysis>[\s\S]*?<\/analysis>/gi, "").trim();
-
-    const stripped = withoutAnalysis
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```\s*$/, "")
-      .trim();
-    const start = stripped.indexOf("{");
-    const end = stripped.lastIndexOf("}");
-    if (start < 0 || end <= start) return null;
-    const parsed = JSON.parse(stripped.slice(start, end + 1));
-    if (parsed.ok === true) return { ok: true };
-    if (parsed.ok === false && typeof parsed.html === "string" && parsed.html.length > 100) {
-      return { ok: false, html: parsed.html };
-    }
-    // ok:false but no usable html → treat as pass (don't break the user experience)
-    return { ok: true };
-  } catch {
-    return null;
+  // Strip <analysis>...</analysis> scratchpad before JSON parsing
+  const withoutAnalysis = text.replace(/<analysis>[\s\S]*?<\/analysis>/gi, "").trim();
+  const parsed = parseJsonOutput(withoutAnalysis);
+  if (!parsed) return null;
+  if (parsed.ok === true) return { ok: true };
+  if (parsed.ok === false && typeof parsed.html === "string" && parsed.html.length > 100) {
+    return { ok: false, html: parsed.html };
   }
+  // ok:false but no usable html → treat as pass (don't break the user experience)
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------
