@@ -16,3 +16,8 @@ coverage/
 openclaw-state.json
 turn-journal.json
 thread-state.json
+gentab-state.json
+
+# Logs and scratch
+logs/
+scratch/
