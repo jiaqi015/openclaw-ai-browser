@@ -24,10 +24,13 @@ function normalizeOpenClawDriver(value, transportHint = "local", context = {}) {
   if (normalizeSshTarget(context?.sshTarget)) {
     return "ssh-cli";
   }
+  if (normalizeEndpointUrl(context?.endpointUrl)) {
+    return "endpoint";
+  }
   if (normalizeRelayUrl(context?.relayUrl) || normalizeConnectCode(context?.connectCode)) {
     return "relay-paired";
   }
-  return "relay-paired";
+  return "endpoint";
 }
 
 function normalizeSshTarget(value) {
@@ -61,6 +64,22 @@ function normalizeOpenClawAgentId(value) {
   return normalized || null;
 }
 
+function normalizeEndpointUrl(value) {
+  const normalized = `${value ?? ""}`.trim();
+  if (!normalized) return null;
+  try {
+    const url = new URL(normalized);
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeAccessToken(value) {
+  const normalized = `${value ?? ""}`.trim();
+  return normalized || null;
+}
+
 let transportContext = Object.freeze({
   transport: "local",
   driver: "local-cli",
@@ -72,6 +91,8 @@ let transportContext = Object.freeze({
   connectCode: null,
   label: null,
   agentId: null,
+  endpointUrl: null,
+  accessToken: null,
 });
 
 export function getOpenClawTransportContext() {
@@ -105,6 +126,8 @@ export function setOpenClawTransportContext(nextContext = {}) {
     connectCode: normalizeConnectCode(nextContext.connectCode ?? transportContext.connectCode),
     label: normalizeOpenClawLabel(nextContext.label ?? transportContext.label),
     agentId: normalizeOpenClawAgentId(nextContext.agentId ?? transportContext.agentId),
+    endpointUrl: normalizeEndpointUrl(nextContext.endpointUrl ?? transportContext.endpointUrl),
+    accessToken: normalizeAccessToken(nextContext.accessToken ?? transportContext.accessToken),
   });
   return getOpenClawTransportContext();
 }
@@ -183,6 +206,11 @@ export function getOpenClawTransportLabel(context = transportContext) {
     return sshTarget;
   }
 
+  const endpointUrl = normalizeEndpointUrl(context?.endpointUrl);
+  if (endpointUrl) {
+    return endpointUrl;
+  }
+
   const relayUrl = normalizeRelayUrl(context?.relayUrl);
   if (relayUrl) {
     return relayUrl;
@@ -209,6 +237,9 @@ export function getOpenClawRemoteTargetRef(context = transportContext) {
   }
   if (driver === "relay-paired") {
     return normalizeRelayUrl(context?.relayUrl);
+  }
+  if (driver === "endpoint") {
+    return normalizeEndpointUrl(context?.endpointUrl);
   }
   return null;
 }

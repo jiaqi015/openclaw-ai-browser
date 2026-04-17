@@ -1,0 +1,10 @@
+{
+  "taskId": "agent-task-vjzkt8p9",
+  "archivedAt": "2026-04-14T15:10:02.602Z",
+  "status": "error",
+  "userTask": "搜索贝壳新闻",
+  "journal": [],
+  "error": "页面元素列表为空，无法执行搜索操作。Bing搜索主页可能正在加载中，请等待页面完全加载后再试。",
+  "createdAt": 1776179345409,
+  "updatedAt": 1776179402602
+}

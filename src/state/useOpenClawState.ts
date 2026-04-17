@@ -235,9 +235,11 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     target?: "local" | "remote";
     profile?: string;
     stateDir?: string;
-    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    driver?: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
     sshTarget?: string;
     sshPort?: number;
+    endpointUrl?: string;
+    accessToken?: string;
     relayUrl?: string;
     connectCode?: string;
     label?: string;
@@ -252,6 +254,8 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
       params?.target ??
       ((params?.driver && params.driver !== "local-cli") ||
       params?.sshTarget ||
+      params?.endpointUrl ||
+      params?.accessToken ||
       params?.relayUrl ||
       params?.connectCode
         ? "remote"
@@ -263,6 +267,8 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
       driver: params?.driver,
       sshTarget: params?.sshTarget,
       sshPort: params?.sshPort,
+      endpointUrl: params?.endpointUrl,
+      accessToken: params?.accessToken,
       relayUrl: params?.relayUrl,
       connectCode: params?.connectCode,
       label: params?.label,
@@ -276,9 +282,11 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     target?: "local" | "remote";
     profile?: string;
     stateDir?: string;
-    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    driver?: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
     sshTarget?: string;
     sshPort?: number;
+    endpointUrl?: string;
+    accessToken?: string;
     relayUrl?: string;
     connectCode?: string;
     label?: string;
@@ -294,6 +302,8 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
         params?.target ??
         ((params?.driver && params.driver !== "local-cli") ||
         params?.sshTarget ||
+        params?.endpointUrl ||
+        params?.accessToken ||
         params?.relayUrl ||
         params?.connectCode
           ? "remote"
@@ -303,6 +313,8 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
       driver: params?.driver,
       sshTarget: params?.sshTarget,
       sshPort: params?.sshPort,
+      endpointUrl: params?.endpointUrl,
+      accessToken: params?.accessToken,
       relayUrl: params?.relayUrl,
       connectCode: params?.connectCode,
       label: params?.label,
@@ -316,9 +328,11 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     target?: "local" | "remote";
     profile?: string;
     stateDir?: string;
-    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    driver?: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
     sshTarget?: string;
     sshPort?: number;
+    endpointUrl?: string;
+    accessToken?: string;
     relayUrl?: string;
     connectCode?: string;
     label?: string;
@@ -336,6 +350,8 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
       driver: params?.driver,
       sshTarget: params?.sshTarget,
       sshPort: params?.sshPort,
+      endpointUrl: params?.endpointUrl,
+      accessToken: params?.accessToken,
       relayUrl: params?.relayUrl,
       connectCode: params?.connectCode,
       label: params?.label,
@@ -349,9 +365,11 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     target?: "local" | "remote";
     profile?: string;
     stateDir?: string;
-    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    driver?: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
     sshTarget?: string;
     sshPort?: number;
+    endpointUrl?: string;
+    accessToken?: string;
     relayUrl?: string;
     connectCode?: string;
     label?: string;
@@ -369,6 +387,8 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
       driver: params?.driver,
       sshTarget: params?.sshTarget,
       sshPort: params?.sshPort,
+      endpointUrl: params?.endpointUrl,
+      accessToken: params?.accessToken,
       relayUrl: params?.relayUrl,
       connectCode: params?.connectCode,
       label: params?.label,
@@ -384,9 +404,11 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
     target?: "local" | "remote";
     profile?: string;
     stateDir?: string;
-    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    driver?: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
     sshTarget?: string;
     sshPort?: number;
+    endpointUrl?: string;
+    accessToken?: string;
     relayUrl?: string;
     connectCode?: string;
     label?: string;
@@ -431,7 +453,11 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
       throw new Error("未找到已保存的 OpenClaw 目标。");
     }
 
-    await selectSavedConnection(savedConnectionId);
+    const nextState = await selectSavedConnection(savedConnectionId);
+    if (savedConnection.driver === "relay-paired" && !savedConnection.connectCode) {
+      return nextState;
+    }
+
     return connectOpenClaw({
       target: savedConnection.transport,
       profile: savedConnection.profile ?? undefined,
@@ -439,6 +465,8 @@ export function useOpenClawState(desktop?: SabrinaDesktop) {
       driver: savedConnection.driver,
       sshTarget: savedConnection.sshTarget ?? undefined,
       sshPort: savedConnection.sshPort ?? undefined,
+      endpointUrl: savedConnection.endpointUrl ?? undefined,
+      accessToken: savedConnection.accessToken ?? undefined,
       relayUrl: savedConnection.relayUrl ?? undefined,
       connectCode: savedConnection.connectCode ?? undefined,
       label: savedConnection.label ?? savedConnection.name,

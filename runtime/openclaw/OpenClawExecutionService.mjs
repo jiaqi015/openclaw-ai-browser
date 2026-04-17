@@ -34,7 +34,7 @@ async function resolveAgentId(params, deps) {
   return deps.resolveDefaultAgentId();
 }
 
-export async function runLocalAgentTurn(params, deps) {
+export async function runLocalAgentTurn(params, deps, options = {}) {
   const agentId = await resolveAgentId(params, deps);
   const message = typeof params?.message === "string" ? params.message.trim() : "";
   const thinking =
@@ -62,8 +62,10 @@ export async function runLocalAgentTurn(params, deps) {
         message,
         thinking,
         timeoutMs: 1000 * 60 * 5,
+        signal: options?.signal,
       },
       timeoutMs: 1000 * 60 * 5,
+      signal: options?.signal,
       pollIntervalMs: 300,
     });
     return {
@@ -85,6 +87,7 @@ export async function runLocalAgentTurn(params, deps) {
   const payload = await execOpenClawJson(command, {
     timeout: 1000 * 60 * 5,
     maxBuffer: 1024 * 1024 * 2,
+    signal: options?.signal,
   });
   const result = payload?.result ?? {};
   const text = (Array.isArray(result.payloads) ? result.payloads : [])
@@ -102,7 +105,7 @@ export async function runLocalAgentTurn(params, deps) {
   };
 }
 
-export async function runLocalSkillTurn(params, deps) {
+export async function runLocalSkillTurn(params, deps, options = {}) {
   const requestedAt = new Date().toISOString();
   const requestId = createSkillRequestId();
   const baseSessionId =

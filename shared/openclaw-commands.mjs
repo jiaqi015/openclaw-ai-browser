@@ -9,6 +9,16 @@ function quoteIfNeeded(value) {
 
 export function buildSabrinaRemoteConnectCommand(config = {}) {
   const driver = `${config?.driver ?? ""}`.trim() || "relay-paired";
+  if (driver === "endpoint") {
+    const endpointUrl = `${config?.endpointUrl ?? ""}`.trim() || "<url>";
+    const accessToken = `${config?.accessToken ?? ""}`.trim() || "<token>";
+    return [
+      "openclaw",
+      `--endpoint ${quoteIfNeeded(endpointUrl)}`,
+      `--token ${quoteIfNeeded(accessToken)}`,
+      "gateway status --json",
+    ].join(" ");
+  }
   if (driver === "relay-paired") {
     const relayUrl = `${config?.relayUrl ?? ""}`.trim() || "<url>";
     const connectCode = `${config?.connectCode ?? ""}`.trim() || "<code>";

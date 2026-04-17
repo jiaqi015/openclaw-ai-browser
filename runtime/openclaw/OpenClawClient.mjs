@@ -32,14 +32,22 @@ function parseCliJson(stdout) {
       .filter(Boolean);
     const jsonStartIndex = lines.findIndex((line) => {
       const normalized = line.trimStart();
-      return (
-        normalized.startsWith("{") ||
-        (normalized.startsWith("[") && !normalized.startsWith("[plugins]"))
-      );
+      if (normalized.startsWith("{")) {
+        return true;
+      }
+      if (normalized.startsWith("[")) {
+        // Skip log categories like [agents], [plugins], [gateway]
+        return !/^\[[a-zA-Z0-9_\-]+\]/.test(normalized);
+      }
+      return false;
     });
 
     if (jsonStartIndex >= 0) {
-      return JSON.parse(lines.slice(jsonStartIndex).join("\n"));
+      try {
+        return JSON.parse(lines.slice(jsonStartIndex).join("\n"));
+      } catch {
+        // fall through to error
+      }
     }
 
     throw new Error("OpenClaw CLI 返回了无法解析的 JSON。");
@@ -54,7 +62,14 @@ function getTransportProbeCacheKey(context) {
   if (!isOpenClawRemoteTransportContext(context)) {
     return "local-cli";
   }
-  return `${getOpenClawDriverId(context)}:${getOpenClawRemoteTargetRef(context) ?? ""}:${context?.sshPort ?? ""}:${context?.connectCode ?? ""}:${context?.label ?? ""}`;
+  return [
+    getOpenClawDriverId(context),
+    getOpenClawRemoteTargetRef(context) ?? "",
+    context?.sshPort ?? "",
+    context?.connectCode ?? "",
+    context?.accessToken ?? "",
+    context?.label ?? "",
+  ].join(":");
 }
 
 function buildOpenClawInvocation(args, options = {}, context = getOpenClawTransportContext()) {
@@ -74,6 +89,7 @@ export async function execOpenClawJson(args, options = {}) {
   const commandOptions = {
     timeout,
     maxBuffer,
+    signal: options.signal,
   };
 
   while (attempt <= retries) {
@@ -110,6 +126,7 @@ export async function execOpenClawCommand(args, options = {}) {
     {
       timeout,
       maxBuffer,
+      signal: options.signal,
     },
     context,
   );

@@ -57,6 +57,9 @@ const CONNECT_GUIDE_URL =
   "https://github.com/jiaqi015/openclaw-ai-browser/blob/main/docs/CONNECT_OPENCLAW.md";
 
 function getSavedConnectionHeadline(savedConnection: SabrinaOpenClawSavedConnection) {
+  if (savedConnection.driver === "endpoint" && savedConnection.endpointUrl) {
+    return savedConnection.endpointUrl;
+  }
   if (savedConnection.driver === "relay-paired" && savedConnection.relayUrl) {
     return savedConnection.relayUrl;
   }
@@ -141,11 +144,13 @@ export function OpenClawSettingsSurface(props: {
     target?: "local" | "remote";
     profile?: string;
     stateDir?: string;
-    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    driver?: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
     sshTarget?: string;
     sshPort?: number;
     relayUrl?: string;
+    endpointUrl?: string;
     connectCode?: string;
+    accessToken?: string;
     label?: string;
     agentId?: string;
   }) => void;
@@ -154,11 +159,13 @@ export function OpenClawSettingsSurface(props: {
     target?: "local" | "remote";
     profile?: string;
     stateDir?: string;
-    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    driver?: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
     sshTarget?: string;
     sshPort?: number;
     relayUrl?: string;
+    endpointUrl?: string;
     connectCode?: string;
+    accessToken?: string;
     label?: string;
     agentId?: string;
   }) => void;
@@ -166,11 +173,13 @@ export function OpenClawSettingsSurface(props: {
     target?: "local" | "remote";
     profile?: string;
     stateDir?: string;
-    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    driver?: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
     sshTarget?: string;
     sshPort?: number;
     relayUrl?: string;
+    endpointUrl?: string;
     connectCode?: string;
+    accessToken?: string;
     label?: string;
     agentId?: string;
   }) => Promise<SabrinaOpenClawConnectionProbeResult | null> | SabrinaOpenClawConnectionProbeResult | null;
@@ -188,11 +197,13 @@ export function OpenClawSettingsSurface(props: {
     target?: "local" | "remote";
     profile?: string;
     stateDir?: string;
-    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    driver?: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
     sshTarget?: string;
     sshPort?: number;
     relayUrl?: string;
+    endpointUrl?: string;
     connectCode?: string;
+    accessToken?: string;
     label?: string;
     agentId?: string;
     markActive?: boolean;
@@ -247,10 +258,11 @@ export function OpenClawSettingsSurface(props: {
   } = useUiPreferences();
   const legacyTargetLabel =
     connectionConfig.sshTarget || connectionConfig.label || connectionState?.transportLabel || "";
-  const getSavedConnectionMethodLabel = (savedConnection: SabrinaOpenClawSavedConnection) =>
-    savedConnection.driver === "relay-paired"
-      ? t("openclaw.savedConnections.method.relay")
-      : t("openclaw.savedConnections.method.legacySsh");
+  const getSavedConnectionMethodLabel = (savedConnection: SabrinaOpenClawSavedConnection) => {
+    if (savedConnection.driver === "endpoint") return t("openclaw.savedConnections.method.endpoint");
+    if (savedConnection.driver === "relay-paired") return t("openclaw.savedConnections.method.relay");
+    return t("openclaw.savedConnections.method.legacySsh");
+  };
   const remoteContract = connectionState?.remoteSessionContract ?? null;
   const skillSummary = skillCatalog?.summary ?? null;
   const doctorWarnings = (doctorReport?.checks ?? []).filter(
@@ -324,6 +336,17 @@ export function OpenClawSettingsSurface(props: {
                       {t("openclaw.recheck")}
                     </button>
                     <button
+                      type="button"
+                      onClick={() =>
+                        onSelectBindingTarget(bindingSetupState.target === "remote" ? "local" : "remote")
+                      }
+                      className="surface-button-system rounded-xl border px-4 py-2 text-sm font-medium text-white/72 transition-colors"
+                    >
+                      {bindingSetupState.target === "remote"
+                        ? t("binding.default.remote.secondary")
+                        : t("binding.default.local.secondary")}
+                    </button>
+                    <button
                       onClick={() => onDisconnectOpenClaw(bindingSetupState.target ?? "local")}
                       className="surface-button-system flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors"
                     >
@@ -332,13 +355,22 @@ export function OpenClawSettingsSurface(props: {
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => onBeginBindingSetup("local")}
-                    className="surface-button-system flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors"
-                  >
-                    <Link className="h-4 w-4" />
-                    {t("openclaw.startConnect")}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => onBeginBindingSetup("local")}
+                      className="surface-button-system flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors"
+                    >
+                      <Link className="h-4 w-4" />
+                      {t("openclaw.startConnect")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSelectBindingTarget("remote")}
+                      className="surface-button-system rounded-xl border px-4 py-2 text-sm font-medium text-white/72 transition-colors"
+                    >
+                      {t("binding.default.local.secondary")}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -407,11 +439,9 @@ export function OpenClawSettingsSurface(props: {
             onGetRelayPairingState={onGetRelayPairingState}
             onPrimaryAction={() => onBeginBindingSetup(bindingSetupState.target ?? "local")}
             onSecondaryAction={
-              lobsterStatus === "connected"
-                ? () => onDisconnectOpenClaw(bindingSetupState.target ?? "local")
-                : bindingSetupState.target === "remote"
+              bindingSetupState.target === "remote"
                 ? () => onSelectBindingTarget("local")
-                : undefined
+                : () => onSelectBindingTarget("remote")
             }
           />
 
@@ -517,7 +547,9 @@ export function OpenClawSettingsSurface(props: {
             )}
           </div>
 
-          {connectionState?.transport === "remote" && connectionState?.commandHint ? (
+          {connectionState?.transport === "remote" &&
+          connectionState?.commandHint &&
+          connectionConfig.driver === "ssh-cli" ? (
             <div className="surface-panel rounded-2xl border p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
@@ -583,8 +615,8 @@ export function OpenClawSettingsSurface(props: {
                   `agent ${remoteContract?.agentId ?? binding?.agentId ?? "n/a"}`,
                   remoteContract?.sshTarget
                     ? `ssh ${remoteContract.sshTarget}${remoteContract.sshPort ? `:${remoteContract.sshPort}` : ""}`
-                    : remoteContract?.relayUrl
-                      ? `relay ${truncateTail(remoteContract.relayUrl, 40)}`
+                    : remoteContract?.endpointUrl || remoteContract?.relayUrl
+                      ? `url ${truncateTail(remoteContract?.endpointUrl || remoteContract?.relayUrl, 40)}`
                       : `state ${truncateTail(remoteContract?.stateDir ?? connectionState?.stateDir, 40)}`,
                 ]}
               />

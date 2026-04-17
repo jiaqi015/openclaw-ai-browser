@@ -43,6 +43,7 @@ export const SABRINA_BROWSER_CAPABILITY_SOURCE_KINDS = Object.freeze([
 ]);
 
 export const SABRINA_REMOTE_DRIVERS = Object.freeze([
+  "endpoint",
   "ssh-cli",
   "relay-paired",
 ]);
@@ -268,6 +269,7 @@ export function createSabrinaRemoteSessionContract(input = {}) {
     stateDir: normalizeOpenClawStateDir(input.openclawStateDir ?? input.stateDir),
     sshTarget: `${input.sshTarget ?? ""}`.trim() || null,
     sshPort: Number.isFinite(Number(input.sshPort)) ? Number(input.sshPort) : null,
+    endpointUrl: `${input.endpointUrl ?? ""}`.trim() || null,
     relayUrl: normalizeSabrinaRelayUrl(input.relayUrl),
     agentId: `${input.agentId ?? ""}`.trim() || null,
     features: Array.isArray(input.features)

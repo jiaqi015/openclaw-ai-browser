@@ -4,7 +4,6 @@ import {
   BindingRemoteStatusPanel,
   BindingRuntimeStatusPanel,
   BindingSetupStepsCard,
-  BindingTargetSelector,
 } from "./binding-wizard-parts";
 import type { BindingWizardProps } from "./binding-wizard-types";
 
@@ -36,11 +35,6 @@ export function BindingWizard(props: BindingWizardProps) {
           ) : null}
         </div>
       </div>
-
-      <BindingTargetSelector
-        target={state.target}
-        onSelectTarget={props.onSelectTarget}
-      />
 
       <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
         <BindingSetupStepsCard state={state} />

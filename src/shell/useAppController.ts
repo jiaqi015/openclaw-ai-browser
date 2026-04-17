@@ -10,6 +10,7 @@ import { useGenTabSourceState } from "../state/useGenTabSourceState";
 import { useThreadState } from "../state/useThreadState";
 import { useThreadComposerState } from "../state/useThreadComposerState";
 import { useGenTabController } from "./useGenTabController";
+import { useBrowserAgentState } from "../application/use-browser-agent-state";
 
 export function useAppController(uiLocale: UiLocale) {
   const desktop = getSabrinaDesktop();
@@ -116,6 +117,7 @@ export function useAppController(uiLocale: UiLocale) {
     generatingGenTabId,
     handleOpenGenTabGenerator,
     handleOpenCodingGenTabGenerator,
+    handleResetGenTabState,
     handleCloseGenTab,
   } = useGenTabController({
     activeTabId: activeTab?.tabId ?? null,
@@ -123,6 +125,7 @@ export function useAppController(uiLocale: UiLocale) {
     composerText,
     selectedReferenceIds: readyReferenceTabs.map((tab) => tab.id),
   });
+  const agentState = useBrowserAgentState(activeTab?.tabId ?? null);
   const isBookmarked = activeTab
     ? bookmarkEntries.some((bookmark) => bookmark.url === activeTab.url)
     : false;
@@ -219,11 +222,14 @@ export function useAppController(uiLocale: UiLocale) {
     clearSelectedComposerSkill,
     clearSelectedReferences,
     selectThread,
+    appendMessage,
     toggleReference,
     generatingGenTabId,
     handleOpenGenTabGenerator,
     handleOpenCodingGenTabGenerator,
+    handleResetGenTabState,
     handleCloseGenTab,
+    agentState,
     ...aiChatActions,
     ...desktopActions,
     openLogDirectory,

@@ -75,6 +75,18 @@ function buildOpenClawTaskPrompt(params = {}) {
         .join("\n\n---\n\n")
     : "";
 
+  if (!context && references.length === 0) {
+    return [
+      "请把下面这个任务当成一个不带浏览器页面上下文的 OpenClaw 工作项。",
+      `用户意图：\n${prompt || "请继续处理这个任务。"}`,
+      getAssistantLanguageInstruction(assistantLocale),
+      "不要假装你已经看过网页；如果需要网页事实，请明确说明当前没有浏览器上下文。",
+      "请先确认你会怎么处理，再给出下一步建议或结果。",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+  }
+
   return [
     "请把下面这个浏览器任务当成需要继续处理的工作项。",
     `当前页面：${context?.title || "当前页面"}`,
@@ -88,6 +100,49 @@ function buildOpenClawTaskPrompt(params = {}) {
   ]
     .filter(Boolean)
     .join("\n\n");
+}
+
+function buildPureOpenClawContextPackage(uiLocale = "zh-CN") {
+  return {
+    sourceTabId: "",
+    capturedAt: new Date().toISOString(),
+    selectionState: "page",
+    primary: null,
+    references: [],
+    requestedReferenceTabIds: [],
+    missingReferenceTabIds: [],
+    execution: {
+      primarySourceKind: "pure-openclaw",
+      primarySourceLabel: translate(uiLocale, "turn.openclawPureContextLabel"),
+      authBoundary: "",
+      trustLevel: "",
+      reproducibility: "",
+      executionReliability: "",
+      reachabilityConfidence: "",
+      authBoundaryConfidence: "",
+      reproducibilityGuarantee: "",
+      outsideBrowserExecutable: false,
+      requiresBrowserSession: false,
+      requiresFilesystemAccess: false,
+      lossinessFlags: [],
+      summary: {
+        totalSourceCount: 0,
+        executableSourceCount: 0,
+        browserOnlySourceCount: 0,
+        replayableSourceCount: 0,
+        outsideBrowserExecutableCount: 0,
+        requiresBrowserSessionCount: 0,
+        requiresFilesystemAccessCount: 0,
+        deterministicReplayableCount: 0,
+        sourceKindCounts: {},
+      },
+    },
+    stats: {
+      referenceCount: 0,
+      missingReferenceCount: 0,
+      totalApproxChars: 0,
+    },
+  };
 }
 
 async function packageContextFromPayload(payload, dependencies) {
@@ -248,9 +303,16 @@ export async function executeOpenClawTaskTurn(payload = {}, dependencies = {}) {
   const taskPayload = payload?.taskPayload ?? {};
   const { uiLocale, assistantLocale } = getTurnLocales(payload);
   const prompt = normalizeNonEmptyString(taskPayload?.prompt);
-  const contextPackage = await packageContextFromPayload(payload, dependencies);
+  const pureOpenClaw = taskPayload?.contextMode === "pure-openclaw";
+  const contextPackage = pureOpenClaw
+    ? buildPureOpenClawContextPackage(uiLocale)
+    : await packageContextFromPayload(payload, dependencies);
   const context = contextPackage.primary ?? null;
-  const taskTitle = context?.title || translate(uiLocale, "common.currentPageTask");
+  const taskTitle = context?.title || (
+    pureOpenClaw
+      ? translate(uiLocale, "turn.openclawPureTask")
+      : translate(uiLocale, "common.currentPageTask")
+  );
   const plan = planTurnExecution({
     intent: {
       type: "handoff",

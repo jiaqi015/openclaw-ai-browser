@@ -258,7 +258,7 @@ export async function getBindingSetupState(params) {
         target: "remote",
         statusOverride: "degraded",
         transportLabel,
-        note: "请先填写 Relay 地址并生成连接码。",
+        note: "请先填写连接地址和访问令牌；如果还没有，再用高级方式建链。",
       });
     }
 
@@ -289,7 +289,7 @@ export async function getBindingSetupState(params) {
         transportLabel,
         sshTarget: context.sshTarget,
         note: Boolean(gatewayStatus?.ok)
-          ? `当前会复用远程 OpenClaw 的 agent、模型和技能。`
+          ? "当前会复用另一台机器上的 OpenClaw agent、模型和技能。"
           : `当前可以访问远程控制面 ${transportLabel}，但还没确认远程网关就绪。`,
       });
     } catch (error) {
@@ -350,7 +350,7 @@ export async function beginBindingSetup(params) {
         target: "remote",
         statusOverride: "degraded",
         transportLabel,
-        note: "请先填写 Relay 地址并生成连接码。",
+        note: "请先填写连接地址和访问令牌；如果还没有，再用高级方式建链。",
       });
     }
 

@@ -376,6 +376,7 @@ export async function runGatewayChatCompletion(params, options = {}) {
     const payload = await execOpenClawJson(command, {
       timeout: 1000 * 60 * 5,
       maxBuffer: 1024 * 1024 * 2,
+      signal: options?.signal,
     });
     const result = payload?.result ?? {};
     const text = (Array.isArray(result.payloads) ? result.payloads : [])
@@ -411,6 +412,7 @@ export async function runGatewayChatCompletion(params, options = {}) {
   const response = await fetch(`http://${gateway.host}:${gateway.port}/v1/chat/completions`, {
     method: "POST",
     headers,
+    signal: options?.signal,
     body: JSON.stringify({
       model: `openclaw/${agentId}`,
       user: sessionKey,

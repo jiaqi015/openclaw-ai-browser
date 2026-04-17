@@ -122,7 +122,7 @@ export async function buildOpenClawDoctorReport(params = {}) {
               "Relay worker",
               relayWorkerCommand
                 ? `在远端 OpenClaw 机器运行：${relayWorkerCommand}`
-                : "补全 relay 地址和连接码后，就能生成远端 worker 命令。",
+                : "补全连接地址和连接码后，就能生成远端 worker 命令。",
               {
                 command: relayWorkerCommand || undefined,
               },

@@ -24,6 +24,7 @@ export function useAppViewState(params: {
   selectedModel: string | null;
   sendMessage: (overridePrompt?: string) => Promise<void>;
   sendToOpenClaw: (overridePrompt?: string) => Promise<void>;
+  stopTurn: () => Promise<void>;
   setSelectedComposerSkill: (skill: SidebarComposerSkill) => void;
   skillCatalog: SabrinaOpenClawSkillCatalog | null;
   surfaceMode: string;
@@ -47,6 +48,7 @@ export function useAppViewState(params: {
     selectedModel,
     sendMessage,
     sendToOpenClaw,
+    stopTurn,
     setSelectedComposerSkill,
     skillCatalog,
     surfaceMode,
@@ -212,6 +214,7 @@ export function useAppViewState(params: {
     handleBookmarkToggle,
     handleChat,
     handleSendToOpenClaw,
+    handleStopTurn: stopTurn,
     hasConnectedLobster,
     lobsterLabel,
     lobsterStatus,

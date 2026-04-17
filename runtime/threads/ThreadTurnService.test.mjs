@@ -13,7 +13,7 @@ import {
   loadTurnJournalState,
   serializeTurnJournalState,
 } from "../turns/TurnJournalStore.mjs";
-import { runThreadAiTurn } from "./ThreadTurnService.mjs";
+import { runThreadAiTurn, runThreadOpenClawTaskTurn } from "./ThreadTurnService.mjs";
 
 test("runThreadAiTurn records a separate turn journal entry", async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "sabrina-thread-turn-"));
@@ -83,4 +83,54 @@ test("runThreadAiTurn records a separate turn journal entry", async () => {
   assert.equal(journalState.entries[0].threadId, threadId);
   assert.equal(journalState.entries[0].turnType, "skill");
   assert.equal(journalState.entries[0].receipt?.status, "completed");
+});
+
+test("runThreadOpenClawTaskTurn allows hidden pure-openclaw mode without tabId", async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "sabrina-thread-openclaw-pure-"));
+
+  initThreadStore({
+    resolveStatePath: () => path.join(tempDir, "thread-state.json"),
+  });
+  initTurnJournalStore({
+    resolveStatePath: () => path.join(tempDir, "turn-journal.json"),
+  });
+  await loadThreadStoreState();
+  await loadTurnJournalState();
+
+  const runtimeState = await resolveThreadStoreRuntime({
+    tabs: [
+      {
+        tabId: "tab-1",
+        title: "Docs",
+        url: "http://localhost:3000/docs",
+      },
+    ],
+  });
+  const threadId = runtimeState.tabThreads["tab-1"].threadId;
+
+  const result = await runThreadOpenClawTaskTurn(
+    {
+      threadId,
+      userText: "直接让龙虾处理",
+      taskPayload: {
+        contextMode: "pure-openclaw",
+        prompt: "梳理执行方案",
+      },
+    },
+    {
+      runLocalAgentTask: async () => ({
+        text: "纯龙虾任务已创建",
+        taskId: "task-pure",
+        model: "gpt-5.4",
+      }),
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.ok(result.journalEntryId);
+  const journalState = serializeTurnJournalState();
+  assert.equal(journalState.entries.length, 1);
+  assert.equal(journalState.entries[0].turnType, "handoff");
+  assert.equal(journalState.entries[0].receipt?.status, "completed");
+  assert.doesNotMatch(journalState.entries[0].receipt?.userVisibleMessage || "", /纯龙虾模式/);
 });

@@ -10,6 +10,7 @@ export type SidebarMessage = {
   messageId: string;
   role: "user" | "assistant" | "system" | "error";
   text: string;
+  mode?: "agent" | "chat" | "claw" | "gentab";
   skillTrace?: SabrinaSkillTrace;
 };
 

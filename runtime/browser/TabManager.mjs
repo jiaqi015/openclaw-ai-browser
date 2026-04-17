@@ -58,6 +58,10 @@ function getTabById(tabId) {
   return browserTabs.get(tabId) ?? null;
 }
 
+export function getTabWebContentsById(tabId) {
+  return getTabById(tabId)?.view?.webContents ?? null;
+}
+
 function syncNavigationState(tab) {
   const { navigationHistory } = tab.view.webContents;
   tab.canGoBack = navigationHistory.canGoBack();

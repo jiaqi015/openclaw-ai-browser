@@ -1,0 +1,10 @@
+{
+  "taskId": "agent-task-my52oywe",
+  "archivedAt": "2026-04-14T15:13:44.382Z",
+  "status": "error",
+  "userTask": "搜索贝壳新闻",
+  "journal": [],
+  "error": "无法确定搜索目标，页面元素列表大多为空值。请等待页面完全加载后再试，或提供您要搜索的具体关键词。",
+  "createdAt": 1776179565944,
+  "updatedAt": 1776179624381
+}

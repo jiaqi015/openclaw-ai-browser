@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronRight, History, Loader2, Sparkles, Swords, Wand2, X } from "lucide-react";
+import { ChevronRight, History, Sparkles, Swords, X } from "lucide-react";
 import type {
   SabrinaTabReferenceCandidate,
   SabrinaThreadSummary,
@@ -12,6 +12,7 @@ import { TabReferencePicker } from "./tab-reference-picker";
 import { AiSidebarComposerCard } from "./ai-sidebar-composer-card";
 import { AiSidebarGenTabLauncher } from "./ai-sidebar-gentab-launcher";
 import { AiSidebarMessageList } from "./ai-sidebar-message-list";
+import { AgentActionStream } from "./agent-action-stream";
 import type {
   SidebarComposerSkill,
   SidebarMessage,
@@ -57,8 +58,11 @@ export function AiSidebar(props: {
   onResizeStart: (event: ReactMouseEvent<HTMLDivElement>) => void;
   onSelectModel: (modelId: string) => void;
   onSelectThread: (threadId: string) => void;
+  onStopTurn: () => void;
+  onResetGenTabState: () => void;
   onSend: () => void;
   onSendToOpenClaw: () => void;
+  onAppendAgentMessage?: (text: string) => void;
   onToggleReference: (tabId: string) => void;
   primaryGenTabSourceTab: SabrinaTabReferenceCandidate | null;
   quickActions: SidebarQuickAction[];
@@ -71,6 +75,8 @@ export function AiSidebar(props: {
   generatingGenTabId: string | null;
   threadSummaries: SabrinaThreadSummary[];
   visibleMessages: SidebarMessage[];
+  agentState: any;
+  activeThreadId: string | null;
 }) {
   const {
     binding,
@@ -97,8 +103,10 @@ export function AiSidebar(props: {
     onResizeStart,
     onSelectModel,
     onSelectThread,
+    onStopTurn,
     onSend,
     onSendToOpenClaw,
+    onAppendAgentMessage,
     onToggleReference,
     primaryGenTabSourceTab,
     quickActions,
@@ -111,6 +119,8 @@ export function AiSidebar(props: {
     generatingGenTabId,
     threadSummaries,
     visibleMessages,
+    agentState,
+    activeThreadId,
   } = props;
   const [panelMode, setPanelMode] = useState<"history" | "references" | null>(null);
   const {
@@ -171,56 +181,6 @@ export function AiSidebar(props: {
           </button>
         </div>
       </div>
-
-      {/* ── Coding Agent Entry Point ────────────────────────────────────────── */}
-      {hasConnectedLobster ? (() => {
-        const isRegularPage =
-          primaryGenTabSourceTab !== null &&
-          !primaryGenTabSourceTab.url.startsWith("sabrina://");
-        const isGenerating = generatingGenTabId !== null;
-        const canClick = isRegularPage && !isGenerating;
-
-        return (
-          <div className="px-3 pt-3 pb-2 border-b border-white/5">
-            <button
-              type="button"
-              disabled={!canClick}
-              onClick={async () => {
-                if (!canClick) return;
-                await onOpenCodingGenTabGenerator({ userIntent: composerText.trim() || undefined });
-              }}
-              className={cn(
-                "w-full flex items-center gap-3 rounded-2xl border px-3.5 py-2.5 text-left transition-all duration-150",
-                canClick
-                  ? "border-apple-pink/20 bg-apple-pink/8 hover:bg-apple-pink/14 active:scale-[0.98] cursor-pointer"
-                  : "border-white/8 bg-white/[0.03] cursor-not-allowed opacity-50",
-              )}
-            >
-              <div className={cn(
-                "flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px]",
-                canClick ? "bg-apple-pink/18" : "bg-white/8",
-              )}>
-                {isGenerating
-                  ? <Loader2 className="h-3.5 w-3.5 animate-spin text-apple-pink/70" />
-                  : <Wand2 className={cn("h-3.5 w-3.5", canClick ? "text-apple-pink/80" : "text-white/30")} />
-                }
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className={cn("text-[12px] font-semibold leading-snug", canClick ? "text-apple-pink/90" : "text-white/30")}>
-                  创意网页
-                </div>
-                <div className="mt-0.5 truncate text-[10.5px] text-white/35">
-                  {isGenerating
-                    ? "正在生成中…"
-                    : isRegularPage
-                    ? `为 ${primaryGenTabSourceTab!.host || "此页面"} 生成交互网页`
-                    : "请先打开一个网页"}
-                </div>
-              </div>
-            </button>
-          </div>
-        );
-      })() : null}
 
       <div className="h-14 px-5 flex flex-col justify-center border-b border-white/5">
         <div className="flex items-center justify-between mb-1">
@@ -330,11 +290,15 @@ export function AiSidebar(props: {
         ) : null}
       </AnimatePresence>
 
-      <AiSidebarMessageList
-        chatKey={chatKey}
-        isThinking={isThinking}
-        visibleMessages={visibleMessages}
-      />
+      <div className="flex-1 flex flex-col min-h-0">
+        <AiSidebarMessageList
+          chatKey={chatKey}
+          isThinking={isThinking}
+          visibleMessages={visibleMessages}
+          agentState={agentState}
+          onStopTurn={onStopTurn}
+        />
+      </div>
 
       <div className="shrink-0 px-5 pt-5 pb-3 border-t border-white/5 flex flex-col gap-3">
         <AiSidebarComposerCard
@@ -356,7 +320,7 @@ export function AiSidebar(props: {
           }
           hasConnectedLobster={hasConnectedLobster}
           isModelSwitching={isModelSwitching}
-          isThinking={isThinking}
+          isThinking={isThinking || agentState?.status === "running"}
           modelSelectValue={modelSelectValue}
           models={models}
           onClearReferences={onClearReferences}
@@ -365,6 +329,25 @@ export function AiSidebar(props: {
           onSelectModel={onSelectModel}
           onSend={onSend}
           onSendToOpenClaw={onSendToOpenClaw}
+          onStopTurn={() => {
+            if (isThinking) {
+              onStopTurn();
+            } else if (agentState?.status === "running") {
+              agentState.stopTask();
+            }
+          }}
+          onRunAgent={() => {
+            const text = composerText.trim();
+            if (text) {
+              void agentState.runTask(text, undefined, activeThreadId ?? undefined);
+              try {
+                onAppendAgentMessage?.(text);
+              } catch (error) {
+                console.error("[Agent] Failed to append user message before task start:", error);
+              }
+              onComposerChange("");
+            }
+          }}
           onToggleReference={onToggleReference}
           onToggleReferencesPanel={() =>
             setPanelMode((current) => (current === "references" ? null : "references"))

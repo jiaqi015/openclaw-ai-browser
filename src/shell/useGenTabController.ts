@@ -108,7 +108,7 @@ export function useGenTabController(params: {
   }
 
   /**
-   * Opens a Coding GenTab — the creative coding agent path.
+   * Opens the creative-page GenTab mode.
    * Creates a tab at sabrina://gentab/<id>?v=coding; the CodingGenTabSurface
    * takes it from there.
    */
@@ -116,7 +116,7 @@ export function useGenTabController(params: {
     nextParams?: OpenGenTabParams,
   ): Promise<OpenGenTabResult> {
     if (!desktop?.gentab?.createCodingGenTab) {
-      return { success: false, error: "当前环境暂不支持 Coding GenTab。" };
+      return { success: false, error: "当前环境暂不支持创意网页 GenTab。" };
     }
     if (!binding) {
       return { success: false, error: "请先连接你的龙虾，再生成 GenTab。" };
@@ -143,7 +143,7 @@ export function useGenTabController(params: {
 
       if (!result.success) {
         setGeneratingGenTabId(null);
-        return { success: false, error: result.error || "Coding GenTab 标签页创建失败。" };
+        return { success: false, error: result.error || "创意网页标签页创建失败。" };
       }
 
       return { success: true, genId };
@@ -156,10 +156,15 @@ export function useGenTabController(params: {
     }
   }
 
+  async function handleResetGenTabState() {
+    setGeneratingGenTabId(null);
+  }
+
   return {
     generatingGenTabId,
     handleOpenGenTabGenerator,
     handleOpenCodingGenTabGenerator,
+    handleResetGenTabState,
     handleCloseGenTab,
   };
 }

@@ -13,6 +13,7 @@ import { getLocalSkillDetail } from "../../runtime/openclaw/OpenClawManager.mjs"
 import {
   runAiAction,
   runTrackedLocalAgentTask,
+  stopActiveTurn,
 } from "./ThreadIpcActionService.mjs";
 
 export function registerThreadIpcHandlers() {
@@ -33,5 +34,6 @@ export function registerThreadIpcHandlers() {
       getContextSnapshotForTab,
     }),
   );
+  ipcMain.handle("thread:stop-turn", (_e, payload) => stopActiveTurn(payload ?? {}));
   ipcMain.handle("thread:select", (_e, payload) => selectThreadForTab(payload ?? {}));
 }

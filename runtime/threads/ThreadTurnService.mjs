@@ -70,6 +70,7 @@ export async function runThreadAiTurn(payload = {}, dependencies = {}) {
   await appendThreadMessage(threadId, {
     role: "user",
     text: userText,
+    mode: "chat",
   });
 
   try {
@@ -90,6 +91,7 @@ export async function runThreadAiTurn(payload = {}, dependencies = {}) {
     const runtimeState = await appendThreadMessage(threadId, {
       role: turnResult.ok ? "assistant" : "error",
       text: turnResult.receipt.userVisibleMessage,
+      mode: "chat",
       ...(turnResult.response?.skillTrace && typeof turnResult.response.skillTrace === "object"
         ? { skillTrace: turnResult.response.skillTrace }
         : {}),
@@ -120,6 +122,7 @@ export async function runThreadAiTurn(payload = {}, dependencies = {}) {
     const runtimeState = await appendThreadMessage(threadId, {
       role: "error",
       text: getErrorMessage(error),
+      mode: "chat",
     });
 
     return {
@@ -138,6 +141,8 @@ export async function runThreadOpenClawTaskTurn(payload = {}, dependencies = {})
   const taskPayload = payload?.taskPayload ?? {};
   const uiLocale = normalizeUiLocale(taskPayload?.uiLocale);
   const tabId = normalizeNonEmptyString(taskPayload?.tabId);
+  const contextMode =
+    taskPayload?.contextMode === "pure-openclaw" ? "pure-openclaw" : "browser";
 
   ensureThreadExists(threadId);
 
@@ -147,12 +152,13 @@ export async function runThreadOpenClawTaskTurn(payload = {}, dependencies = {})
   if (typeof runLocalAgentTask !== "function") {
     throw new Error(translate(uiLocale, "error.openClawTurnUnavailable"));
   }
-  if (!tabId) {
+  if (!tabId && contextMode !== "pure-openclaw") {
     throw new Error(translate(uiLocale, "error.noUsableTab"));
   }
   await appendThreadMessage(threadId, {
     role: "user",
     text: userText,
+    mode: "claw",
   });
 
   try {
@@ -162,7 +168,8 @@ export async function runThreadOpenClawTaskTurn(payload = {}, dependencies = {})
         userText,
         taskPayload: {
           ...taskPayload,
-          tabId,
+          ...(tabId ? { tabId } : {}),
+          contextMode,
         },
       },
       {
@@ -174,6 +181,7 @@ export async function runThreadOpenClawTaskTurn(payload = {}, dependencies = {})
     const runtimeState = await appendThreadMessage(threadId, {
       role: turnResult.ok ? "assistant" : "error",
       text: turnResult.receipt.userVisibleMessage,
+      mode: "claw",
     });
 
     if (turnResult.ok) {
@@ -201,6 +209,7 @@ export async function runThreadOpenClawTaskTurn(payload = {}, dependencies = {})
     const runtimeState = await appendThreadMessage(threadId, {
       role: "error",
       text: getErrorMessage(error),
+      mode: "claw",
     });
 
     return {

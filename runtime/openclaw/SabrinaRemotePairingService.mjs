@@ -233,7 +233,7 @@ function mergeRemotePairing(session, remotePairing = {}) {
 export async function ensureSabrinaRelayConnectCode(params = {}) {
   const relayUrl = normalizeSabrinaRelayUrl(params?.relayUrl);
   if (!relayUrl) {
-    throw new Error("生成连接码前需要先提供 relay URL。");
+    throw new Error("生成连接码前需要先提供连接地址。");
   }
 
   const ttlMs = Number.isFinite(Number(params?.ttlMs))

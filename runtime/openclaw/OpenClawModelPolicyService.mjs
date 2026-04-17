@@ -55,12 +55,12 @@ function buildRelayModelState(snapshot = {}, fallbackAgentId = "main") {
   };
 }
 
-export async function getLocalModelState(agentId = "main") {
+export async function getLocalModelState(agentId) {
+  const context = getOpenClawTransportContext();
   const resolvedAgentId =
     typeof agentId === "string" && agentId.trim()
       ? agentId.trim()
-      : (await ensureSabrinaBrowserAgent()).agentId;
-  const context = getOpenClawTransportContext();
+      : context.agentId || (await ensureSabrinaBrowserAgent()).agentId;
   if (isRelayRemoteContext(context)) {
     const snapshot = (
       await invokeSabrinaRelayRpc({
@@ -79,15 +79,15 @@ export async function getLocalModelState(agentId = "main") {
 }
 
 export async function setLocalModel(params) {
+  const context = getOpenClawTransportContext();
   const agentId =
     typeof params?.agentId === "string" && params.agentId.trim()
       ? params.agentId.trim()
-      : (await ensureSabrinaBrowserAgent()).agentId;
+      : context.agentId || (await ensureSabrinaBrowserAgent()).agentId;
   const model = typeof params?.model === "string" ? params.model.trim() : "";
   if (!model) {
     throw new Error("缺少模型 id");
   }
-  const context = getOpenClawTransportContext();
   if (isRelayRemoteContext(context)) {
     const snapshot = (
       await invokeSabrinaRelayRpc({

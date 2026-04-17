@@ -68,6 +68,35 @@ GenTab 必须服从 Sabrina 的核心边界：
 
 所以 GenTab 不是一个“悬浮在页面上的聊天技巧”，而是 Sabrina browser-native contract 的一条代表性主链。
 
+### 1.5 子能力：Creative GenTab
+
+`生成创意网页` 应该被定义为 **GenTab 的子能力**，而不是与 GenTab 平级的另一套产品。
+
+原因不是营销命名，而是用户心智与工程现实同时指向这件事：
+
+- 对用户来说，它仍然是“基于当前页和上下文，生成一个新的结果页”
+- 对产品来说，它仍然沿用 GenTab 的入口、线程语义和浏览器内结果页模型
+- 对工程来说，它虽然可以使用独立的 `coding` schema、专用 surface 和生成链路，但这属于实现分层，不应该直接暴露成平行产品名
+
+因此，产品层推荐采用下面这套能力树：
+
+- `GenTab`
+- `Structured GenTab`
+  - `table`
+  - `list`
+  - `timeline`
+  - `comparison`
+  - `card-grid`
+- `Creative GenTab`
+  - 生成定制网页
+  - 生成 dashboard / landing page / 交互页面
+
+这也意味着：
+
+- `Creative GenTab` 不建议被塞进普通 `preferredType`
+- 更适合作为 GenTab 生成器里的一个高天花板子模式
+- 入口上应与普通 GenTab 汇合，执行与渲染上可以继续独立
+
 ---
 
 ## 2. 目标用户

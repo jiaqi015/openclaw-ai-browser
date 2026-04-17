@@ -277,9 +277,6 @@ export async function refreshGenTabItem(payload = {}, dependencies = {}) {
  * rendered via an iframe on the frontend.
  *
  * Two-pass generation:
- *   Pass 1 — creative generation: the agent builds the full HTML page
- *   Pass 2 — self-verification: the agent reviews its own output for data
- *             accuracy, interaction completeness, and placeholder leaks.
  *             If it finds issues it returns fixed HTML; otherwise {"ok":true}.
  *             This pass is best-effort: failure falls back to pass 1 output.
  * Refinement runs skip the verify pass (already passed verification once).
@@ -312,59 +309,38 @@ export async function generateCodingGenTab(payload = {}, dependencies = {}) {
     typeof dependencies?.clearPendingGenTabMetadata === "function"
       ? dependencies.clearPendingGenTabMetadata
       : clearPendingGenTabMetadata;
-  // sendProgress is optional — defaults to no-op so tests don't need to provide it
   const sendProgress =
     typeof dependencies?.sendProgress === "function"
       ? dependencies.sendProgress
       : () => {};
 
-  const assistantLocale =
-    assistantLocaleMode === "en" ? "en" : "zh-CN";
+  const assistantLocale = assistantLocaleMode === "en" ? "en" : "zh-CN";
 
-  // Step 1: Gather context snapshots for all reference tabs
+  // Step 1: Gather context snapshots
   const contexts = [];
   for (const tabId of referenceTabIds) {
     try {
       const ctx = await getContextSnapshot(tabId);
       if (ctx) contexts.push(ctx);
-    } catch {
-      // Skip tabs we can't read; don't abort the whole generation
-    }
+    } catch { /* skip */ }
   }
 
   if (contexts.length === 0) {
-    return { success: false, error: "无法读取任何来源标签页的内容" };
+    return { success: false, error: "无法读取来源网页，请检查网络或页面状态。" };
   }
 
-  sendProgress("reading", `已读取 ${contexts.length} 个标签页`);
+  sendProgress("reading", `已读取 ${contexts.length} 个来源页`);
 
   const isRefinement = refinementText.length > 0 && originalHtml.length > 100;
 
-  // Step 2: Plan turn (new — skip for refinement runs)
-  let plan = null;
-  if (!isRefinement) {
-    try {
-      const planPrompt = buildCodingGenTabPlanPrompt(userIntent, contexts, assistantLocale);
-      const planResponse = await runAgentTurn({ message: planPrompt });
-      if (planResponse?.text) {
-        plan = normalizeCodingGenTabPlan(planResponse.text);
-      }
-    } catch {
-      // Planning failure is non-fatal — continue with plan=null
-    }
-    if (plan) {
-      sendProgress("thinking", plan.design);
-    } else {
-      sendProgress("thinking", "确定设计方案…");
-    }
-  }
-
-  // Step 3: Code turn — signal BEFORE the LLM call so the UI shows "coding" during the wait
-  sendProgress("coding", "正在生成代码…");
+  // Step 2 & 3: Combined Planning + Coding
+  // To reduce latency, we skip the explicit planning turn and let the coding agent
+  // decide the design within a single combined prompt.
+  sendProgress("coding", "正在构思并编写代码…");
 
   const prompt = isRefinement
     ? buildCodingGenTabRefinementPrompt(refinementText, originalHtml, contexts, assistantLocale)
-    : buildCodingGenTabPrompt(userIntent, contexts, assistantLocale, plan);
+    : buildCodingGenTabPrompt(userIntent, contexts, assistantLocale, null /* combined pass */);
 
   let response;
   try {
@@ -372,61 +348,51 @@ export async function generateCodingGenTab(payload = {}, dependencies = {}) {
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: `生成失败：${error instanceof Error ? error.message : String(error)}`,
     };
   }
 
   if (!response?.text) {
-    return { success: false, error: "模型未返回有效内容" };
+    return { success: false, error: "模型未返回内容，请稍后再试。" };
   }
 
-  // Parse and validate
   const result = normalizeCodingGenTabResult(response.text, {
     sourceTabIds: referenceTabIds,
     userIntent,
   });
 
-  if (!result) return { success: false, error: "模型输出无法解析为有效的 GenTab" };
+  if (!result) return { success: false, error: "生成内容解析失败，请尝试简化描述或更换模型。" };
   if (!result.success) return { success: false, error: result.error };
 
-  // Step 4: Self-verification pass (best-effort — never blocks delivery)
-  // Skip verify for refinement runs: the original already passed once
+  // Step 4: Verification pass (optional/best-effort)
+  // We keep this for now but it's the next candidate for removal if speed is still an issue.
   let finalHtml = result.html;
   if (!isRefinement) {
-    sendProgress("checking", "自检中…");
+    sendProgress("checking", "正在进行最后的代码质量检查…");
     try {
-      const verifyPrompt = buildCodingGenTabVerifyPrompt(result.html, contexts, assistantLocale, plan);
+      const verifyPrompt = buildCodingGenTabVerifyPrompt(result.html, contexts, assistantLocale, null);
       const verifyResponse = await runAgentTurn({ message: verifyPrompt });
       if (verifyResponse?.text) {
         const verifyResult = normalizeCodingGenTabVerifyResult(verifyResponse.text);
         if (verifyResult && !verifyResult.ok && verifyResult.html) {
-          // Agent found issues and produced fixed HTML — use the improved version
           finalHtml = verifyResult.html;
         }
-        // verifyResult.ok === true OR verifyResult === null → keep original HTML
       }
-    } catch {
-      // Verification failure is non-fatal — use original HTML
-    }
+    } catch { /* best effort */ }
   }
 
   const wasFixed = finalHtml !== result.html;
-  sendProgress("done", wasFixed ? "已自动修复部分问题" : "");
+  sendProgress("done", wasFixed ? "完成（已自动优化代码细节）" : "生成完成");
 
-  const finalResult = wasFixed
-    ? { ...result, html: finalHtml }
-    : result;
+  const finalResult = wasFixed ? { ...result, html: finalHtml } : result;
 
-  // Step 5: Persist
   try {
     await persistGenTabData(genId, finalResult);
     await clearPendingMetadata(genId);
   } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return { success: false, error: `保存失败：${error instanceof Error ? error.message : String(error)}` };
   }
 
   return { success: true, gentab: finalResult, wasFixed };
 }
+

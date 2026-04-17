@@ -286,16 +286,21 @@ export function BindingRemoteStatusPanel({
   | "onGetRelayPairingState"
 >) {
   const { t } = useUiPreferences();
-  const driver = "relay-paired" as const;
-  const [relayUrl, setRelayUrl] = useState("");
-  const [connectCode, setConnectCode] = useState("");
+  const [endpointUrl, setEndpointUrl] = useState("");
+  const [accessToken, setAccessToken] = useState("");
   const [label, setLabel] = useState("");
   const [agentId, setAgentId] = useState("");
+  const [pairingRelayUrl, setPairingRelayUrl] = useState("");
+  const [pairingCode, setPairingCode] = useState("");
+  const [sshTarget, setSshTarget] = useState("");
+  const [sshPort, setSshPort] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [relayPairing, setRelayPairing] = useState<SabrinaOpenClawRelayPairingSession | null>(null);
   const [isGeneratingRelayCode, setIsGeneratingRelayCode] = useState(false);
   const [isCheckingRemote, setIsCheckingRemote] = useState(false);
+  const [isConnectingAdvanced, setIsConnectingAdvanced] = useState(false);
   const [isSavingRemote, setIsSavingRemote] = useState(false);
-  const [relayPairingError, setRelayPairingError] = useState("");
+  const [remoteError, setRemoteError] = useState("");
   const [copiedWorkerCommand, setCopiedWorkerCommand] = useState(false);
   const [savedNotice, setSavedNotice] = useState("");
   const isLegacySshTarget =
@@ -308,26 +313,40 @@ export function BindingRemoteStatusPanel({
       return;
     }
 
-    setRelayUrl(connectionConfig.relayUrl ?? "");
-    setConnectCode(connectionConfig.connectCode ?? "");
+    setEndpointUrl(connectionConfig.endpointUrl ?? "");
+    setAccessToken(connectionConfig.accessToken ?? "");
     setLabel(connectionConfig.label ?? "");
     setAgentId(connectionConfig.agentId ?? "");
+    setPairingRelayUrl(connectionConfig.relayUrl ?? "");
+    setPairingCode(connectionConfig.connectCode ?? "");
+    setSshTarget(connectionConfig.sshTarget ?? "");
+    setSshPort(connectionConfig.sshPort ? `${connectionConfig.sshPort}` : "");
+    setShowAdvanced(
+      connectionConfig.driver === "relay-paired" ||
+        connectionConfig.driver === "ssh-cli" ||
+        Boolean(connectionConfig.relayUrl || connectionConfig.sshTarget),
+    );
     setRelayPairing(null);
-    setRelayPairingError("");
+    setRemoteError("");
     setCopiedWorkerCommand(false);
     setSavedNotice("");
   }, [
+    connectionConfig?.accessToken,
     connectionConfig?.agentId,
     connectionConfig?.connectCode,
+    connectionConfig?.driver,
+    connectionConfig?.endpointUrl,
     connectionConfig?.label,
     connectionConfig?.relayUrl,
+    connectionConfig?.sshPort,
+    connectionConfig?.sshTarget,
     connectionConfig?.transport,
   ]);
 
   useEffect(() => {
     if (
-      !relayUrl.trim() ||
-      !connectCode.trim() ||
+      !pairingRelayUrl.trim() ||
+      !pairingCode.trim() ||
       !onGetRelayPairingState
     ) {
       return;
@@ -337,26 +356,26 @@ export function BindingRemoteStatusPanel({
     async function refreshRelayPairingState() {
       try {
         const state = await onGetRelayPairingState({
-          relayUrl: relayUrl.trim(),
-          connectCode: connectCode.trim(),
+          relayUrl: pairingRelayUrl.trim(),
+          connectCode: pairingCode.trim(),
         });
         if (cancelled || !state) {
           return;
         }
 
         const nextSession =
-          state.sessions.find((session) => session.code === connectCode.trim().toUpperCase()) ??
+          state.sessions.find((session) => session.code === pairingCode.trim().toUpperCase()) ??
           state.active ??
           null;
         setRelayPairing(nextSession);
         if (nextSession) {
-          setRelayPairingError("");
+          setRemoteError("");
         }
       } catch (error) {
         if (cancelled) {
           return;
         }
-        setRelayPairingError(error instanceof Error ? error.message : String(error));
+        setRemoteError(error instanceof Error ? error.message : String(error));
       }
     }
 
@@ -369,17 +388,52 @@ export function BindingRemoteStatusPanel({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [connectCode, onGetRelayPairingState, relayUrl]);
+  }, [onGetRelayPairingState, pairingCode, pairingRelayUrl]);
 
-  function buildRemotePayload() {
+  function buildEndpointPayload() {
     return {
       target: "remote" as const,
-      driver,
-      relayUrl: relayUrl.trim() || undefined,
-      connectCode: connectCode.trim() || undefined,
+      driver: "endpoint" as const,
+      endpointUrl: endpointUrl.trim() || undefined,
+      accessToken: accessToken.trim() || undefined,
       label: label.trim() || undefined,
       agentId: agentId.trim() || undefined,
     };
+  }
+
+  function buildRelayPayload() {
+    return {
+      target: "remote" as const,
+      driver: "relay-paired" as const,
+      relayUrl: pairingRelayUrl.trim() || undefined,
+      connectCode: pairingCode.trim() || undefined,
+      label: label.trim() || undefined,
+      agentId: agentId.trim() || undefined,
+    };
+  }
+
+  function buildSshPayload() {
+    return {
+      target: "remote" as const,
+      driver: "ssh-cli" as const,
+      sshTarget: sshTarget.trim() || undefined,
+      sshPort: sshPort.trim() ? Number.parseInt(sshPort.trim(), 10) : undefined,
+      label: label.trim() || undefined,
+      agentId: agentId.trim() || undefined,
+    };
+  }
+
+  function buildDoctorPayload() {
+    if (endpointUrl.trim() || accessToken.trim()) {
+      return buildEndpointPayload();
+    }
+    if (pairingRelayUrl.trim() || pairingCode.trim()) {
+      return buildRelayPayload();
+    }
+    if (sshTarget.trim()) {
+      return buildSshPayload();
+    }
+    return buildEndpointPayload();
   }
 
   async function handleCheckRemote() {
@@ -389,10 +443,10 @@ export function BindingRemoteStatusPanel({
     setIsCheckingRemote(true);
     setSavedNotice("");
     try {
-      await onProbeRemote(buildRemotePayload());
-      setRelayPairingError("");
+      await onProbeRemote(buildEndpointPayload());
+      setRemoteError("");
     } catch (error) {
-      setRelayPairingError(error instanceof Error ? error.message : String(error));
+      setRemoteError(error instanceof Error ? error.message : String(error));
     } finally {
       setIsCheckingRemote(false);
     }
@@ -406,13 +460,13 @@ export function BindingRemoteStatusPanel({
     setSavedNotice("");
     try {
       await onSaveRemote({
-        ...buildRemotePayload(),
+        ...buildEndpointPayload(),
         name: label.trim() || undefined,
       });
       setSavedNotice(t("binding.remote.savedNotice"));
-      setRelayPairingError("");
+      setRemoteError("");
     } catch (error) {
-      setRelayPairingError(error instanceof Error ? error.message : String(error));
+      setRemoteError(error instanceof Error ? error.message : String(error));
     } finally {
       setIsSavingRemote(false);
     }
@@ -422,40 +476,74 @@ export function BindingRemoteStatusPanel({
     if (!onCreateRelayConnectCode) {
       return;
     }
-    if (!relayUrl.trim()) {
-      setRelayPairingError(t("binding.remote.generateCodeRequiresRelay"));
+    if (!pairingRelayUrl.trim()) {
+      setRemoteError(t("binding.remote.generateCodeRequiresRelay"));
       return;
     }
 
+    setShowAdvanced(true);
     setIsGeneratingRelayCode(true);
     try {
       const state = await onCreateRelayConnectCode({
-        relayUrl: relayUrl.trim() || undefined,
+        relayUrl: pairingRelayUrl.trim() || undefined,
       });
       const session = state?.active ?? state?.sessions?.[0] ?? null;
       if (session?.code) {
-        setConnectCode(session.code);
+        setPairingCode(session.code);
         setRelayPairing(session);
-        setRelayPairingError("");
+        setRemoteError("");
         return;
       }
-      setRelayPairingError(t("binding.remote.generateCodeHint"));
+      setRemoteError(t("binding.remote.generateCodeHint"));
     } catch (error) {
-      setRelayPairingError(error instanceof Error ? error.message : String(error));
+      setRemoteError(error instanceof Error ? error.message : String(error));
     } finally {
       setIsGeneratingRelayCode(false);
     }
   }
 
+  async function handleConnectRelay() {
+    if (!onConnectRemote) {
+      return;
+    }
+    setIsConnectingAdvanced(true);
+    try {
+      await onConnectRemote(buildRelayPayload());
+      setRemoteError("");
+    } catch (error) {
+      setRemoteError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsConnectingAdvanced(false);
+    }
+  }
+
+  async function handleConnectSsh() {
+    if (!onConnectRemote) {
+      return;
+    }
+    if (!sshTarget.trim()) {
+      setRemoteError(t("binding.remote.sshRequired"));
+      return;
+    }
+    setShowAdvanced(true);
+    setIsConnectingAdvanced(true);
+    try {
+      await onConnectRemote(buildSshPayload());
+      setRemoteError("");
+    } catch (error) {
+      setRemoteError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsConnectingAdvanced(false);
+    }
+  }
+
   const workerCommand =
-    driver === "relay-paired"
-      ? buildSabrinaRelayWorkerCommand({
-          relayUrl,
-          connectCode,
-          label,
-          agentId,
-        })
-      : "";
+    buildSabrinaRelayWorkerCommand({
+      relayUrl: pairingRelayUrl,
+      connectCode: pairingCode,
+      label,
+      agentId,
+    });
 
   async function handleCopyWorkerCommand() {
     if (!workerCommand || !window.navigator.clipboard?.writeText) {
@@ -482,26 +570,29 @@ export function BindingRemoteStatusPanel({
         : relayPairing?.status === "rejected"
           ? t("binding.remote.status.rejected")
           : t("binding.remote.status.pending");
-  const hasRelayUrl = Boolean(relayUrl.trim());
-  const hasConnectCode = Boolean(connectCode.trim());
+  const hasEndpointUrl = Boolean(endpointUrl.trim());
+  const hasAccessToken = Boolean(accessToken.trim());
+  const hasPairingRelayUrl = Boolean(pairingRelayUrl.trim());
+  const hasPairingCode = Boolean(pairingCode.trim());
   const isRelayClaimed = relayPairing?.status === "active";
-  const canSaveRemote = hasRelayUrl;
-  const canGenerateRelayCode = hasRelayUrl && !isGeneratingRelayCode;
-  const canProbeRemote = hasRelayUrl && hasConnectCode;
-  const canDoctorRemote = hasRelayUrl || hasConnectCode;
-  const canConnectRemote =
-    hasRelayUrl && hasConnectCode && (isRelayClaimed || connectionState?.status === "connected");
+  const canSaveRemote = hasEndpointUrl && hasAccessToken;
+  const canGenerateRelayCode = hasPairingRelayUrl && !isGeneratingRelayCode;
+  const canProbeRemote = hasEndpointUrl && hasAccessToken;
+  const canDoctorRemote =
+    hasEndpointUrl ||
+    hasAccessToken ||
+    hasPairingRelayUrl ||
+    hasPairingCode ||
+    Boolean(sshTarget.trim());
+  const canConnectRemote = hasEndpointUrl && hasAccessToken;
+  const canConnectRelay = hasPairingRelayUrl && hasPairingCode && isRelayClaimed;
+  const canConnectSsh = Boolean(sshTarget.trim());
 
   return (
     <div className="surface-panel self-start rounded-[24px] border p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-medium text-white/72">
-          {t("binding.remoteTitle")}
-        </h3>
-        <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-amber-200">
-          {t("binding.remote.experimental")}
-        </span>
-      </div>
+      <h3 className="text-sm font-medium text-white/72">
+        {t("binding.remoteTitle")}
+      </h3>
       <p className="mt-3 text-sm leading-6 text-white/58">
         {t("binding.remoteDescription")}
       </p>
@@ -526,8 +617,8 @@ export function BindingRemoteStatusPanel({
             {t("binding.remote.relayUrl")}
           </label>
           <input
-            value={relayUrl}
-            onChange={(event) => setRelayUrl(event.target.value)}
+            value={endpointUrl}
+            onChange={(event) => setEndpointUrl(event.target.value)}
             placeholder={t("binding.remote.relayPlaceholder")}
             className="surface-input h-11 w-full rounded-2xl border px-3 text-sm text-white/80 outline-none placeholder:text-white/25"
           />
@@ -536,50 +627,43 @@ export function BindingRemoteStatusPanel({
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="space-y-1.5">
             <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
-              {t("binding.remote.connectCode")}
+              {t("binding.remote.accessToken")}
             </label>
             <input
-              value={connectCode}
-              onChange={(event) => setConnectCode(event.target.value.toUpperCase())}
-              placeholder={t("binding.remote.connectCodePlaceholder")}
-              className="surface-input h-11 w-full rounded-2xl border px-3 text-sm uppercase tracking-[0.16em] text-white/80 outline-none placeholder:text-white/25"
+              value={accessToken}
+              onChange={(event) => setAccessToken(event.target.value)}
+              placeholder={t("binding.remote.accessTokenPlaceholder")}
+              type="password"
+              className="surface-input h-11 w-full rounded-2xl border px-3 text-sm text-white/80 outline-none placeholder:text-white/25"
             />
           </div>
 
           <div className="space-y-1.5">
             <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
-              {t("binding.remote.agent")}
+              {t("binding.remote.label")}
             </label>
             <input
-              value={agentId}
-              onChange={(event) => setAgentId(event.target.value)}
-              placeholder={t("binding.remote.agentPlaceholder")}
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder={t("binding.remote.labelPlaceholder")}
               className="surface-input h-11 w-full rounded-2xl border px-3 text-sm text-white/80 outline-none placeholder:text-white/25"
             />
           </div>
         </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
-            {t("binding.remote.label")}
-          </label>
-          <input
-            value={label}
-            onChange={(event) => setLabel(event.target.value)}
-            placeholder={t("binding.remote.labelPlaceholder")}
-            className="surface-input h-11 w-full rounded-2xl border px-3 text-sm text-white/80 outline-none placeholder:text-white/25"
-          />
-        </div>
-
-        <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3.5">
-          <p className="text-[12px] leading-5 text-amber-100/85">
-            {t("binding.remote.relayPending")}
-          </p>
-        </div>
-
       </div>
 
       <div className="mt-4 flex flex-wrap gap-3">
+        <button
+          type="button"
+          disabled={!canConnectRemote}
+          onClick={() => onConnectRemote?.(buildEndpointPayload())}
+          className={cn(
+            "surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white transition-colors",
+            !canConnectRemote && "cursor-not-allowed opacity-50",
+          )}
+        >
+          {t("binding.remote.connectAction")}
+        </button>
         <button
           type="button"
           disabled={!canSaveRemote || isSavingRemote}
@@ -593,32 +677,9 @@ export function BindingRemoteStatusPanel({
         >
           {isSavingRemote ? t("binding.processing") : t("binding.remote.saveAction")}
         </button>
-        <button
-          type="button"
-          disabled={!canGenerateRelayCode}
-          onClick={() => {
-            void handleGenerateRelayCode();
-          }}
-          className={cn(
-            "surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white/86 transition-colors",
-            !canGenerateRelayCode && "cursor-not-allowed opacity-50",
-          )}
-        >
-          {isGeneratingRelayCode
-            ? t("binding.processing")
-            : t("binding.remote.generateCodeAction")}
-        </button>
-        <button
-          type="button"
-          disabled={!canConnectRemote}
-          onClick={() => onConnectRemote?.(buildRemotePayload())}
-          className={cn(
-            "surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white transition-colors",
-            !canConnectRemote && "cursor-not-allowed opacity-50",
-          )}
-        >
-          {t("binding.remote.connectAction")}
-        </button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
           disabled={!canProbeRemote || isCheckingRemote}
@@ -635,7 +696,7 @@ export function BindingRemoteStatusPanel({
         <button
           type="button"
           disabled={!canDoctorRemote}
-          onClick={() => onDoctorRemote?.(buildRemotePayload())}
+          onClick={() => onDoctorRemote?.(buildDoctorPayload())}
           className={cn(
             "surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white/58 transition-colors",
             !canDoctorRemote && "cursor-not-allowed opacity-50",
@@ -689,79 +750,227 @@ export function BindingRemoteStatusPanel({
         </div>
       ) : null}
 
-      {!relayPairing ? (
-        <p className="mt-2 text-[12px] leading-5 text-white/42">
-          {t("binding.remote.generateCodeHint")}
-        </p>
-      ) : null}
-
-      {relayPairing ? (
-        <div className={cn("mt-4 rounded-2xl border p-3.5", relayPairingStatusTone)}>
-          <p className="text-sm font-medium">
-            {t("binding.remote.generatedCode", {
-              code: relayPairing.code,
-            })}
-          </p>
-          <p className="mt-1 text-[12px] leading-5 opacity-80">
-            {t("binding.remote.generatedCodeMeta", {
-              device: relayPairing.browserDisplayName,
-              expiresAt: formatThreadTimestampLabel(relayPairing.expiresAt),
-            })}
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
-            <span className="rounded-full border border-current/20 px-2.5 py-1 opacity-90">
-              {relayPairingStatusLabel}
-            </span>
-            {connectionState?.status === "connected" ? (
-              <span className="rounded-full border border-current/20 px-2.5 py-1 opacity-90">
-                {t("binding.remote.status.workerReady")}
-              </span>
-            ) : null}
-            {relayPairing.openclawLabel ? (
-              <span className="opacity-75">
-                {t("binding.remote.status.claimedBy", {
-                  name: relayPairing.openclawLabel,
-                })}
-              </span>
-            ) : null}
+      <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((current) => !current)}
+          className="flex w-full items-start justify-between gap-3 text-left"
+        >
+          <div>
+            <p className="text-sm font-medium text-white/78">{t("binding.remote.advancedTitle")}</p>
+            <p className="mt-1 text-[12px] leading-5 text-white/45">
+              {t("binding.remote.advancedDescription")}
+            </p>
           </div>
-        </div>
-      ) : null}
+          <span className="text-[11px] uppercase tracking-[0.14em] text-white/35">
+            {showAdvanced ? t("binding.remote.advancedHide") : t("binding.remote.advancedShow")}
+          </span>
+        </button>
 
-      {workerCommand ? (
-        <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3.5">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium text-white/82">
-                {t("binding.remote.workerTitle")}
-              </p>
-              <p className="mt-1 text-[12px] leading-5 text-white/48">
-                {connectionState?.status === "connected"
-                  ? t("binding.remote.workerConnectedHint")
-                  : t("binding.remote.workerHint")}
-              </p>
+        {showAdvanced ? (
+          <div className="mt-4 space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div>
+                <p className="text-sm font-medium text-white/82">{t("binding.remote.pairingTitle")}</p>
+                <p className="mt-1 text-[12px] leading-5 text-white/45">
+                  {t("binding.remote.pairingDescription")}
+                </p>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
+                    {t("binding.remote.pairingRelayUrl")}
+                  </label>
+                  <input
+                    value={pairingRelayUrl}
+                    onChange={(event) => setPairingRelayUrl(event.target.value)}
+                    placeholder={t("binding.remote.relayPlaceholder")}
+                    className="surface-input h-11 w-full rounded-2xl border px-3 text-sm text-white/80 outline-none placeholder:text-white/25"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
+                    {t("binding.remote.connectCode")}
+                  </label>
+                  <input
+                    value={pairingCode}
+                    onChange={(event) => setPairingCode(event.target.value.toUpperCase())}
+                    placeholder={t("binding.remote.connectCodePlaceholder")}
+                    className="surface-input h-11 w-full rounded-2xl border px-3 text-sm uppercase tracking-[0.16em] text-white/80 outline-none placeholder:text-white/25"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  disabled={!canGenerateRelayCode}
+                  onClick={() => {
+                    void handleGenerateRelayCode();
+                  }}
+                  className={cn(
+                    "surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white/86 transition-colors",
+                    !canGenerateRelayCode && "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  {isGeneratingRelayCode
+                    ? t("binding.processing")
+                    : t("binding.remote.generateCodeAction")}
+                </button>
+                <button
+                  type="button"
+                  disabled={!canConnectRelay || isConnectingAdvanced}
+                  onClick={() => {
+                    void handleConnectRelay();
+                  }}
+                  className={cn(
+                    "surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white transition-colors",
+                    (!canConnectRelay || isConnectingAdvanced) && "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  {isConnectingAdvanced ? t("binding.processing") : t("binding.remote.pairingConnectAction")}
+                </button>
+              </div>
+
+              {!relayPairing ? (
+                <p className="mt-3 text-[12px] leading-5 text-white/42">
+                  {t("binding.remote.generateCodeHint")}
+                </p>
+              ) : null}
+
+              {relayPairing ? (
+                <div className={cn("mt-4 rounded-2xl border p-3.5", relayPairingStatusTone)}>
+                  <p className="text-sm font-medium">
+                    {t("binding.remote.generatedCode", {
+                      code: relayPairing.code,
+                    })}
+                  </p>
+                  <p className="mt-1 text-[12px] leading-5 opacity-80">
+                    {t("binding.remote.generatedCodeMeta", {
+                      device: relayPairing.browserDisplayName,
+                      expiresAt: formatThreadTimestampLabel(relayPairing.expiresAt),
+                    })}
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+                    <span className="rounded-full border border-current/20 px-2.5 py-1 opacity-90">
+                      {relayPairingStatusLabel}
+                    </span>
+                    {connectionState?.status === "connected" ? (
+                      <span className="rounded-full border border-current/20 px-2.5 py-1 opacity-90">
+                        {t("binding.remote.status.workerReady")}
+                      </span>
+                    ) : null}
+                    {relayPairing.openclawLabel ? (
+                      <span className="opacity-75">
+                        {t("binding.remote.status.claimedBy", {
+                          name: relayPairing.openclawLabel,
+                        })}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {workerCommand ? (
+                <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-white/82">
+                        {t("binding.remote.workerTitle")}
+                      </p>
+                      <p className="mt-1 text-[12px] leading-5 text-white/48">
+                        {connectionState?.status === "connected"
+                          ? t("binding.remote.workerConnectedHint")
+                          : t("binding.remote.workerHint")}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleCopyWorkerCommand();
+                      }}
+                      className="surface-button-system rounded-xl border px-3 py-1.5 text-[12px] font-medium text-white/74 transition-colors"
+                    >
+                      {copiedWorkerCommand
+                        ? t("binding.remote.copyDone")
+                        : t("binding.remote.copyAction")}
+                    </button>
+                  </div>
+                  <pre className="mt-3 overflow-x-auto rounded-xl border border-white/8 bg-black/20 px-3 py-3 text-[12px] leading-5 text-white/72">
+                    <code>{workerCommand}</code>
+                  </pre>
+                </div>
+              ) : null}
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                void handleCopyWorkerCommand();
-              }}
-              className="surface-button-system rounded-xl border px-3 py-1.5 text-[12px] font-medium text-white/74 transition-colors"
-            >
-              {copiedWorkerCommand
-                ? t("binding.remote.copyDone")
-                : t("binding.remote.copyAction")}
-            </button>
-          </div>
-          <pre className="mt-3 overflow-x-auto rounded-xl border border-white/8 bg-black/20 px-3 py-3 text-[12px] leading-5 text-white/72">
-            <code>{workerCommand}</code>
-          </pre>
-        </div>
-      ) : null}
 
-      {relayPairingError ? (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div>
+                <p className="text-sm font-medium text-white/82">{t("binding.remote.sshTitle")}</p>
+                <p className="mt-1 text-[12px] leading-5 text-white/45">
+                  {t("binding.remote.sshDescription")}
+                </p>
+              </div>
+
+              {isLegacySshTarget ? (
+                <div className="mt-3 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3.5">
+                  <p className="text-sm font-medium text-amber-100">
+                    {t("binding.remote.legacySshTitle")}
+                  </p>
+                  <p className="mt-1 text-[12px] leading-5 text-amber-100/80">
+                    {t("binding.remote.legacySshDescription")}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_120px]">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
+                    {t("binding.remote.sshTarget")}
+                  </label>
+                  <input
+                    value={sshTarget}
+                    onChange={(event) => setSshTarget(event.target.value)}
+                    placeholder="user@host"
+                    className="surface-input h-11 w-full rounded-2xl border px-3 text-sm text-white/80 outline-none placeholder:text-white/25"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/38">
+                    {t("binding.remote.sshPort")}
+                  </label>
+                  <input
+                    value={sshPort}
+                    onChange={(event) => setSshPort(event.target.value.replace(/[^\d]/g, ""))}
+                    placeholder="22"
+                    className="surface-input h-11 w-full rounded-2xl border px-3 text-sm text-white/80 outline-none placeholder:text-white/25"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  disabled={!canConnectSsh || isConnectingAdvanced}
+                  onClick={() => {
+                    void handleConnectSsh();
+                  }}
+                  className={cn(
+                    "surface-button-system rounded-2xl border px-4 py-2 text-sm font-medium text-white transition-colors",
+                    (!canConnectSsh || isConnectingAdvanced) && "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  {isConnectingAdvanced ? t("binding.processing") : t("binding.remote.sshConnectAction")}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {remoteError ? (
         <div className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-500/10 p-3.5">
-          <p className="text-[12px] leading-5 text-rose-100/82">{relayPairingError}</p>
+          <p className="text-[12px] leading-5 text-rose-100/82">{remoteError}</p>
         </div>
       ) : null}
 

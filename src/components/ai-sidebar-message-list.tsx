@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowDown, AtSign, Loader2, MessageSquare, X } from "lucide-react";
+import { ArrowDown, AtSign, Bot, Loader2, MessageSquare, Wand2, X } from "lucide-react";
 import Markdown from "react-markdown";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 import { cn } from "../lib/utils";
 import { CustomAIIcon } from "./custom-ai-icon";
+import { LobsterHandoffIcon } from "./lobster-handoff-icon";
+import { AgentActionStream } from "./agent-action-stream";
 import type { SidebarMessage } from "./ai-sidebar-types";
 import { useUiPreferences } from "../application/use-ui-preferences";
 import { translate } from "../../shared/localization.mjs";
@@ -13,8 +15,10 @@ export function AiSidebarMessageList(props: {
   chatKey: string;
   isThinking: boolean;
   visibleMessages: SidebarMessage[];
+  agentState?: any;
+  onStopTurn: () => void;
 }) {
-  const { chatKey, isThinking, visibleMessages } = props;
+  const { chatKey, isThinking, visibleMessages, agentState, onStopTurn } = props;
   const {
     preferences: { uiLocale },
   } = useUiPreferences();
@@ -57,8 +61,17 @@ export function AiSidebarMessageList(props: {
             <div className="flex items-start gap-4">
               <div className="mt-1 shrink-0">
                 {message.role === "user" ? (
-                  <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center">
-                    <AtSign className="w-3 h-3 text-white/40" />
+                  <div className={cn(
+                    "w-5 h-5 rounded-full flex items-center justify-center",
+                    message.mode === "agent" ? "bg-[#FF2D55]/15" :
+                    message.mode === "claw" ? "bg-violet-500/15" :
+                    message.mode === "gentab" ? "bg-apple-pink/15" :
+                    "bg-white/10"
+                  )}>
+                    {message.mode === "agent" ? <Bot className="w-3 h-3 text-[#FF2D55]" /> :
+                     message.mode === "claw" ? <LobsterHandoffIcon className="w-3 h-3 text-violet-400" /> :
+                     message.mode === "gentab" ? <Wand2 className="w-3 h-3 text-apple-pink" /> :
+                     <AtSign className="w-3 h-3 text-white/40" />}
                   </div>
                 ) : message.role === "error" ? (
                   <X className="w-5 h-5 text-apple-pink" />
@@ -69,8 +82,18 @@ export function AiSidebarMessageList(props: {
 
               <div className="flex-1 min-w-0">
                 {message.role === "user" ? (
-                  <div className="mb-1 text-[10px] font-bold text-white/20 uppercase tracking-widest">
-                    {translate(uiLocale, "common.you")}
+                  <div className={cn(
+                    "mb-1 text-[10px] font-bold uppercase tracking-widest",
+                    message.mode === "agent" ? "text-[#FF2D55]/80" :
+                    message.mode === "claw" ? "text-violet-400/80" :
+                    message.mode === "gentab" ? "text-apple-pink/80" :
+                    "text-white/20"
+                  )}>
+                    {translate(uiLocale, "common.you")} {
+                      message.mode === "agent" ? "(Agent)" :
+                      message.mode === "claw" ? "(Claw)" :
+                      message.mode === "gentab" ? "(GenTab)" : ""
+                    }
                   </div>
                 ) : null}
                 <div
@@ -100,11 +123,24 @@ export function AiSidebarMessageList(props: {
           </div>
         ))}
 
+        {agentState?.activeTaskId ? (
+          <div className="px-5 py-2">
+            <AgentActionStream
+              journal={agentState.journal}
+              status={agentState.status}
+              taskTree={agentState.taskTree}
+              pendingConfirm={agentState.pendingConfirm}
+              onConfirm={agentState.respondConfirm}
+              onStop={agentState.stopTask}
+            />
+          </div>
+        ) : null}
+
         {isThinking ? (
           <div className="px-10 py-6 flex flex-col items-start gap-2 text-white/30 text-xs">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 w-full group">
               <Loader2 className="w-4 h-4 animate-spin opacity-50" />
-              <span>{translate(uiLocale, "newTab.processing")}</span>
+              <span className="flex-1">{translate(uiLocale, "newTab.processing")}</span>
             </div>
             <div className="pl-7 text-[10px] text-white/20">
               {translate(uiLocale, "newTab.processingHint")}

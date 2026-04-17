@@ -321,6 +321,10 @@ function createMainWindow() {
   });
 }
 
+// Enable CDP remote-debugging so Playwright can connect to Electron's Chromium.
+// Only on localhost — no external exposure. Port configurable via SABRINA_DEBUG_PORT.
+app.commandLine.appendSwitch("remote-debugging-port", process.env.SABRINA_DEBUG_PORT || "9229");
+
 app.whenReady().then(async () => {
   if (process.platform === "darwin") {
     const dockIcon = nativeImage.createFromPath(path.join(process.cwd(), "build", "icon.png"));

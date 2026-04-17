@@ -35,10 +35,13 @@ function normalizeDriver(driver, transport = "local", config = {}) {
   if (normalizeSshTarget(config?.sshTarget)) {
     return "ssh-cli";
   }
+  if (normalizeEndpointUrl(config?.endpointUrl)) {
+    return "endpoint";
+  }
   if (normalizeRelayUrl(config?.relayUrl) || normalizeConnectCode(config?.connectCode)) {
     return "relay-paired";
   }
-  return "relay-paired";
+  return "endpoint";
 }
 
 function normalizeSshTarget(value) {
@@ -72,6 +75,24 @@ function normalizeAgentId(value) {
   return normalized || null;
 }
 
+function normalizeEndpointUrl(value) {
+  const normalized = `${value ?? ""}`.trim();
+  if (!normalized) {
+    return null;
+  }
+  try {
+    const url = new URL(normalized);
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeAccessToken(value) {
+  const normalized = `${value ?? ""}`.trim();
+  return normalized || null;
+}
+
 function normalizeSavedConnectionStatus(value) {
   const normalized = `${value ?? ""}`.trim();
   if (normalized === "connected" || normalized === "attention") {
@@ -98,6 +119,10 @@ function buildSavedConnectionName(config, input = {}) {
     return config.label || config.name || config.sshTarget;
   }
 
+  if (config.driver === "endpoint" && config.endpointUrl) {
+    return config.label || config.endpointUrl;
+  }
+
   if (config.driver === "relay-paired" && config.relayUrl) {
     return config.relayUrl;
   }
@@ -121,6 +146,7 @@ function buildSavedConnectionId(config, input = {}) {
         stateDir: config.stateDir,
         sshTarget: config.sshTarget,
         sshPort: config.sshPort,
+        endpointUrl: config.endpointUrl,
         relayUrl: config.relayUrl,
         label: config.label,
         agentId: config.agentId,
@@ -152,15 +178,21 @@ export function createSavedConnectionRecord(input = {}) {
     id: buildSavedConnectionId(connectionConfig, input),
     name,
     transport: connectionConfig.transport,
-    driver: connectionConfig.driver ?? (target === "remote" ? "relay-paired" : "local-cli"),
+    driver: connectionConfig.driver ?? (target === "remote" ? "endpoint" : "local-cli"),
     profile: connectionConfig.profile,
     stateDir: connectionConfig.stateDir,
     sshTarget: connectionConfig.sshTarget ?? null,
     sshPort: connectionConfig.sshPort ?? null,
-    relayUrl: connectionConfig.relayUrl ?? null,
-    connectCode: connectionConfig.driver === "relay-paired"
-      ? connectionConfig.connectCode ?? null
+    endpointUrl: connectionConfig.driver === "endpoint"
+      ? connectionConfig.endpointUrl ?? null
       : null,
+    accessToken: connectionConfig.driver === "endpoint"
+      ? connectionConfig.accessToken ?? null
+      : null,
+    relayUrl: connectionConfig.driver === "relay-paired"
+      ? connectionConfig.relayUrl ?? null
+      : null,
+    connectCode: null,
     label: connectionConfig.label ?? null,
     agentId: connectionConfig.agentId ?? null,
     status: normalizeSavedConnectionStatus(input?.status),
@@ -196,6 +228,8 @@ export function createConnectionConfigFromSavedRecord(savedRecord) {
       stateDir: savedRecord?.stateDir,
       sshTarget: savedRecord?.sshTarget,
       sshPort: savedRecord?.sshPort,
+      endpointUrl: savedRecord?.endpointUrl,
+      accessToken: savedRecord?.accessToken,
       relayUrl: savedRecord?.relayUrl,
       connectCode: savedRecord?.connectCode,
       label: savedRecord?.label ?? savedRecord?.name,
@@ -215,6 +249,8 @@ export function createDefaultConnectionConfig(target = "local") {
     stateDir: null,
     sshTarget: null,
     sshPort: null,
+    endpointUrl: null,
+    accessToken: null,
     relayUrl: null,
     connectCode: null,
     label: null,
@@ -232,6 +268,8 @@ export function normalizeConnectionConfig(rawConfig = {}, fallbackTarget = "loca
     stateDir: normalizeOpenClawStateDir(rawConfig?.stateDir),
     sshTarget: normalizeSshTarget(rawConfig?.sshTarget),
     sshPort: normalizeSshPort(rawConfig?.sshPort),
+    endpointUrl: normalizeEndpointUrl(rawConfig?.endpointUrl),
+    accessToken: normalizeAccessToken(rawConfig?.accessToken),
     relayUrl: normalizeRelayUrl(rawConfig?.relayUrl),
     connectCode: normalizeConnectCode(rawConfig?.connectCode),
     label: normalizeLabel(rawConfig?.label),
@@ -263,6 +301,7 @@ export function createConnectionState(params = {}) {
     stateDir: config.stateDir,
     sshTarget: config.sshTarget,
     sshPort: config.sshPort,
+    endpointUrl: config.endpointUrl,
     relayUrl: config.relayUrl,
     agentId: binding?.agentId ?? config.agentId,
     features: capabilities,
@@ -359,6 +398,12 @@ export function createConnectionState(params = {}) {
               target: transportLabel,
             })
           : translate(locale, "openclaw.state.remoteRelayDetailWithoutTarget")
+        : config.driver === "endpoint"
+          ? config.endpointUrl && config.accessToken
+            ? translate(locale, "openclaw.state.remoteDetailWithTarget", {
+                target: transportLabel,
+              })
+            : translate(locale, "openclaw.state.remoteEndpointDetailWithoutTarget")
         : config.sshTarget || config.label
           ? translate(locale, "openclaw.state.remoteDetailWithTarget", {
               target: transportLabel,

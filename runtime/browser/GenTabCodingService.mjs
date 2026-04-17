@@ -405,11 +405,18 @@ ${langInstruction}
 ${contextSection}`;
 }
 
-/**
- * Parse the planner's response. Returns { title, design, keyData } or null.
- */
 export function normalizeCodingGenTabPlan(rawText) {
-  const parsed = parseJsonOutput(rawText);
+  const text = `${rawText ?? ""}`.trim();
+  if (!text) return null;
+
+  // Stripping potential leading conversation before the first {
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+  const cleanText = (firstBrace >= 0 && lastBrace > firstBrace)
+    ? text.slice(firstBrace, lastBrace + 1)
+    : text;
+
+  const parsed = parseJsonOutput(cleanText);
   if (!parsed) return null;
   if (!parsed.design || typeof parsed.design !== "string" || !parsed.design.trim()) return null;
   return {
@@ -429,13 +436,10 @@ export function normalizeCodingGenTabPlan(rawText) {
 
 /**
  * This is the heart of the coding agent. The prompt tells the LLM to think
- * like a creative frontend developer — not a data formatter. It should produce
- * opinionated, interactive HTML that has personality.
+ * like a creative frontend developer — not a data formatter.
  *
- * @param {string} userIntent
- * @param {Array} contexts  — array of tab context snapshots
- * @param {string} assistantLocale
- * @param {object|null} plan  — optional plan from the planning turn
+ * It supports both a two-pass flow (plan provided) and a single-pass flow
+ * (no plan provided, agent must plan internally).
  */
 export function buildCodingGenTabPrompt(userIntent, contexts, assistantLocale = "zh-CN", plan = null) {
   const normalizedIntent = sanitize(userIntent, 600) || "帮我用好这些网页";
@@ -446,12 +450,12 @@ export function buildCodingGenTabPrompt(userIntent, contexts, assistantLocale = 
     return buildCodingGenTabFromPlanPrompt(plan, normalizedIntent, contextSection, langInstruction);
   }
 
-  // No plan — full creative brief (single-shot path, e.g. plan turn failed)
+  // No plan — full creative brief with "Think-then-Code" instruction
   return `${JSON_OUTPUT_CONSTRAINT}
 
 你是 Sabrina 浏览器的 GenTab 创作引擎。${SINGLE_TURN_CONSTRAINT}
 
-你不是一个信息汇总器，也不是一个数据表格生成器。你是一个有品味的前端创作者。用户打开了一些网页，你要为这件具体的事情创作一个**原创的、可以交互的迷你网页应用**。
+你是一个有品味的前端创作者。用户打开了一些网页，你要创作一个**原创、可交互的迷你网页应用**。
 
 用户的意图：「${normalizedIntent}」
 
@@ -459,7 +463,7 @@ export function buildCodingGenTabPrompt(userIntent, contexts, assistantLocale = 
 
 ## 创作方法
 
-**第一步：判断数据类型 → 选形式**
+**第一步：在输出 HTML 之前，先在心里（或 JSON 的 designChoice 字段中）决定形式：**
 
 | 数据类型 | 推荐形式 | 主交互 |
 |---------|---------|-------|

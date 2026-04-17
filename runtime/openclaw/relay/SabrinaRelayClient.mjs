@@ -1,7 +1,7 @@
 function normalizeRelayUrl(relayUrl) {
   const normalized = `${relayUrl ?? ""}`.trim().replace(/\/+$/, "");
   if (!normalized) {
-    throw new Error("缺少 relay URL。");
+    throw new Error("缺少连接地址。");
   }
   return normalized;
 }

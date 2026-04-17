@@ -10,13 +10,18 @@ export const relayPairedDriver = Object.freeze({
     gatewayHttpManagement: false,
   }),
   buildInvocation() {
-    throw new Error("当前远程 driver relay-paired 尚未实现。");
+    // 在 Brain-Hands 分离架构下，主循环逻辑已移至 AgentTaskManager 和 OpenClawBrainService。
+    // 这里保留一个占位，确保符合 Driver 接口规范。
+    return {
+      command: "relay-rpc",
+      args: [],
+    };
   },
   async probeTransport(options = {}, context) {
     if (!context?.relayUrl) {
       return {
         ok: false,
-        detail: "relay-paired 缺少 relay URL。",
+        detail: "relay-paired 缺少连接地址。",
       };
     }
     if (!context?.connectCode) {

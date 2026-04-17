@@ -16,6 +16,24 @@ function getOpenClawSessionId(threadId: string) {
   return `sabrina-thread:${threadId}`;
 }
 
+function hasUsableBrowserContextTab(activeTab: SabrinaDesktopTab | null) {
+  const url = `${activeTab?.url ?? ""}`.trim();
+  if (!activeTab || !url || url === "about:blank") {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "http:" ||
+      parsed.protocol === "https:" ||
+      parsed.protocol === "file:"
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function useChatCommands(params: {
   desktop?: SabrinaDesktop;
   activeTab: SabrinaDesktopTab | null;
@@ -202,10 +220,11 @@ export function useChatCommands(params: {
 
   async function sendToOpenClaw(overridePrompt?: string) {
     const prompt = (overridePrompt ?? composerText).trim();
+    const shouldUsePureOpenClaw =
+      !hasUsableBrowserContextTab(activeTab) && selectedReferenceIds.length === 0;
     if (
       !desktop ||
       !desktop.threads?.runOpenClawTaskTurn ||
-      !activeTab ||
       !activeThreadId ||
       !binding ||
       isModelSwitching
@@ -222,11 +241,14 @@ export function useChatCommands(params: {
     try {
       const result = await desktop.threads.runOpenClawTaskTurn({
         threadId: activeThreadId,
-        userText: prompt || "请用龙虾异步处理当前页面任务。",
+        userText: prompt || (shouldUsePureOpenClaw
+          ? "请用龙虾异步处理这个任务。"
+          : "请用龙虾异步处理当前页面任务。"),
         referenceTabIds: selectedReferenceIds,
         taskPayload: {
           agentId: binding.agentId,
-          tabId: activeTab.tabId,
+          tabId: shouldUsePureOpenClaw ? undefined : activeTab?.tabId,
+          contextMode: shouldUsePureOpenClaw ? "pure-openclaw" : "browser",
           prompt,
           sessionId: getOpenClawSessionId(`${activeThreadId}:openclaw`),
           thinking: "low",
@@ -249,9 +271,17 @@ export function useChatCommands(params: {
     }
   }
 
+  async function stopTurn() {
+    if (!desktop?.threads?.stopTurn || !activeThreadId) {
+      return;
+    }
+    await desktop.threads.stopTurn({ threadId: activeThreadId });
+  }
+
   return {
     setSelectedModel,
     sendMessage,
     sendToOpenClaw,
+    stopTurn,
   };
 }

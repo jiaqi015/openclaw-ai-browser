@@ -1,7 +1,7 @@
 {
   "name": "openclaw-ai-browser",
   "private": true,
-  "version": "0.1.12",
+  "version": "0.1.13",
   "type": "module",
   "main": "host/electron/main.mjs",
   "scripts": {
@@ -15,7 +15,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist release .playwright-cli",
     "relay:dev": "node ./packages/sabrina-relay-dev/src/server.mjs",
-    "test:runtime": "node --test ./shared/localization.test.mjs ./runtime/browser/BrowserContextPackageService.test.mjs ./runtime/browser/BrowserSourceAvailabilityService.test.mjs ./runtime/browser/BrowserTabStateSupport.test.mjs ./runtime/browser/GenTabCodingService.test.mjs ./runtime/browser/GenTabGenerationService.test.mjs ./runtime/browser/GenTabStore.test.mjs ./runtime/browser/PageContextService.test.mjs ./runtime/threads/ThreadTurnService.test.mjs ./runtime/turns/TurnEngine.test.mjs ./runtime/turns/TurnJournalStore.test.mjs ./runtime/openclaw/BrowserSkillCapabilityService.test.mjs ./runtime/openclaw/BrowserSkillInputPolicyService.test.mjs ./runtime/openclaw/OpenClawDriverRegistry.test.mjs ./runtime/openclaw/OpenClawPresentationService.test.mjs ./runtime/openclaw/OpenClawRuntimeService.test.mjs ./runtime/openclaw/OpenClawSkillPayloadService.test.mjs ./runtime/openclaw/OpenClawStateModel.test.mjs ./runtime/openclaw/SabrinaRemotePairingService.test.mjs ./runtime/openclaw/SkillCatalogService.test.mjs ./runtime/openclaw/SkillTraceService.test.mjs ./runtime/openclaw/OpenClawTransportContext.test.mjs ./runtime/openclaw/SabrinaMemoryBridgeService.test.mjs ./runtime/openclaw/SabrinaProtocol.test.mjs ./runtime/openclaw/relay/SabrinaRelayRpcService.test.mjs ./packages/openclaw-plugin-sabrina/src/bridge-client.test.mjs ./packages/openclaw-plugin-sabrina/src/relay-worker.test.mjs",
+    "test:runtime": "node --test ./shared/localization.test.mjs ./runtime/browser/BrowserContextPackageService.test.mjs ./runtime/browser/BrowserSourceAvailabilityService.test.mjs ./runtime/browser/BrowserTabStateSupport.test.mjs ./runtime/browser/GenTabCodingService.test.mjs ./runtime/browser/GenTabGenerationService.test.mjs ./runtime/browser/GenTabStore.test.mjs ./runtime/browser/PageContextService.test.mjs ./runtime/browser/ActionGate.test.mjs ./runtime/browser/BrowserAgentPromptService.test.mjs ./runtime/browser/PageNarratorService.test.mjs ./runtime/browser/PageLocatorService.test.mjs ./runtime/browser/PageOverlayService.test.mjs ./runtime/browser/BrowserAgent.test.mjs ./runtime/browser/BrowserAgentCapability.test.mjs ./runtime/threads/ThreadTurnService.test.mjs ./runtime/turns/TurnEngine.test.mjs ./runtime/turns/TurnJournalStore.test.mjs ./runtime/openclaw/BrowserSkillCapabilityService.test.mjs ./runtime/openclaw/BrowserSkillInputPolicyService.test.mjs ./runtime/openclaw/ModelStateService.test.mjs ./runtime/openclaw/OpenClawDriverRegistry.test.mjs ./runtime/openclaw/OpenClawPresentationService.test.mjs ./runtime/openclaw/OpenClawRuntimeService.test.mjs ./runtime/openclaw/OpenClawSkillPayloadService.test.mjs ./runtime/openclaw/OpenClawStateModel.test.mjs ./runtime/openclaw/SabrinaRemotePairingService.test.mjs ./runtime/openclaw/SkillCatalogService.test.mjs ./runtime/openclaw/SkillTraceService.test.mjs ./runtime/openclaw/OpenClawTransportContext.test.mjs ./runtime/openclaw/SabrinaMemoryBridgeService.test.mjs ./runtime/openclaw/SabrinaProtocol.test.mjs ./runtime/openclaw/relay/SabrinaRelayRpcService.test.mjs ./packages/openclaw-plugin-sabrina/src/bridge-client.test.mjs ./packages/openclaw-plugin-sabrina/src/relay-worker.test.mjs",
     "test:electron-smoke": "node --test ./host/electron/ThreadIpcActionService.test.mjs ./host/electron/ThreadTurnSmoke.test.mjs ./host/electron/GenTabIpcActionService.test.mjs",
     "lint": "tsc --noEmit",
     "check:architecture": "node ./scripts/check-architecture-invariants.mjs",
@@ -31,6 +31,7 @@
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "playwright-core": "^1.59.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",

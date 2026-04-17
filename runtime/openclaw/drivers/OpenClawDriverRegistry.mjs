@@ -5,11 +5,13 @@ import {
 import { localCliDriver } from "./LocalCliDriver.mjs";
 import { relayPairedDriver } from "./RelayPairedDriver.mjs";
 import { sshCliDriver } from "./SshCliDriver.mjs";
+import { openClawEndpointDriver } from "./OpenClawEndpointDriver.mjs";
 
 const drivers = new Map([
   [localCliDriver.id, localCliDriver],
   [sshCliDriver.id, sshCliDriver],
   [relayPairedDriver.id, relayPairedDriver],
+  [openClawEndpointDriver.id, openClawEndpointDriver],
 ]);
 
 export function getOpenClawDriverId(context = getOpenClawTransportContext()) {

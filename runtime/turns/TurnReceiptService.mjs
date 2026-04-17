@@ -39,13 +39,21 @@ function buildAiAssistantText(response, requestedSkillName, uiLocale) {
     .join("\n");
 }
 
-function buildOpenClawAssistantText(response, taskTitle, uiLocale) {
+function buildOpenClawAssistantText(response, taskTitle, uiLocale, contextPackage) {
+  const isPureOpenClaw =
+    normalizeNonEmptyString(contextPackage?.execution?.primarySourceKind) ===
+    "pure-openclaw";
+
   return [
     translate(uiLocale, "turn.openclawHandoffTitle"),
     translate(uiLocale, "turn.openclawHandoffMode"),
-    translate(uiLocale, "turn.openclawHandoffPage", {
-      title: normalizeNonEmptyString(taskTitle) || translate(uiLocale, "common.currentPage"),
-    }),
+    isPureOpenClaw
+      ? ""
+      : translate(uiLocale, "turn.openclawHandoffPage", {
+          title:
+            normalizeNonEmptyString(taskTitle) ||
+            translate(uiLocale, "common.currentPage"),
+        }),
     "",
     `${response?.text || translate(uiLocale, "turn.openclawNoVisibleText")}`.trim(),
   ].join("\n");
@@ -75,7 +83,12 @@ export function buildCompletedTurnReceipt({
       status: "completed",
       strategy: plan.strategy,
       summary: translate(uiLocale, "turn.summary.background"),
-      userVisibleMessage: buildOpenClawAssistantText(response, taskTitle, uiLocale),
+      userVisibleMessage: buildOpenClawAssistantText(
+        response,
+        taskTitle,
+        uiLocale,
+        contextPackage,
+      ),
       trace: {
         model: response?.model || undefined,
         skillName: undefined,

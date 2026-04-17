@@ -61,6 +61,20 @@ function isActiveConnectionOperation(operationId) {
   return operationId === activeConnectionOperationId;
 }
 
+function resolveConnectionTarget(params = {}, fallbackTarget = "local") {
+  return (
+    (typeof params?.target === "string" && params.target.trim() === "remote") ||
+    (`${params?.driver ?? ""}`.trim() && `${params?.driver ?? ""}`.trim() !== "local-cli") ||
+    `${params?.sshTarget ?? ""}`.trim() ||
+    `${params?.relayUrl ?? ""}`.trim() ||
+    `${params?.connectCode ?? ""}`.trim() ||
+    `${params?.endpointUrl ?? ""}`.trim() ||
+    `${params?.accessToken ?? ""}`.trim()
+  )
+    ? "remote"
+    : fallbackTarget;
+}
+
 export function buildOpenClawRuntimeInsights(input = {}) {
   const state = input?.state && typeof input.state === "object" ? input.state : null;
   const connectionState =
@@ -168,14 +182,7 @@ export async function beginOpenClawBindingSetup(params = {}) {
 
 export async function connectOpenClaw(params = {}) {
   const operationId = beginConnectionOperation();
-  const target =
-    (typeof params?.target === "string" && params.target.trim() === "remote") ||
-    (`${params?.driver ?? ""}`.trim() && `${params?.driver ?? ""}`.trim() !== "local-cli") ||
-    `${params?.sshTarget ?? ""}`.trim() ||
-    `${params?.relayUrl ?? ""}`.trim() ||
-    `${params?.connectCode ?? ""}`.trim()
-      ? "remote"
-      : "local";
+  const target = resolveConnectionTarget(params, "local");
   const connectionConfig = normalizeConnectionConfig(
     {
       ...serializeOpenClawState().connectionConfig,
@@ -186,6 +193,8 @@ export async function connectOpenClaw(params = {}) {
       driver: params?.driver,
       sshTarget: params?.sshTarget,
       sshPort: params?.sshPort,
+      endpointUrl: params?.endpointUrl,
+      accessToken: params?.accessToken,
       relayUrl: params?.relayUrl,
       connectCode: params?.connectCode,
       label: params?.label,
@@ -222,7 +231,7 @@ export async function connectOpenClaw(params = {}) {
         ? bindingSetupState.note
         : nextState?.lastError ?? "",
     activeConnectionId:
-      target === "remote"
+      target === "remote" && connectionConfig.driver !== "relay-paired"
         ? createSavedConnectionRecord({
             connectionConfig,
             status: nextState?.connectionState?.status,
@@ -232,7 +241,7 @@ export async function connectOpenClaw(params = {}) {
         : null,
   });
 
-  if (target === "remote") {
+  if (target === "remote" && connectionConfig.driver !== "relay-paired") {
     if (!isActiveConnectionOperation(operationId)) {
       return serializeOpenClawState();
     }
@@ -251,14 +260,7 @@ export async function connectOpenClaw(params = {}) {
 export async function disconnectOpenClaw(params = {}) {
   const operationId = beginConnectionOperation();
   const currentState = serializeOpenClawState();
-  const target =
-    (typeof params?.target === "string" && params.target.trim() === "remote") ||
-    (`${params?.driver ?? ""}`.trim() && `${params?.driver ?? ""}`.trim() !== "local-cli") ||
-    `${params?.sshTarget ?? ""}`.trim() ||
-    `${params?.relayUrl ?? ""}`.trim() ||
-    `${params?.connectCode ?? ""}`.trim()
-      ? "remote"
-      : currentState.selectedTarget;
+  const target = resolveConnectionTarget(params, currentState.selectedTarget);
   const connectionConfig = normalizeConnectionConfig(
     {
       ...currentState.connectionConfig,
@@ -269,6 +271,8 @@ export async function disconnectOpenClaw(params = {}) {
       driver: params?.driver ?? currentState.connectionConfig?.driver,
       sshTarget: params?.sshTarget ?? currentState.connectionConfig?.sshTarget,
       sshPort: params?.sshPort ?? currentState.connectionConfig?.sshPort,
+      endpointUrl: params?.endpointUrl ?? currentState.connectionConfig?.endpointUrl,
+      accessToken: params?.accessToken ?? currentState.connectionConfig?.accessToken,
       relayUrl: params?.relayUrl ?? currentState.connectionConfig?.relayUrl,
       connectCode: params?.connectCode ?? currentState.connectionConfig?.connectCode,
       label: params?.label ?? currentState.connectionConfig?.label,
@@ -293,13 +297,7 @@ export async function disconnectOpenClaw(params = {}) {
 }
 
 export async function saveOpenClawConnectionPreset(params = {}) {
-  const target =
-    (typeof params?.target === "string" && params.target.trim() === "remote") ||
-    (`${params?.driver ?? ""}`.trim() && `${params?.driver ?? ""}`.trim() !== "local-cli") ||
-    `${params?.sshTarget ?? ""}`.trim() ||
-    `${params?.relayUrl ?? ""}`.trim()
-      ? "remote"
-      : "local";
+  const target = resolveConnectionTarget(params, "local");
   const connectionConfig = normalizeConnectionConfig(
     {
       ...serializeOpenClawState().connectionConfig,
@@ -309,6 +307,8 @@ export async function saveOpenClawConnectionPreset(params = {}) {
       stateDir: params?.stateDir,
       sshTarget: params?.sshTarget,
       sshPort: params?.sshPort,
+      endpointUrl: params?.endpointUrl,
+      accessToken: params?.accessToken,
       relayUrl: params?.relayUrl,
       connectCode: params?.connectCode,
       label: params?.label,
@@ -366,14 +366,7 @@ function buildProbeResult(params = {}) {
 }
 
 export async function probeOpenClawConnection(params = {}) {
-  const target =
-    (typeof params?.target === "string" && params.target.trim() === "remote") ||
-    (`${params?.driver ?? ""}`.trim() && `${params?.driver ?? ""}`.trim() !== "local-cli") ||
-    `${params?.sshTarget ?? ""}`.trim() ||
-    `${params?.relayUrl ?? ""}`.trim() ||
-    `${params?.connectCode ?? ""}`.trim()
-      ? "remote"
-      : "local";
+  const target = resolveConnectionTarget(params, "local");
   const connectionConfig = normalizeConnectionConfig(
     {
       ...serializeOpenClawState().connectionConfig,
@@ -383,6 +376,8 @@ export async function probeOpenClawConnection(params = {}) {
       stateDir: params?.stateDir,
       sshTarget: params?.sshTarget,
       sshPort: params?.sshPort,
+      endpointUrl: params?.endpointUrl,
+      accessToken: params?.accessToken,
       relayUrl: params?.relayUrl,
       connectCode: params?.connectCode,
       label: params?.label,
@@ -513,13 +508,13 @@ export async function probeOpenClawConnection(params = {}) {
     summary:
       failures.length === 0
         ? target === "remote"
-          ? "这台远程 OpenClaw 可用"
+          ? "另一台机器上的 OpenClaw 可用"
           : "本机 OpenClaw 可用"
         : "连接前检查发现问题",
     detail:
       failures.length === 0
         ? target === "remote"
-          ? "现在可以直接连接，或者先保存这台龙虾。"
+          ? "现在可以直接连接，或者先保存这台机器。"
           : "现在可以直接开始连接。"
         : failures[0]?.detail || "",
     checks,
@@ -595,6 +590,8 @@ export async function doctorOpenClaw(params = {}) {
         stateDir: params?.stateDir,
         sshTarget: params?.sshTarget,
         sshPort: params?.sshPort,
+        endpointUrl: params?.endpointUrl,
+        accessToken: params?.accessToken,
         relayUrl: params?.relayUrl,
         connectCode: params?.connectCode,
         label: params?.label,

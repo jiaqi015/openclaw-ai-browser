@@ -1,0 +1,10 @@
+{
+  "taskId": "agent-task-mc0o3uah",
+  "archivedAt": "2026-04-14T14:43:33.069Z",
+  "status": "error",
+  "userTask": "点击 卫兰的 歌曲",
+  "journal": [],
+  "error": "Script failed to execute, this normally means an error was thrown. Check the renderer console for the error.",
+  "createdAt": 1776177813030,
+  "updatedAt": 1776177813068
+}

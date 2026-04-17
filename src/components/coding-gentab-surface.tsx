@@ -202,7 +202,7 @@ function LoadingTheatre({
             <Wand2 className="h-4.5 w-4.5 text-apple-pink" />
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-[0.2em] text-white/32">GenTab</div>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-white/32">GenTab / Creative</div>
             <div className="text-[15px] font-medium text-white/88">正在为你创作一张交互网页</div>
           </div>
         </div>

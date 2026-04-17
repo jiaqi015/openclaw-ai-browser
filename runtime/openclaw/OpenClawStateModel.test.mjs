@@ -27,14 +27,14 @@ test("normalizeConnectionConfig derives remote driver defaults without losing re
   assert.equal(config.sshPort, 2222);
 });
 
-test("normalizeConnectionConfig defaults remote targets to relay-paired when no legacy ssh target is present", () => {
+test("normalizeConnectionConfig defaults remote targets to endpoint when no bootstrap metadata is present", () => {
   const config = normalizeConnectionConfig({
     transport: "remote",
     label: "relay-remote",
   }, "remote");
 
   assert.equal(config.transport, "remote");
-  assert.equal(config.driver, "relay-paired");
+  assert.equal(config.driver, "endpoint");
   assert.equal(config.label, "relay-remote");
 });
 
@@ -51,6 +51,21 @@ test("normalizeConnectionConfig keeps relay remote metadata", () => {
   assert.equal(config.relayUrl, "https://relay.example.com");
   assert.equal(config.connectCode, "482913");
   assert.equal(config.label, "relay-remote");
+});
+
+test("normalizeConnectionConfig keeps endpoint remote metadata", () => {
+  const config = normalizeConnectionConfig({
+    transport: "remote",
+    driver: "endpoint",
+    endpointUrl: "https://openclaw.example.com",
+    accessToken: "  secret-token ",
+    label: "office-mini",
+  }, "remote");
+
+  assert.equal(config.driver, "endpoint");
+  assert.equal(config.endpointUrl, "https://openclaw.example.com");
+  assert.equal(config.accessToken, "secret-token");
+  assert.equal(config.label, "office-mini");
 });
 
 test("createConnectionState reports remote disconnected state as real remote setup instead of placeholder", () => {
@@ -111,7 +126,25 @@ test("createConnectionState gives relay-specific connection hint", () => {
   });
 
   assert.match(state.commandHint, /--driver relay-paired --relay-url <url> --connect-code <code>/);
-  assert.match(state.detail, /relay 地址和连接码/);
+  assert.match(state.detail, /连接地址和连接码/);
+});
+
+test("createConnectionState gives endpoint-specific connection hint", () => {
+  const state = createConnectionState({
+    target: "remote",
+    connectionConfig: {
+      enabled: false,
+      transport: "remote",
+      driver: "endpoint",
+      endpointUrl: null,
+      accessToken: null,
+      label: "office-mini",
+    },
+    bindingSetupState: createDefaultBindingSetupState("remote"),
+  });
+
+  assert.match(state.commandHint, /--endpoint <url> --token <token>/);
+  assert.match(state.detail, /连接地址和访问令牌/);
 });
 
 test("createConnectionState localizes remote summaries and doctor hints in English", () => {
@@ -124,9 +157,10 @@ test("createConnectionState localizes remote summaries and doctor hints in Engli
       connectionConfig: {
         enabled: false,
         transport: "remote",
-        driver: "ssh-cli",
+        driver: "endpoint",
         label: "jd-remote",
-        sshTarget: "root@example.com",
+        endpointUrl: "https://example.com",
+        accessToken: "token-value",
       },
       bindingSetupState: createDefaultBindingSetupState("remote"),
     });
@@ -135,7 +169,7 @@ test("createConnectionState localizes remote summaries and doctor hints in Engli
     assert.match(state.detail, /Current target: jd-remote/);
     assert.equal(
       state.doctorHint,
-      "Make sure the relay URL, connect code, and remote worker are ready before connecting.",
+      "Make sure the connection address and access token work. If you do not have them yet, use the advanced bootstrap flow.",
     );
   } finally {
     setCurrentUiLocale(previousLocale);
@@ -149,9 +183,12 @@ test("createDefaultBindingSetupState localizes remote defaults in English", () =
   try {
     const state = createDefaultBindingSetupState("remote");
 
-    assert.equal(state.title, "Connect remote OpenClaw");
-    assert.equal(state.description, "Reuse a remote OpenClaw control plane with a pairing code.");
-    assert.equal(state.note, "Enter the relay URL and generate a connect code first.");
+    assert.equal(state.title, "Connect another machine");
+    assert.equal(
+      state.description,
+      "Reuse OpenClaw on another machine with a connection address and an access token.",
+    );
+    assert.equal(state.note, "Enter the connection address and access token first.");
   } finally {
     setCurrentUiLocale(previousLocale);
   }
@@ -176,6 +213,29 @@ test("createSavedConnectionRecord derives a stable remote preset from ssh config
   assert.equal(saved.sshPort, 2222);
   assert.equal(saved.agentId, "main");
   assert.equal(saved.status, "saved");
+});
+
+test("createSavedConnectionRecord keeps endpoint credentials and strips relay setup codes", () => {
+  const endpointSaved = createSavedConnectionRecord({
+    transport: "remote",
+    driver: "endpoint",
+    endpointUrl: "https://openclaw.example.com",
+    accessToken: "secret-token",
+    label: "办公室主机",
+  });
+  const relaySaved = createSavedConnectionRecord({
+    transport: "remote",
+    driver: "relay-paired",
+    relayUrl: "https://relay.example.com",
+    connectCode: "ABC123",
+    label: "relay-remote",
+  });
+
+  assert.equal(endpointSaved.endpointUrl, "https://openclaw.example.com");
+  assert.equal(endpointSaved.accessToken, "secret-token");
+  assert.equal(endpointSaved.connectCode, null);
+  assert.equal(relaySaved.relayUrl, "https://relay.example.com");
+  assert.equal(relaySaved.connectCode, null);
 });
 
 test("normalizeSavedConnections deduplicates remote presets and filters non-remote entries", () => {

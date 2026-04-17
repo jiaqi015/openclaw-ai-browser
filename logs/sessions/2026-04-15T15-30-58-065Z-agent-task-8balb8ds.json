@@ -1,0 +1,1771 @@
+{
+  "taskId": "agent-task-8balb8ds",
+  "archivedAt": "2026-04-15T15:30:58.065Z",
+  "status": "completed",
+  "userTask": "点击试听",
+  "journal": [
+    {
+      "step": 1,
+      "action": {
+        "action": "click",
+        "index": 16,
+        "reason": "点击歌曲行内的“试听”按钮",
+        "expectations": {
+          "domChanged": true
+        }
+      },
+      "result": {
+        "ok": true
+      },
+      "verification": {
+        "ok": true
+      },
+      "timestamp": 1776267041010,
+      "_snapshot": {
+        "url": "https://music.apple.com/cn/album/%E4%B8%8D%E8%8D%AF%E8%80%8C%E6%84%88/1892348828?i=1892348829",
+        "title": "‎不药而愈 - 由卫兰演唱 - Apple Music",
+        "interactiveElements": [
+          {
+            "index": 1,
+            "tag": "a",
+            "type": "",
+            "text": "Apple Music",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 30,
+              "y": 17,
+              "w": 83,
+              "h": 38
+            }
+          },
+          {
+            "index": 2,
+            "tag": "input",
+            "type": "search",
+            "text": "",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 25,
+              "y": 66,
+              "w": 209,
+              "h": 32
+            }
+          },
+          {
+            "index": 3,
+            "tag": "a",
+            "type": "",
+            "text": "主页",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 26,
+              "y": 119,
+              "w": 208,
+              "h": 30
+            }
+          },
+          {
+            "index": 4,
+            "tag": "a",
+            "type": "",
+            "text": "新发现",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 26,
+              "y": 153,
+              "w": 208,
+              "h": 30
+            }
+          },
+          {
+            "index": 5,
+            "tag": "a",
+            "type": "",
+            "text": "广播",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 26,
+              "y": 187,
+              "w": 208,
+              "h": 30
+            }
+          },
+          {
+            "index": 6,
+            "tag": "button",
+            "type": "submit",
+            "text": "在“音乐”中打开",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 25,
+              "y": 745,
+              "w": 210,
+              "h": 24
+            }
+          },
+          {
+            "index": 7,
+            "tag": "button",
+            "type": "submit",
+            "text": "待播清单",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1011,
+              "y": 13,
+              "w": 32,
+              "h": 28
+            }
+          },
+          {
+            "index": 8,
+            "tag": "button",
+            "type": "submit",
+            "text": "登录",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1057,
+              "y": 13,
+              "w": 88,
+              "h": 28
+            }
+          },
+          {
+            "index": 9,
+            "tag": "a",
+            "type": "",
+            "text": "卫兰",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 604,
+              "y": 206,
+              "w": 52,
+              "h": 30
+            }
+          },
+          {
+            "index": 10,
+            "tag": "button",
+            "type": "submit",
+            "text": "试听",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 604,
+              "y": 336,
+              "w": 100,
+              "h": 28
+            }
+          },
+          {
+            "index": 11,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1059,
+              "y": 336,
+              "w": 28,
+              "h": 28
+            }
+          },
+          {
+            "index": 12,
+            "tag": "div",
+            "type": "",
+            "text": "1 不药而愈 试听 4:35",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 300,
+              "y": 405,
+              "w": 805,
+              "h": 46
+            }
+          },
+          {
+            "index": 13,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放卫兰的《不药而愈》",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 300,
+              "y": 420,
+              "w": 40,
+              "h": 18
+            }
+          },
+          {
+            "index": 14,
+            "tag": "a",
+            "type": "",
+            "text": "不药而愈",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 340,
+              "y": 420,
+              "w": 52,
+              "h": 16
+            }
+          },
+          {
+            "index": 15,
+            "tag": "div",
+            "type": "",
+            "text": "不药而愈",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 340,
+              "y": 420,
+              "w": 52,
+              "h": 16
+            }
+          },
+          {
+            "index": 16,
+            "tag": "button",
+            "type": "submit",
+            "text": "试听",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1024,
+              "y": 422,
+              "w": 28,
+              "h": 13
+            }
+          },
+          {
+            "index": 17,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1059,
+              "y": 414,
+              "w": 28,
+              "h": 28
+            }
+          },
+          {
+            "index": 18,
+            "tag": "button",
+            "type": "button",
+            "text": "更多卫兰的作品",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 300,
+              "y": 642,
+              "w": 135,
+              "h": 22
+            }
+          },
+          {
+            "index": 19,
+            "tag": "a",
+            "type": "",
+            "text": "一格格 - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 300,
+              "y": 677,
+              "w": 186,
+              "h": 186
+            }
+          },
+          {
+            "index": 20,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放“一格格 - Single”",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 310,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 21,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 446,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 22,
+            "tag": "a",
+            "type": "",
+            "text": "一格格 - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 300,
+              "y": 867,
+              "w": 83,
+              "h": 15
+            }
+          },
+          {
+            "index": 23,
+            "tag": "a",
+            "type": "",
+            "text": "验伤 - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 506,
+              "y": 677,
+              "w": 186,
+              "h": 186
+            }
+          },
+          {
+            "index": 24,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放“验伤 - Single”",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 516,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 25,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 653,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 26,
+            "tag": "a",
+            "type": "",
+            "text": "验伤 - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 506,
+              "y": 867,
+              "w": 71,
+              "h": 15
+            }
+          },
+          {
+            "index": 27,
+            "tag": "a",
+            "type": "",
+            "text": "Imagine",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 713,
+              "y": 677,
+              "w": 186,
+              "h": 186
+            }
+          },
+          {
+            "index": 28,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放“Imagine”",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 723,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 29,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 859,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 30,
+            "tag": "a",
+            "type": "",
+            "text": "Imagine",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 713,
+              "y": 867,
+              "w": 44,
+              "h": 15
+            }
+          },
+          {
+            "index": 31,
+            "tag": "a",
+            "type": "",
+            "text": "Love And Other Things",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 919,
+              "y": 677,
+              "w": 186,
+              "h": 186
+            }
+          },
+          {
+            "index": 32,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放“Love And Other Things”",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 929,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 33,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1065,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 34,
+            "tag": "a",
+            "type": "",
+            "text": "Love And Other Things",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 919,
+              "y": 867,
+              "w": 129,
+              "h": 15
+            }
+          },
+          {
+            "index": 35,
+            "tag": "a",
+            "type": "",
+            "text": "Serving You",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1125,
+              "y": 677,
+              "w": 186,
+              "h": 186
+            }
+          },
+          {
+            "index": 36,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放“Serving You”",
+            "value": "",
+            "placeholder": "",
+            "disabled": true,
+            "failureCount": 0,
+            "rect": {
+              "x": 1135,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 37,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": true,
+            "failureCount": 0,
+            "rect": {
+              "x": 1271,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 38,
+            "tag": "a",
+            "type": "",
+            "text": "Serving You",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1125,
+              "y": 867,
+              "w": 67,
+              "h": 15
+            }
+          },
+          {
+            "index": 39,
+            "tag": "a",
+            "type": "",
+            "text": "呼吸之间 - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1331,
+              "y": 677,
+              "w": 186,
+              "h": 186
+            }
+          },
+          {
+            "index": 40,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放“呼吸之间 - Single”",
+            "value": "",
+            "placeholder": "",
+            "disabled": true,
+            "failureCount": 0,
+            "rect": {
+              "x": 1341,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 41,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": true,
+            "failureCount": 0,
+            "rect": {
+              "x": 1478,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 42,
+            "tag": "a",
+            "type": "",
+            "text": "呼吸之间 - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1331,
+              "y": 867,
+              "w": 95,
+              "h": 15
+            }
+          },
+          {
+            "index": 43,
+            "tag": "a",
+            "type": "",
+            "text": "The Best Version Of Me - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1538,
+              "y": 677,
+              "w": 186,
+              "h": 186
+            }
+          },
+          {
+            "index": 44,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放“The Best Version Of Me - Single”",
+            "value": "",
+            "placeholder": "",
+            "disabled": true,
+            "failureCount": 0,
+            "rect": {
+              "x": 1548,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 45,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": true,
+            "failureCount": 0,
+            "rect": {
+              "x": 1684,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 46,
+            "tag": "a",
+            "type": "",
+            "text": "The Best Version Of Me - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1538,
+              "y": 867,
+              "w": 142,
+              "h": 30
+            }
+          },
+          {
+            "index": 47,
+            "tag": "a",
+            "type": "",
+            "text": "Apple Inc.",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 398,
+              "y": 959,
+              "w": 52,
+              "h": 13
+            }
+          },
+          {
+            "index": 48,
+            "tag": "a",
+            "type": "",
+            "text": "互联网服务条款",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 300,
+              "y": 984,
+              "w": 87,
+              "h": 11
+            }
+          },
+          {
+            "index": 49,
+            "tag": "a",
+            "type": "",
+            "text": "Apple Music 与隐私",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 398,
+              "y": 984,
+              "w": 111,
+              "h": 11
+            }
+          },
+          {
+            "index": 50,
+            "tag": "a",
+            "type": "",
+            "text": "Cookie 警告",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 520,
+              "y": 984,
+              "w": 71,
+              "h": 11
+            }
+          },
+          {
+            "index": 51,
+            "tag": "a",
+            "type": "",
+            "text": "支持",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 602,
+              "y": 984,
+              "w": 32,
+              "h": 11
+            }
+          },
+          {
+            "index": 52,
+            "tag": "a",
+            "type": "",
+            "text": "反馈",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 645,
+              "y": 984,
+              "w": 32,
+              "h": 11
+            }
+          },
+          {
+            "index": 53,
+            "tag": "button",
+            "type": "button",
+            "text": "免费试用",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1005,
+              "y": 804,
+              "w": 125,
+              "h": 32
+            }
+          }
+        ],
+        "pageText": "搜索\n主页\n新发现\n广播\n在“音乐”中打开\n登录\n不药而愈 - Single\n卫兰\n国语流行 · 2026年\n试听\n\t\n歌曲\n\t时长\n\n\t\n1\n不药而愈\n\t\n试听\n4:35\n\n2026年4月13日\n1 首歌曲、4 分钟\n℗ 2026 雲聲音樂\n\n更多卫兰的作品 \n一格格 - Single\n一格格 - Single\n\n2017年\n\n验伤 - Single\n验伤 - Single\n\n2017年\n\nImagine\nImagine\n\n2012年\n\nLove And Other Things\nLove And Other Things\n\n2017年\n\nServing You\nServing You\n\n2008年\n\n呼吸之间 - Single\n呼吸之间 - Single\n\n2022年\n\nThe Best Version Of Me - Single\nThe Best Version Of Me - Single\n\n2025年\n\nCopyright © 2026 Apple Inc. 保留所有权利。\n\n互联网服务条款\nApple Music 与隐私\nCookie 警告\n支持\n反馈\n上千万首歌曲，免费畅听 1 个月。\n此外，你还能在所有设备上畅享自己的整个音乐资料库。免费试用 1 个月，之后 ¥11.00/月。\n免费试用\n👆\nSABRINA AGENT ACTIVE",
+        "scrollPosition": {
+          "y": 0,
+          "scrollHeight": 856
+        },
+        "hasMoreContent": false,
+        "tabId": 2,
+        "axNodes": []
+      }
+    },
+    {
+      "step": 2,
+      "action": {
+        "action": "click",
+        "index": 10,
+        "reason": "改为点击页面顶部的“试听”按钮以触发播放预览",
+        "expectations": {
+          "domChanged": true
+        }
+      },
+      "result": {
+        "ok": true
+      },
+      "verification": {
+        "ok": true
+      },
+      "timestamp": 1776267050038,
+      "_snapshot": {
+        "url": "https://music.apple.com/cn/album/%E4%B8%8D%E8%8D%AF%E8%80%8C%E6%84%88/1892348828?i=1892348829",
+        "title": "‎不药而愈 - 由卫兰演唱 - Apple Music",
+        "interactiveElements": [
+          {
+            "index": 1,
+            "tag": "a",
+            "type": "",
+            "text": "Apple Music",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 30,
+              "y": 17,
+              "w": 83,
+              "h": 38
+            }
+          },
+          {
+            "index": 2,
+            "tag": "input",
+            "type": "search",
+            "text": "",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 25,
+              "y": 66,
+              "w": 209,
+              "h": 32
+            }
+          },
+          {
+            "index": 3,
+            "tag": "a",
+            "type": "",
+            "text": "主页",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 26,
+              "y": 119,
+              "w": 208,
+              "h": 30
+            }
+          },
+          {
+            "index": 4,
+            "tag": "a",
+            "type": "",
+            "text": "新发现",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 26,
+              "y": 153,
+              "w": 208,
+              "h": 30
+            }
+          },
+          {
+            "index": 5,
+            "tag": "a",
+            "type": "",
+            "text": "广播",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 26,
+              "y": 187,
+              "w": 208,
+              "h": 30
+            }
+          },
+          {
+            "index": 6,
+            "tag": "button",
+            "type": "submit",
+            "text": "在“音乐”中打开",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 25,
+              "y": 745,
+              "w": 210,
+              "h": 24
+            }
+          },
+          {
+            "index": 7,
+            "tag": "button",
+            "type": "submit",
+            "text": "待播清单",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1011,
+              "y": 13,
+              "w": 32,
+              "h": 28
+            }
+          },
+          {
+            "index": 8,
+            "tag": "button",
+            "type": "submit",
+            "text": "登录",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1057,
+              "y": 13,
+              "w": 88,
+              "h": 28
+            }
+          },
+          {
+            "index": 9,
+            "tag": "a",
+            "type": "",
+            "text": "卫兰",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 604,
+              "y": 206,
+              "w": 52,
+              "h": 30
+            }
+          },
+          {
+            "index": 10,
+            "tag": "button",
+            "type": "submit",
+            "text": "试听",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 604,
+              "y": 336,
+              "w": 100,
+              "h": 28
+            }
+          },
+          {
+            "index": 11,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1059,
+              "y": 336,
+              "w": 28,
+              "h": 28
+            }
+          },
+          {
+            "index": 12,
+            "tag": "div",
+            "type": "",
+            "text": "1 不药而愈 试听 4:35",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 300,
+              "y": 405,
+              "w": 805,
+              "h": 46
+            }
+          },
+          {
+            "index": 13,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放卫兰的《不药而愈》",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 300,
+              "y": 420,
+              "w": 40,
+              "h": 18
+            }
+          },
+          {
+            "index": 14,
+            "tag": "a",
+            "type": "",
+            "text": "不药而愈",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 340,
+              "y": 420,
+              "w": 52,
+              "h": 16
+            }
+          },
+          {
+            "index": 15,
+            "tag": "div",
+            "type": "",
+            "text": "不药而愈",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 340,
+              "y": 420,
+              "w": 52,
+              "h": 16
+            }
+          },
+          {
+            "index": 16,
+            "tag": "button",
+            "type": "submit",
+            "text": "试听",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1024,
+              "y": 422,
+              "w": 28,
+              "h": 13
+            }
+          },
+          {
+            "index": 17,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1059,
+              "y": 414,
+              "w": 28,
+              "h": 28
+            }
+          },
+          {
+            "index": 18,
+            "tag": "button",
+            "type": "button",
+            "text": "更多卫兰的作品",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 300,
+              "y": 642,
+              "w": 135,
+              "h": 22
+            }
+          },
+          {
+            "index": 19,
+            "tag": "a",
+            "type": "",
+            "text": "一格格 - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 300,
+              "y": 677,
+              "w": 186,
+              "h": 186
+            }
+          },
+          {
+            "index": 20,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放“一格格 - Single”",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 310,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 21,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 446,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 22,
+            "tag": "a",
+            "type": "",
+            "text": "一格格 - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 300,
+              "y": 867,
+              "w": 83,
+              "h": 15
+            }
+          },
+          {
+            "index": 23,
+            "tag": "a",
+            "type": "",
+            "text": "验伤 - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 506,
+              "y": 677,
+              "w": 186,
+              "h": 186
+            }
+          },
+          {
+            "index": 24,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放“验伤 - Single”",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 516,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 25,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 653,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 26,
+            "tag": "a",
+            "type": "",
+            "text": "验伤 - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 506,
+              "y": 867,
+              "w": 71,
+              "h": 15
+            }
+          },
+          {
+            "index": 27,
+            "tag": "a",
+            "type": "",
+            "text": "Imagine",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 713,
+              "y": 677,
+              "w": 186,
+              "h": 186
+            }
+          },
+          {
+            "index": 28,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放“Imagine”",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 723,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 29,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 859,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 30,
+            "tag": "a",
+            "type": "",
+            "text": "Imagine",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 713,
+              "y": 867,
+              "w": 44,
+              "h": 15
+            }
+          },
+          {
+            "index": 31,
+            "tag": "a",
+            "type": "",
+            "text": "Love And Other Things",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 919,
+              "y": 677,
+              "w": 186,
+              "h": 186
+            }
+          },
+          {
+            "index": 32,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放“Love And Other Things”",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 929,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 33,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1065,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 34,
+            "tag": "a",
+            "type": "",
+            "text": "Love And Other Things",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 919,
+              "y": 867,
+              "w": 129,
+              "h": 15
+            }
+          },
+          {
+            "index": 35,
+            "tag": "a",
+            "type": "",
+            "text": "Serving You",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1125,
+              "y": 677,
+              "w": 186,
+              "h": 186
+            }
+          },
+          {
+            "index": 36,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放“Serving You”",
+            "value": "",
+            "placeholder": "",
+            "disabled": true,
+            "failureCount": 0,
+            "rect": {
+              "x": 1135,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 37,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": true,
+            "failureCount": 0,
+            "rect": {
+              "x": 1271,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 38,
+            "tag": "a",
+            "type": "",
+            "text": "Serving You",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1125,
+              "y": 867,
+              "w": 67,
+              "h": 15
+            }
+          },
+          {
+            "index": 39,
+            "tag": "a",
+            "type": "",
+            "text": "呼吸之间 - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1331,
+              "y": 677,
+              "w": 186,
+              "h": 186
+            }
+          },
+          {
+            "index": 40,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放“呼吸之间 - Single”",
+            "value": "",
+            "placeholder": "",
+            "disabled": true,
+            "failureCount": 0,
+            "rect": {
+              "x": 1341,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 41,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": true,
+            "failureCount": 0,
+            "rect": {
+              "x": 1478,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 42,
+            "tag": "a",
+            "type": "",
+            "text": "呼吸之间 - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1331,
+              "y": 867,
+              "w": 95,
+              "h": 15
+            }
+          },
+          {
+            "index": 43,
+            "tag": "a",
+            "type": "",
+            "text": "The Best Version Of Me - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1538,
+              "y": 677,
+              "w": 186,
+              "h": 186
+            }
+          },
+          {
+            "index": 44,
+            "tag": "button",
+            "type": "submit",
+            "text": "播放“The Best Version Of Me - Single”",
+            "value": "",
+            "placeholder": "",
+            "disabled": true,
+            "failureCount": 0,
+            "rect": {
+              "x": 1548,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 45,
+            "tag": "button",
+            "type": "button",
+            "text": "更多",
+            "value": "",
+            "placeholder": "",
+            "disabled": true,
+            "failureCount": 0,
+            "rect": {
+              "x": 1684,
+              "y": 823,
+              "w": 30,
+              "h": 30
+            }
+          },
+          {
+            "index": 46,
+            "tag": "a",
+            "type": "",
+            "text": "The Best Version Of Me - Single",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1538,
+              "y": 867,
+              "w": 142,
+              "h": 30
+            }
+          },
+          {
+            "index": 47,
+            "tag": "a",
+            "type": "",
+            "text": "Apple Inc.",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 398,
+              "y": 959,
+              "w": 52,
+              "h": 13
+            }
+          },
+          {
+            "index": 48,
+            "tag": "a",
+            "type": "",
+            "text": "互联网服务条款",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 300,
+              "y": 984,
+              "w": 87,
+              "h": 11
+            }
+          },
+          {
+            "index": 49,
+            "tag": "a",
+            "type": "",
+            "text": "Apple Music 与隐私",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 398,
+              "y": 984,
+              "w": 111,
+              "h": 11
+            }
+          },
+          {
+            "index": 50,
+            "tag": "a",
+            "type": "",
+            "text": "Cookie 警告",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 520,
+              "y": 984,
+              "w": 71,
+              "h": 11
+            }
+          },
+          {
+            "index": 51,
+            "tag": "a",
+            "type": "",
+            "text": "支持",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 602,
+              "y": 984,
+              "w": 32,
+              "h": 11
+            }
+          },
+          {
+            "index": 52,
+            "tag": "a",
+            "type": "",
+            "text": "反馈",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 645,
+              "y": 984,
+              "w": 32,
+              "h": 11
+            }
+          },
+          {
+            "index": 53,
+            "tag": "button",
+            "type": "button",
+            "text": "免费试用",
+            "value": "",
+            "placeholder": "",
+            "disabled": false,
+            "failureCount": 0,
+            "rect": {
+              "x": 1005,
+              "y": 804,
+              "w": 125,
+              "h": 32
+            }
+          }
+        ],
+        "pageText": "搜索\n主页\n新发现\n广播\n在“音乐”中打开\n登录\n不药而愈 - Single\n卫兰\n国语流行 · 2026年\n试听\n\t\n歌曲\n\t时长\n\n\t\n1\n不药而愈\n\t\n试听\n4:35\n\n2026年4月13日\n1 首歌曲、4 分钟\n℗ 2026 雲聲音樂\n\n更多卫兰的作品 \n一格格 - Single\n一格格 - Single\n\n2017年\n\n验伤 - Single\n验伤 - Single\n\n2017年\n\nImagine\nImagine\n\n2012年\n\nLove And Other Things\nLove And Other Things\n\n2017年\n\nServing You\nServing You\n\n2008年\n\n呼吸之间 - Single\n呼吸之间 - Single\n\n2022年\n\nThe Best Version Of Me - Single\nThe Best Version Of Me - Single\n\n2025年\n\nCopyright © 2026 Apple Inc. 保留所有权利。\n\n互联网服务条款\nApple Music 与隐私\nCookie 警告\n支持\n反馈\n上千万首歌曲，免费畅听 1 个月。\n此外，你还能在所有设备上畅享自己的整个音乐资料库。免费试用 1 个月，之后 ¥11.00/月。\n免费试用\n👆\n正在思考下一步...",
+        "scrollPosition": {
+          "y": 0,
+          "scrollHeight": 856
+        },
+        "hasMoreContent": false,
+        "tabId": 2,
+        "axNodes": []
+      }
+    }
+  ],
+  "summary": "已点击“试听”按钮",
+  "createdAt": 1776267029362,
+  "updatedAt": 1776267058065
+}

@@ -1,10 +1,10 @@
 /**
- * Lightweight client-side intent detector for the Coding GenTab agent.
+ * Lightweight client-side intent detector for the creative-page GenTab mode.
  *
  * When the user sends a message that clearly describes "make me an interactive
- * web page", we can auto-route to the Coding GenTab generator instead of the
- * chat thread — making the feature feel like a conversational agent capability
- * rather than a hidden button.
+ * web page", we can auto-route to the creative GenTab generator instead of the
+ * chat thread — making the feature feel like a GenTab sub-capability instead of
+ * a hidden parallel product.
  *
  * Design principle: err on the side of NOT triggering. A false positive
  * (routing a chat message to GenTab when the user just wanted to chat) is more

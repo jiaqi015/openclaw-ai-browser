@@ -183,6 +183,27 @@ contextBridge.exposeInMainWorld("sabrinaDesktop", {
       };
     },
   },
+  agent: {
+    runBrowserTask: (payload) => ipcRenderer.invoke("agent:run-browser-task", payload),
+    confirmResponse: (payload) => ipcRenderer.invoke("agent:confirm-response", payload),
+    stop: (payload) => ipcRenderer.invoke("agent:stop", payload),
+    getTask: (payload) => ipcRenderer.invoke("agent:get-task", payload),
+    onProgress: (listener) => {
+      const wrapped = (_event, data) => listener(data);
+      ipcRenderer.on("agent:progress", wrapped);
+      return () => ipcRenderer.removeListener("agent:progress", wrapped);
+    },
+    onRequestConfirm: (listener) => {
+      const wrapped = (_event, data) => listener(data);
+      ipcRenderer.on("agent:request-confirm", wrapped);
+      return () => ipcRenderer.removeListener("agent:request-confirm", wrapped);
+    },
+    onCompleted: (listener) => {
+      const wrapped = (_event, data) => listener(data);
+      ipcRenderer.on("agent:completed", wrapped);
+      return () => ipcRenderer.removeListener("agent:completed", wrapped);
+    },
+  },
   browser: {
     openUrlInNewTab: (url) => ipcRenderer.invoke("browser:create-tab", { input: url }),
   },

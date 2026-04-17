@@ -252,6 +252,44 @@ test("executeOpenClawTaskTurn builds background task receipts and prompts", asyn
   assert.match(result.receipt.userVisibleMessage, /已交给龙虾异步处理/);
 });
 
+test("executeOpenClawTaskTurn supports hidden pure-openclaw mode without browser context", async () => {
+  let capturedTask = null;
+
+  const result = await executeOpenClawTaskTurn(
+    {
+      threadId: "thread-pure",
+      userText: "直接问龙虾",
+      taskPayload: {
+        contextMode: "pure-openclaw",
+        prompt: "帮我拆一下这个需求的执行步骤",
+        agentId: "sabrina-browser",
+      },
+      referenceTabIds: [],
+    },
+    {
+      runLocalAgentTask: async (payload) => {
+        capturedTask = payload;
+        return {
+          text: "已创建纯龙虾后台任务",
+          taskId: "task-pure",
+          model: "gpt-5.4",
+        };
+      },
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.executionPlan.turnType, "handoff");
+  assert.equal(result.executionPlan.strategy, "background_task");
+  assert.equal(result.executionPlan.browserContext.primarySourceKind, "pure-openclaw");
+  assert.equal(result.contextPackage.primary, null);
+  assert.equal(capturedTask.task.title, "龙虾任务");
+  assert.equal(capturedTask.task.sourceUrl, "");
+  assert.match(capturedTask.message, /不带浏览器页面上下文/);
+  assert.doesNotMatch(result.receipt.userVisibleMessage, /纯龙虾模式/);
+  assert.match(result.receipt.userVisibleMessage, /已交给龙虾异步处理/);
+});
+
 test("executeGenTabTurn plans artifact generation and returns normalized gentab", async () => {
   const snapshots = {
     "tab-a": {

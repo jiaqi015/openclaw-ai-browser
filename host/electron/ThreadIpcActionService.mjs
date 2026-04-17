@@ -18,6 +18,22 @@ import {
   resolveAssistantLocale,
   translate,
 } from "../../shared/localization.mjs";
+import { serializeThreadRuntimeState } from "../../runtime/threads/ThreadStore.mjs";
+
+const activeTurnAbortControllers = new Map();
+
+export function stopActiveTurn(payload) {
+  const threadId = `${payload?.threadId ?? ""}`.trim();
+  if (!threadId) return { ok: false, error: "Missing threadId" };
+
+  const controller = activeTurnAbortControllers.get(threadId);
+  if (controller) {
+    controller.abort();
+    activeTurnAbortControllers.delete(threadId);
+    return { ok: true };
+  }
+  return { ok: false, error: "No active turn for this thread" };
+}
 
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
@@ -182,12 +198,20 @@ export async function runAiAction(payload, services = {}) {
       ? payload.model.trim()
       : "";
 
+  const threadId = `${payload?.threadId ?? ""}`.trim();
+  const controller = new AbortController();
+  if (threadId) {
+    activeTurnAbortControllers.set(threadId, controller);
+  }
+
   try {
     let response = null;
     let recordedActionName = actionName;
     let skillFallback = false;
     let skillFailureReason = "";
     let skillTrace = null;
+
+    const turnOptions = { signal: controller.signal };
 
     if (requestedSkillName) {
       try {
@@ -201,7 +225,7 @@ export async function runAiAction(payload, services = {}) {
           agentId,
           sessionId,
           thinking: "low",
-        });
+        }, turnOptions);
         response = {
           text: skillResponse.text,
           sessionId: skillResponse.sessionId,
@@ -229,7 +253,7 @@ export async function runAiAction(payload, services = {}) {
           model: requestedModel,
           message: builtPrompt,
           sessionKey: sessionId,
-        });
+        }, turnOptions);
         recordedActionName = `${payload.action}:fallback-from-skill:${requestedSkillName}`;
       }
     } else {
@@ -238,7 +262,7 @@ export async function runAiAction(payload, services = {}) {
         model: requestedModel,
         message: builtPrompt,
         sessionKey: sessionId,
-      });
+      }, turnOptions);
     }
 
     const finalMessage = `${response.text || "模型没有返回可显示的文本。"}`.trim();
@@ -272,6 +296,9 @@ export async function runAiAction(payload, services = {}) {
       skillTrace: skillTrace || undefined,
     };
   } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("对话已中断");
+    }
     if (requestedSkillName) {
       await refreshRuntimeState().catch(() => {});
     }
@@ -288,14 +315,23 @@ export async function runAiAction(payload, services = {}) {
       errorMessage: error instanceof Error ? error.message : String(error),
     });
     throw error;
+  } finally {
+    if (threadId) {
+      activeTurnAbortControllers.delete(threadId);
+    }
   }
 }
 
 export async function runTrackedLocalAgentTask(payload) {
   const startedAt = Date.now();
+  const threadId = `${payload?.threadId ?? payload?.task?.threadId ?? ""}`.trim();
+  const controller = new AbortController();
+  if (threadId) {
+    activeTurnAbortControllers.set(threadId, controller);
+  }
 
   try {
-    const response = await runLocalAgentTurn(payload ?? {});
+    const response = await runLocalAgentTurn(payload ?? {}, {}, { signal: controller.signal });
     await recordOpenClawTask({
       kind: "handoff",
       agentId: `${payload?.agentId ?? "main"}`.trim() || "main",
@@ -330,5 +366,9 @@ export async function runTrackedLocalAgentTask(payload) {
       durationMs: Date.now() - startedAt,
     });
     throw error;
+  } finally {
+    if (threadId) {
+      activeTurnAbortControllers.delete(threadId);
+    }
   }
 }

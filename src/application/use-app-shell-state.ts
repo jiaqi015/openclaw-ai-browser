@@ -81,6 +81,7 @@ export function useAppShellState({
     sidebarChatKey,
     sidebarQuickActions,
     visibleMessages,
+    handleStopTurn,
   } = useAppViewState({
     activeMessages: controller.activeMessages,
     activeTab: controller.activeTab,
@@ -98,6 +99,7 @@ export function useAppShellState({
     selectedModel: controller.selectedModel,
     sendMessage: controller.sendMessage,
     sendToOpenClaw: controller.sendToOpenClaw,
+    stopTurn: controller.stopTurn,
     setSelectedComposerSkill: controller.setSelectedComposerSkill,
     skillCatalog: controller.skillCatalog,
     surfaceMode,
@@ -341,6 +343,7 @@ export function useAppShellState({
     onComposerChange: controller.setComposerText,
     onOpenGenTabGenerator: controller.handleOpenGenTabGenerator,
     onOpenCodingGenTabGenerator: controller.handleOpenCodingGenTabGenerator,
+    onResetGenTabState: controller.handleResetGenTabState,
     onOpenSkills: () => {
       void openInternalTab("skills");
     },
@@ -354,7 +357,7 @@ export function useAppShellState({
     onSelectThread: controller.selectThread,
     onSend: () => {
       // Chat-native routing: if the message clearly describes a creative page
-      // request, route directly to the Coding GenTab agent instead of chat.
+      // request, route directly to the creative GenTab mode instead of chat.
       // Conditions: lobster connected, on a real (non-sabrina://) page, not
       // already generating, and no composer skill selected (skill takes priority).
       const intentText = controller.composerText.trim();
@@ -368,12 +371,26 @@ export function useAppShellState({
         !controller.selectedComposerSkill
       ) {
         void controller.handleOpenCodingGenTabGenerator({ userIntent: intentText });
+        controller.setComposerText("");
         return;
       }
       void handleChat();
     },
     onSendToOpenClaw: () => {
       void handleSendToOpenClaw();
+    },
+    onStopTurn: () => {
+      void handleStopTurn();
+    },
+    onAppendAgentMessage: (text: string) => {
+      if (controller.activeThreadId && text) {
+        void controller.appendMessage(controller.activeThreadId, {
+          messageId: `msg-${Math.random().toString(36).slice(2, 10)}`,
+          role: "user",
+          text,
+          mode: "agent"
+        });
+      }
     },
     onToggleReference: controller.toggleReference,
     quickActions: sidebarQuickActions,
@@ -386,6 +403,8 @@ export function useAppShellState({
     sidebarWidth,
     threadSummaries: controller.threadSummaries,
     visibleMessages,
+    agentState: controller.agentState,
+    activeThreadId: controller.activeThreadId,
   };
 
   return {

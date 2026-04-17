@@ -62,7 +62,7 @@ export function buildBindingSetupState(params) {
         ? translate(locale, "binding.remote.description.ready")
         : translate(locale, "binding.remote.description.connect"),
       note:
-        note || (hasRemoteTarget ? remoteLabel : translate(locale, "binding.remote.relayRequired")),
+        note || (hasRemoteTarget ? remoteLabel : translate(locale, "binding.default.remote.note")),
       primaryActionLabel: hasRemoteTarget ? translate(locale, "binding.remote.recheck") : undefined,
       secondaryActionLabel: translate(locale, "binding.default.remote.secondary"),
       steps,

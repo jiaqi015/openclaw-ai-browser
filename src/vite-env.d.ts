@@ -24,6 +24,7 @@ declare global {
     messageId: string;
     role: "user" | "assistant" | "system" | "error";
     text: string;
+    mode?: "chat" | "agent" | "claw" | "gentab";
     skillTrace?: SabrinaSkillTrace;
   }
 
@@ -281,11 +282,13 @@ declare global {
   interface SabrinaOpenClawConnectionConfig {
     enabled: boolean;
     transport: "local" | "remote";
-    driver?: "local-cli" | "ssh-cli" | "relay-paired";
+    driver?: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
     profile: string | null;
     stateDir: string | null;
     sshTarget?: string | null;
     sshPort?: number | null;
+    endpointUrl?: string | null;
+    accessToken?: string | null;
     relayUrl?: string | null;
     connectCode?: string | null;
     label?: string | null;
@@ -313,6 +316,7 @@ declare global {
       stateDir: string | null;
       sshTarget: string | null;
       sshPort: number | null;
+      endpointUrl: string | null;
       relayUrl: string | null;
       agentId: string | null;
       features: string[];
@@ -325,11 +329,13 @@ declare global {
     id: string;
     name: string;
     transport: "local" | "remote";
-    driver: "local-cli" | "ssh-cli" | "relay-paired";
+    driver: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
     profile: string | null;
     stateDir: string | null;
     sshTarget?: string | null;
     sshPort?: number | null;
+    endpointUrl?: string | null;
+    accessToken?: string | null;
     relayUrl?: string | null;
     connectCode?: string | null;
     label?: string | null;
@@ -350,7 +356,7 @@ declare global {
     ok: boolean;
     target: "local" | "remote";
     transport: "local" | "remote";
-    driver: "local-cli" | "ssh-cli" | "relay-paired" | null;
+    driver: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint" | null;
     summary: string;
     detail: string;
     checkCount: number;
@@ -885,7 +891,8 @@ declare global {
           referenceTabIds?: string[];
           taskPayload: {
             agentId?: string;
-            tabId: string;
+            tabId?: string;
+            contextMode?: "browser" | "pure-openclaw";
             prompt?: string;
             sessionId?: string;
             thinking?: string;
@@ -898,6 +905,7 @@ declare global {
           threadId: string;
           url: string;
         }) => Promise<SabrinaThreadRuntimeResolution>;
+        stopTurn: (payload: { threadId: string }) => Promise<void>;
         onRuntimeState: (
           listener: (state: SabrinaThreadRuntimeResolution) => void,
         ) => () => void;
@@ -932,9 +940,11 @@ declare global {
           target?: "local" | "remote";
           profile?: string;
           stateDir?: string;
-          driver?: "local-cli" | "ssh-cli" | "relay-paired";
+          driver?: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
           sshTarget?: string;
           sshPort?: number;
+          endpointUrl?: string;
+          accessToken?: string;
           relayUrl?: string;
           connectCode?: string;
           label?: string;
@@ -944,9 +954,11 @@ declare global {
           target?: "local" | "remote";
           profile?: string;
           stateDir?: string;
-          driver?: "local-cli" | "ssh-cli" | "relay-paired";
+          driver?: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
           sshTarget?: string;
           sshPort?: number;
+          endpointUrl?: string;
+          accessToken?: string;
           relayUrl?: string;
           connectCode?: string;
           label?: string;
@@ -954,11 +966,13 @@ declare global {
         }) => Promise<SabrinaOpenClawState>;
         doctor: (params?: {
           target?: "local" | "remote";
-          driver?: "local-cli" | "ssh-cli" | "relay-paired";
+          driver?: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
           profile?: string;
           stateDir?: string;
           sshTarget?: string;
           sshPort?: number;
+          endpointUrl?: string;
+          accessToken?: string;
           relayUrl?: string;
           connectCode?: string;
           label?: string;
@@ -966,11 +980,13 @@ declare global {
         }) => Promise<SabrinaOpenClawDoctorReport>;
         probeConnection: (params?: {
           target?: "local" | "remote";
-          driver?: "local-cli" | "ssh-cli" | "relay-paired";
+          driver?: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
           profile?: string;
           stateDir?: string;
           sshTarget?: string;
           sshPort?: number;
+          endpointUrl?: string;
+          accessToken?: string;
           relayUrl?: string;
           connectCode?: string;
           label?: string;
@@ -1018,9 +1034,11 @@ declare global {
           target?: "local" | "remote";
           profile?: string;
           stateDir?: string;
-          driver?: "local-cli" | "ssh-cli" | "relay-paired";
+          driver?: "local-cli" | "ssh-cli" | "relay-paired" | "endpoint";
           sshTarget?: string;
           sshPort?: number;
+          endpointUrl?: string;
+          accessToken?: string;
           relayUrl?: string;
           connectCode?: string;
           label?: string;
@@ -1184,6 +1202,29 @@ declare global {
         ) => () => void;
         onCodingProgress?: (
           listener: (event: { genId: string; stage: string; label: string }) => void,
+        ) => () => void;
+      };
+      agent?: {
+        runBrowserTask: (payload: {
+          tabId: string;
+          task: string;
+          userData?: Record<string, any>;
+          threadId?: string;
+        }) => Promise<{ ok: boolean; taskId?: string; error?: string }>;
+        confirmResponse: (payload: {
+          taskId: string;
+          confirmed: boolean;
+        }) => Promise<{ ok: boolean }>;
+        stop: (payload: { taskId: string }) => Promise<{ ok: boolean }>;
+        getTask: (payload: { taskId: string }) => Promise<any>;
+        onProgress: (
+          listener: (data: any) => void,
+        ) => () => void;
+        onRequestConfirm: (
+          listener: (data: any) => void,
+        ) => () => void;
+        onCompleted: (
+          listener: (data: any) => void,
         ) => () => void;
       };
       browser?: {

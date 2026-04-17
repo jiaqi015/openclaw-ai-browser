@@ -20,7 +20,6 @@
 
 ---
 
-<!-- Screenshot placeholder: replace docs/screenshot.png with a real screenshot, then delete this comment -->
 <p align="center">
   <img src="docs/screenshot.png" width="900" alt="Sabrina — Browser + AI Sidebar" />
 </p>
@@ -37,11 +36,12 @@ Open any webpage — the sidebar already knows what you're looking at. The page 
 
 **Common use cases:**
 
-- ⚡ **Skills straight to the browser** — Trigger any OpenClaw skill directly on any webpage. Reading competitor docs? File an issue in one click. Reviewing a contract? Generate a summary. Browsing a codebase? Run your review skill — page content becomes the input automatically, no copying needed
-- 🗂️ **GenTab × OpenClaw generation** — Select multiple reference tabs, let OpenClaw generate a structured result page (comparison table / list / timeline). Turn multi-tab research into a usable artifact, not just a chat log
-- 🤖 **Handoff to background tasks** — Trigger from the browser, OpenClaw completes it asynchronously. Keep browsing — results come back when it's done
+- 🤖 **Agent mode** — Describe a task in plain language; Sabrina operates the actual browser tab for you: clicking, filling forms, navigating, scrolling — up to 20 steps autonomously. High-risk actions (form submissions, deletions) pause for your confirmation; everything else runs unattended. The sidebar shows a live step-by-step journal with screenshots, AI reasoning, and risk ratings for each action
+- ⚡ **Skills straight to the browser** — Trigger any OpenClaw skill directly on any webpage. Reading competitor docs? File an issue. Reviewing a contract? Generate a summary. Browsing a codebase? Run your review skill — page content becomes the input automatically
+- ✨ **Coding GenTab** — Select multiple reference tabs; Sabrina runs a three-pass pipeline to generate a self-contained interactive HTML page: design planning → full HTML/CSS/JS generation → automatic QA with error auto-fix. The result is a real usable artifact, not a table, not a chat log
+- 🤝 **Handoff** — Hand a task off to OpenClaw to run asynchronously in the background, with the current page as context. Keep browsing — results come back when it's done
 - 🧵 **Memory follows the page** — Conversation history auto-archives by page and site, reusing your existing OpenClaw memory conventions. Next time you open the same page, context is still there
-- 📎 **Multiple tabs as context** — Reference several open tabs at once and feed the full information density of your browser session directly to OpenClaw — not one paste at a time
+- 📎 **Multiple tabs as context** — Reference several open tabs at once and feed the full information density of your browser directly to OpenClaw — not one paste at a time
 
 ---
 
@@ -50,11 +50,11 @@ Open any webpage — the sidebar already knows what you're looking at. The page 
 |  | **Sabrina** | Tabbit | Sider / Monica / Extensions | BrowserOS / Dia / AI Browsers | ChatGPT / Claude Web |
 |--|:-----------:|:------:|:---------------------------:|:-----------------------------:|:--------------------:|
 | **Context source** | Auto-reads current page + selection + multi-tab refs | @mention tabs, groups, files, screenshots | Manual select or copy | Partial auto, often screenshot-based | Fully manual paste |
-| **Multi-tab collaboration** | ✅ First-class — cross-tab refs + GenTab | ✅ @group refs + background agent | ⚠️ Single page only | ⚠️ Limited | ❌ |
+| **Browser automation** | ✅ Agent mode — natural language drives real browser actions, with risk gating | ✅ Background Agent (cross-tab) | ❌ | ⚠️ Limited | ❌ |
+| **Multi-tab collaboration** | ✅ Cross-tab refs + Coding GenTab | ✅ @group refs + background agent | ⚠️ Single page only | ⚠️ Limited | ❌ |
 | **AI capability source** | Reuses your existing OpenClaw stack | Built-in multi-model (GPT / Gemini / Claude etc.) | Self-contained closed system | Self-contained closed system | Platform-locked |
 | **Thread continuity** | ✅ Auto-associated by page/site, persists across sessions | ❌ No session persistence | ❌ Isolated per conversation | ⚠️ Partial | ❌ Isolated |
-| **Background automation** | ✅ OpenClaw async handoff | ✅ Background Agent | ❌ | ⚠️ Limited | ❌ |
-| **Connection** | Local / SSH / Relay pairing code | Cloud | Extension | Built-in | Browser |
+| **Connection** | Local / SSH / HTTP Endpoint / Relay pairing code | Cloud | Extension | Built-in | Browser |
 | **Open source** | ✅ MIT | ❌ Closed freeware | ❌ | ❌ | ❌ |
 
 > Sabrina doesn't reinvent AI — it lets your **existing OpenClaw** work natively in the browser.
@@ -86,6 +86,7 @@ npm run dev
 2. Choose connection mode:
    - **Local** — OpenClaw running on this machine, connect directly
    - **SSH remote** — enter SSH address, executes remotely
+   - **HTTP Endpoint** — enter endpoint URL + access token for a remote service
    - **Relay pairing** — generate a 6-character code, connect remote OpenClaw
 3. Run a quick health check — you're ready
 
@@ -95,19 +96,23 @@ See [Connecting to OpenClaw](docs/CONNECT_OPENCLAW.md) for details.
 
 ## Features
 
+**🤖 Agent mode** — Natural language drives real browser actions. Click, fill forms, navigate, scroll — up to 20 steps; high-risk actions pause for confirmation; live sidebar journal shows screenshots, reasoning, and risk rating per step.
+
+**✨ Coding GenTab** — Multi-tab content → interactive HTML page. Three-pass pipeline: design planning → code generation → auto QA; JS runtime errors auto-fixed.
+
 **🔍 Zero-friction page context** — Open the sidebar and Sabrina already knows what you're looking at.
 
-**🗂️ Multi-tab references** — Reference multiple open tabs simultaneously. Compare docs, aggregate research — send them all at once.
-
-**✨ GenTab** — Select reference tabs, generate a structured result page (table / list / timeline / card grid) in one click.
+**🗂️ Multi-tab references** — Reference multiple open tabs simultaneously; feed the full information density of your browser session to OpenClaw.
 
 **⚡ Skills in full context** — OpenClaw's skill ecosystem works directly in the browser, with page content as natural input.
 
+**🤝 Handoff** — Move a task to OpenClaw for async background execution with current page context attached.
+
 **🔄 Real-time model switching** — Switch models mid-task without leaving the browser.
 
-**🧵 Thread memory** — Conversation history auto-archives by page and site. Close and reopen — context is still there.
+**🧵 Thread memory** — Conversation history auto-archives by page and site, reusing OpenClaw memory conventions across sessions.
 
-**🔌 Three connection modes** — Local CLI, SSH remote, or Relay pairing code — works in any network environment.
+**🔌 Four connection modes** — Local CLI, SSH remote, HTTP Endpoint, Relay pairing code — works in any network environment.
 
 ---
 
@@ -141,44 +146,30 @@ flowchart LR
     UI["Browser UI\nTabs · Nav · AI Sidebar"]
     Main["Main Process\nTabs · Threads · State"]
     Context["Page Context\nSnapshot · Selection · Multi-tab refs"]
+    Agent["Browser Agent\nAutonomous ops · Risk gating"]
   end
 
   subgraph Driver["Transport Layer"]
-    D1["local-cli\nDirect local"]
-    D2["ssh-cli\nSSH remote"]
-    D3["relay-paired\nPairing code relay"]
+    D1["local-cli"]
+    D2["ssh-cli"]
+    D3["endpoint"]
+    D4["relay-paired"]
   end
 
   subgraph OpenClaw["OpenClaw"]
-    Agent["Browser Agent\nsabrina-browser"]
+    OCA["Agent / Brain"]
     Eco["Models · Skills · Memory"]
   end
 
   UI -->|IPC| Main
   Main --> Context
+  Main --> Agent
   Context -->|context package| Driver
-  Driver --> Agent
-  Agent --> Eco
-  Agent -.->|response| Main
+  Agent -->|hands mode| Driver
+  Driver --> OCA
+  OCA --> Eco
+  OCA -.->|response| Main
   Main -->|render| UI
-```
-
-**Request Flow**
-
-```mermaid
-sequenceDiagram
-  participant U as User
-  participant UI as Sabrina UI
-  participant Main as Main Process
-  participant OC as OpenClaw Agent
-
-  U->>UI: Ask / select text / reference tabs
-  UI->>Main: trigger AI action
-  Main->>Main: capture page + reference snapshots
-  Main->>OC: send context package + intent
-  OC-->>Main: response / skill trace
-  Main->>Main: persist to thread
-  Main-->>UI: render reply
 ```
 
 </details>
@@ -189,9 +180,10 @@ sequenceDiagram
 
 | Doc | Contents |
 |-----|----------|
-| [Connecting OpenClaw](docs/CONNECT_OPENCLAW.md) | Setup steps for all three connection modes |
+| [Connecting OpenClaw](docs/CONNECT_OPENCLAW.md) | Setup steps for all four connection modes |
+| [Browser Agent Design](docs/design-browser-agent.md) | Agent mode: risk gating, Brain-Hands architecture |
 | [Turn Engine Design](docs/TURN_ENGINE_DESIGN.md) | Turn lifecycle, execution planning, receipt normalization |
-| [GenTab PRD](docs/GENTAB_PRD.md) | Full product spec, input/output constraints |
+| [GenTab PRD](docs/GENTAB_PRD.md) | Full GenTab spec including Coding GenTab pipeline |
 | [Engineering System](docs/ENGINEERING_SYSTEM.md) | Architecture boundaries and conventions |
 | [Design Baseline](docs/DESIGN_BASELINE.md) | UI tone, component constraints, extension rules |
 | [System State](docs/SYSTEM_STATE.md) | Current system overview, what's real, what's next |

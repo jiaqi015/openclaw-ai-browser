@@ -5,6 +5,7 @@ import { openclawMessages } from "./locales/openclaw.mjs";
 import { runtimeMessages } from "./locales/runtime.mjs";
 import { skillsMessages } from "./locales/skills.mjs";
 import { threadMessages } from "./locales/thread.mjs";
+import { agentMessages } from "./locales/agent.mjs";
 
 export const SUPPORTED_UI_LOCALES = Object.freeze(["zh-CN", "en-US"]);
 export const DEFAULT_UI_LOCALE = "zh-CN";
@@ -20,6 +21,7 @@ const MESSAGE_GROUPS = Object.freeze([
   diagnosticsMessages,
   openclawMessages,
   runtimeMessages,
+  agentMessages,
 ]);
 
 const MESSAGES = Object.freeze(
