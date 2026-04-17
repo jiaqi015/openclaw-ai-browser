@@ -31,7 +31,7 @@
 │                Electron 主进程                        │
 │                                                      │
 │  register-agent-ipc-handlers.mjs                    │
-│    └─ AgentTaskManager（任务生命周期管理）             │
+│    └─ BrowserAgentTaskService（任务生命周期管理）      │
 │        ├─ BrowserAgentService（本地模式 agent loop） │
 │        └─ runRemoteHandsMode（Brain-Hands 分离模式） │
 │                                                      │
@@ -260,9 +260,9 @@ URL 变化后重新注入（`injectOverlay` 幂等，已有则只恢复可见度
 
 ---
 
-## 十、任务管理 — AgentTaskManager
+## 十、任务管理 — BrowserAgentTaskService
 
-**文件**：`runtime/browser/AgentTaskManager.mjs`
+**文件**：`runtime/turns/BrowserAgentTaskService.mjs`
 
 ### 任务状态机
 
@@ -460,7 +460,7 @@ OpenClaw（远程大脑）                 Sabrina 本地（双手）
 | `runtime/browser/PageLocatorService.mjs` | 定位层：语义目标匹配，防 index 漂移 |
 | `runtime/browser/PageOverlayService.mjs` | 视觉层：页面内状态栏、光标动画、涟漪效果 |
 | `runtime/browser/BrowserAgentPromptService.mjs` | Prompt 构建；LLM 响应解析 |
-| `runtime/browser/AgentTaskManager.mjs` | 任务生命周期：创建/启动/确认/取消/存档 |
+| `runtime/turns/BrowserAgentTaskService.mjs` | 任务生命周期：创建/启动/确认/取消/存档；补 turn receipt / journal |
 | `host/electron/register-agent-ipc-handlers.mjs` | IPC 注册：7 个通道 |
 | `src/components/agent-action-stream.tsx` | 操作流 UI 组件 |
 | `src/application/use-browser-agent-state.ts` | Agent 状态 hook，IPC 事件订阅 |

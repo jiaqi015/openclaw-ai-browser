@@ -10,7 +10,7 @@ export const relayPairedDriver = Object.freeze({
     gatewayHttpManagement: false,
   }),
   buildInvocation() {
-    // 在 Brain-Hands 分离架构下，主循环逻辑已移至 AgentTaskManager 和 OpenClawBrainService。
+    // 在 Brain-Hands 分离架构下，主循环逻辑已移至 BrowserAgentTaskService 和 OpenClawBrainService。
     // 这里保留一个占位，确保符合 Driver 接口规范。
     return {
       command: "relay-rpc",

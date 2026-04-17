@@ -104,6 +104,7 @@ import {
   startSabrinaConnectorBridge,
   stopSabrinaConnectorBridge,
 } from "./SabrinaConnectorBridge.mjs";
+import { resolveRemoteDebuggingPort } from "./DebugPortPolicy.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const devRendererUrl = process.env.SABRINA_RENDERER_URL?.trim() || "http://127.0.0.1:3000";
@@ -359,9 +360,15 @@ function createMainWindow() {
   });
 }
 
-// Enable CDP remote-debugging so Playwright can connect to Electron's Chromium.
-// Only on localhost — no external exposure. Port configurable via SABRINA_DEBUG_PORT.
-app.commandLine.appendSwitch("remote-debugging-port", process.env.SABRINA_DEBUG_PORT || "9229");
+// Only expose Chromium's CDP port during local development or when the user
+// explicitly opts in via SABRINA_DEBUG_PORT for debugging / automation work.
+const remoteDebuggingPort = resolveRemoteDebuggingPort({
+  isPackaged: app.isPackaged,
+  env: process.env,
+});
+if (remoteDebuggingPort) {
+  app.commandLine.appendSwitch("remote-debugging-port", remoteDebuggingPort);
+}
 
 app.whenReady().then(async () => {
   if (process.platform === "darwin") {

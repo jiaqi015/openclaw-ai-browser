@@ -5,8 +5,9 @@ import {
   respondToConfirm, 
   cancelAgentTask,
   getAgentTask
-} from "../../runtime/browser/AgentTaskManager.mjs";
+} from "../../runtime/turns/BrowserAgentTaskService.mjs";
 import { runLocalAgentTurn } from "../../runtime/openclaw/OpenClawManager.mjs";
+import { getContextSnapshotForTab } from "../../runtime/browser/TabContextService.mjs";
 
 export function registerAgentIpcHandlers() {
   // 启动 Agent 任务
@@ -19,6 +20,7 @@ export function registerAgentIpcHandlers() {
       // 异步启动任务，不阻塞 IPC
       startAgentTask(taskId, {
         runLocalAgentTurn,
+        getContextSnapshotForTab,
         onProgress: (id, data) => {
           if (!event.sender.isDestroyed()) {
             event.sender.send("agent:progress", { taskId: id, ...data });

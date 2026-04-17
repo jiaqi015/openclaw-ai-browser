@@ -104,6 +104,9 @@ This is the repo-level minimum gate. It currently includes:
 - `npm run lint`
 - `npm run check:architecture`
 
+This same command should run in PR automation via
+[.github/workflows/ci.yml](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/.github/workflows/ci.yml).
+
 ### Layer 2. Critical flow validation
 
 Verify that the product still behaves correctly for the user, not just for the compiler. Check the major flows: browser shell without OpenClaw, thread AI turns, skill execution, OpenClaw handoff, and GenTab generation.
@@ -139,5 +142,6 @@ The engineering system lives in:
 - `acceptance/acceptance.manifest.json`
 - `scripts/check-architecture-invariants.mjs`
 - `scripts/run-acceptance.mjs`
+- [.github/workflows/ci.yml](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/.github/workflows/ci.yml)
 - [BROWSER_OPENCLAW_ARCHITECTURE.md](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/docs/BROWSER_OPENCLAW_ARCHITECTURE.md)
 - [TURN_ENGINE_DESIGN.md](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/docs/TURN_ENGINE_DESIGN.md)

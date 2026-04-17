@@ -21,6 +21,10 @@ function normalizeStringArray(values) {
 }
 
 function getExecutionPlanStrategy(intentType, actionPayload = {}) {
+  if (intentType === "agent") {
+    return "browser_agent_task";
+  }
+
   if (intentType === "handoff") {
     return "background_task";
   }
@@ -147,6 +151,18 @@ function buildInputPolicy(intent, intentType, strategy, contextPackage, capabili
     };
   }
 
+  if (strategy === "browser_agent_task") {
+    return {
+      kind: "browser-agent",
+      sourceRoute: normalizeNonEmptyString(execution?.primarySourceKind),
+      sourceRouteLabel: normalizeNonEmptyString(execution?.primarySourceLabel),
+      sourceCount: Number(execution?.summary?.totalSourceCount) || 0,
+      browserOnlySourceCount: Number(execution?.summary?.browserOnlySourceCount) || 0,
+      note:
+        "Browser Agent 必须沿用 Browser Context Package 作为页面现场契约，并回写 Sabrina turn receipt。",
+    };
+  }
+
   if (strategy === "artifact_generation") {
     return {
       kind: "artifact-generation",
@@ -192,6 +208,8 @@ function buildExecutionContract(strategy, browserContext, skillPolicy, inputPoli
   const requiredEvidence =
     strategy === "strict_skill_execution"
       ? ["skill-receipt", "skill-trace"]
+      : strategy === "browser_agent_task"
+        ? ["agent-receipt", "agent-journal"]
       : strategy === "background_task"
         ? ["task-record"]
         : strategy === "artifact_generation"
@@ -204,6 +222,8 @@ function buildExecutionContract(strategy, browserContext, skillPolicy, inputPoli
     resultContract:
       strategy === "strict_skill_execution"
         ? "skill-result"
+        : strategy === "browser_agent_task"
+          ? "agent-task"
         : strategy === "background_task"
           ? "task-record"
           : strategy === "artifact_generation"
@@ -217,6 +237,8 @@ function buildExecutionContract(strategy, browserContext, skillPolicy, inputPoli
     honestyMode:
       policyDecision === "allow-with-honesty-constraints"
         ? "explicit-failure-required"
+        : strategy === "browser_agent_task"
+          ? "agent-receipt"
         : strategy === "strict_skill_execution"
           ? "strict-skill-receipt"
           : strategy === "background_task"
@@ -249,6 +271,9 @@ function getPlanNotes(strategy, contextPackage, inputPolicy) {
 
   if (strategy === "strict_skill_execution" && sourceKind) {
     notes.push(`browser-source-kind:${sourceKind}`);
+  }
+  if (strategy === "browser_agent_task" && sourceKind) {
+    notes.push(`agent-browser-source-kind:${sourceKind}`);
   }
   if (normalizeNonEmptyString(inputPolicy?.compatibilitySource)) {
     notes.push(`skill-compatibility-source:${inputPolicy.compatibilitySource}`);

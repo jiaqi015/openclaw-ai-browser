@@ -17,6 +17,14 @@ function getPlanEvidence(plan, contextPackage, executionAttempted) {
   };
 }
 
+function getTraceSkillName(plan, fallbackSkillName = "") {
+  if (plan?.strategy === "browser_agent_task") {
+    return "browser-agent";
+  }
+
+  return normalizeNonEmptyString(plan?.skillPolicy?.name) || normalizeNonEmptyString(fallbackSkillName) || undefined;
+}
+
 function buildAiAssistantText(response, requestedSkillName, uiLocale) {
   const finalMessage = `${response?.message || translate(uiLocale, "turn.modelNoVisibleText")}`.trim();
   if (!response?.skillFallback) {
@@ -56,6 +64,15 @@ function buildOpenClawAssistantText(response, taskTitle, uiLocale, contextPackag
         }),
     "",
     `${response?.text || translate(uiLocale, "turn.openclawNoVisibleText")}`.trim(),
+  ].join("\n");
+}
+
+function buildBrowserAgentAssistantText(response, uiLocale) {
+  return [
+    translate(uiLocale, "turn.agentCompletedTitle"),
+    translate(uiLocale, "turn.agentExecutionMode"),
+    "",
+    `${response?.message || translate(uiLocale, "turn.agentNoVisibleText")}`.trim(),
   ].join("\n");
 }
 
@@ -99,6 +116,22 @@ export function buildCompletedTurnReceipt({
     };
   }
 
+  if (plan?.strategy === "browser_agent_task") {
+    return {
+      status: "completed",
+      strategy: plan.strategy,
+      summary: translate(uiLocale, "turn.summary.agent"),
+      userVisibleMessage: buildBrowserAgentAssistantText(response, uiLocale),
+      trace: {
+        model: response?.model || undefined,
+        skillName: "browser-agent",
+        taskId: response?.taskId || undefined,
+      },
+      contract: plan?.executionContract || null,
+      evidence: getPlanEvidence(plan, contextPackage, true),
+    };
+  }
+
   if (plan?.strategy === "artifact_generation") {
     return {
       status: "completed",
@@ -127,7 +160,7 @@ export function buildCompletedTurnReceipt({
     userVisibleMessage: buildAiAssistantText(response, requestedSkillName, uiLocale),
     trace: {
       model: response?.model || undefined,
-      skillName: requestedSkillName || response?.skillName || undefined,
+      skillName: getTraceSkillName(plan, requestedSkillName || response?.skillName),
       taskId: undefined,
     },
     contract: plan?.executionContract || null,
@@ -151,7 +184,7 @@ export function buildFailedTurnReceipt({
     userVisibleMessage: message,
     trace: {
       model: undefined,
-      skillName: plan?.skillPolicy?.name || undefined,
+      skillName: getTraceSkillName(plan),
       taskId: undefined,
     },
     contract: plan?.executionContract || null,
@@ -175,7 +208,7 @@ export function buildBlockedTurnReceipt({
     userVisibleMessage: normalizedMessage,
     trace: {
       model: undefined,
-      skillName: plan?.skillPolicy?.name || undefined,
+      skillName: getTraceSkillName(plan),
       taskId: undefined,
     },
     contract: plan?.executionContract || null,

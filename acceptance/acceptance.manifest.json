@@ -55,6 +55,12 @@
       "description": "Background handoff writes a task record and can be observed by the renderer."
     },
     {
+      "id": "browser-agent-turn-contract",
+      "tier": "P1",
+      "owner": "browser-agent",
+      "description": "Browser Agent runs through TurnEngine contractization and writes a turn receipt plus journal evidence."
+    },
+    {
       "id": "gentab-generation",
       "tier": "P1",
       "owner": "jobs",
@@ -143,6 +149,12 @@
       "type": "path-exists",
       "path": "runtime/turns/TurnJournalStore.mjs",
       "reason": "Turn evidence should be journaled separately from user-visible thread messages."
+    },
+    {
+      "id": "browser-agent-task-service-exists",
+      "type": "path-exists",
+      "path": "runtime/turns/BrowserAgentTaskService.mjs",
+      "reason": "Browser Agent task lifecycle should live with Sabrina turn orchestration, not inside browser execution primitives."
     },
     {
       "id": "gentab-ipc-action-service-exists",

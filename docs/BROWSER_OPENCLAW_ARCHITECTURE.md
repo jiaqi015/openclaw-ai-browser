@@ -72,7 +72,7 @@ Key files:
 - `PageOverlayService.mjs` — in-page visual status layer
 - `PageLocatorService.mjs` — semantic element resolution for ActionGate analysis
 - `PageNarratorService.mjs` — snapshot delta narration
-- `AgentTaskManager.mjs` — task lifecycle and cancellation (AbortSignal)
+- `BrowserAgentTaskService.mjs` — task lifecycle, turn receipt/journal, and cancellation (AbortSignal)
 
 ### `runtime/threads`
 

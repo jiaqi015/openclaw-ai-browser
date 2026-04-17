@@ -122,9 +122,9 @@ describe("CAP-2 PlaywrightExecutor — 执行引擎接口", () => {
 });
 
 // ─── CAP-7: 记忆持久化 ──────────────────────────────────────────
-describe("CAP-7 AgentTaskManager — 任务生命周期与持久化", () => {
+describe("CAP-7 BrowserAgentTaskService — 任务生命周期与持久化", () => {
   it("TC-7.1 createAgentTask 返回有效 taskId", async () => {
-    const { createAgentTask } = await import("./AgentTaskManager.mjs");
+    const { createAgentTask } = await import("../turns/BrowserAgentTaskService.mjs");
     const taskId = createAgentTask({
       tabId: "test-tab-1",
       task: "测试任务",
@@ -135,7 +135,7 @@ describe("CAP-7 AgentTaskManager — 任务生命周期与持久化", () => {
   });
 
   it("TC-7.2 同一标签页重复创建任务：首个任务 idle 允许覆盖", async () => {
-    const { createAgentTask, getAgentTask } = await import("./AgentTaskManager.mjs");
+    const { createAgentTask, getAgentTask } = await import("../turns/BrowserAgentTaskService.mjs");
     const id1 = createAgentTask({
       tabId: "test-tab-dup",
       task: "任务1",
@@ -151,7 +151,7 @@ describe("CAP-7 AgentTaskManager — 任务生命周期与持久化", () => {
   });
 
   it("TC-7.3 getActiveTaskForTab 找到正确的任务", async () => {
-    const { createAgentTask, getActiveTaskForTab } = await import("./AgentTaskManager.mjs");
+    const { createAgentTask, getActiveTaskForTab } = await import("../turns/BrowserAgentTaskService.mjs");
     const tabId = `test-tab-${Math.random()}`;
     const taskId = createAgentTask({ tabId, task: "X", userData: {} });
     const found = getActiveTaskForTab(tabId);
@@ -160,17 +160,17 @@ describe("CAP-7 AgentTaskManager — 任务生命周期与持久化", () => {
   });
 
   it("TC-7.4 respondToConfirm 在无任务时不抛异常", async () => {
-    const { respondToConfirm } = await import("./AgentTaskManager.mjs");
+    const { respondToConfirm } = await import("../turns/BrowserAgentTaskService.mjs");
     await assert.doesNotReject(() => Promise.resolve(respondToConfirm("nonexistent-task-id", true)));
   });
 
   it("TC-7.5 cancelAgentTask 在无任务时不抛异常", async () => {
-    const { cancelAgentTask } = await import("./AgentTaskManager.mjs");
+    const { cancelAgentTask } = await import("../turns/BrowserAgentTaskService.mjs");
     await assert.doesNotReject(() => Promise.resolve(cancelAgentTask("nonexistent-task-id")));
   });
 
   it("TC-7.6 getAgentTask 找不到不存在的任务返回 undefined", async () => {
-    const { getAgentTask } = await import("./AgentTaskManager.mjs");
+    const { getAgentTask } = await import("../turns/BrowserAgentTaskService.mjs");
     const result = getAgentTask("definitely-not-exist-xyz");
     assert.equal(result, undefined);
   });

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   executeAiTurn,
+  executeBrowserAgentTurn,
   executeGenTabTurn,
   executeOpenClawTaskTurn,
 } from "./TurnEngine.mjs";
@@ -288,6 +289,89 @@ test("executeOpenClawTaskTurn supports hidden pure-openclaw mode without browser
   assert.match(capturedTask.message, /不带浏览器页面上下文/);
   assert.doesNotMatch(result.receipt.userVisibleMessage, /纯龙虾模式/);
   assert.match(result.receipt.userVisibleMessage, /已交给龙虾异步处理/);
+});
+
+test("executeBrowserAgentTurn plans browser agent work as a turn contract", async () => {
+  const result = await executeBrowserAgentTurn(
+    {
+      threadId: "thread-agent",
+      userText: "帮我点一下登录按钮",
+      agentPayload: {
+        tabId: "active",
+        task: "帮我点一下登录按钮",
+      },
+    },
+    {
+      getContextSnapshotForTab: async () => ({
+        title: "Login Page",
+        url: "https://example.com/login",
+        selectedText: "",
+        contentText: "Login form and continue button",
+        leadText: "Login lead",
+      }),
+      runBrowserAgentTask: async () => ({
+        ok: true,
+        journal: [
+          {
+            type: "action-success",
+            action: { action: "click" },
+            result: { ok: true },
+          },
+        ],
+        summary: "已点击登录按钮",
+        warnings: [],
+      }),
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.executionPlan.turnType, "agent");
+  assert.equal(result.executionPlan.strategy, "browser_agent_task");
+  assert.equal(result.executionPlan.inputPolicy.kind, "browser-agent");
+  assert.equal(result.executionPlan.executionContract.resultContract, "agent-task");
+  assert.deepEqual(result.executionPlan.executionContract.requiredEvidence, [
+    "agent-receipt",
+    "agent-journal",
+  ]);
+  assert.equal(result.receipt.status, "completed");
+  assert.equal(result.receipt.trace.skillName, "browser-agent");
+  assert.match(result.receipt.userVisibleMessage, /已点击登录按钮/);
+});
+
+test("executeBrowserAgentTurn returns failed receipts when the agent task fails", async () => {
+  const result = await executeBrowserAgentTurn(
+    {
+      threadId: "thread-agent-fail",
+      userText: "帮我提交表单",
+      agentPayload: {
+        tabId: "active",
+        task: "帮我提交表单",
+      },
+    },
+    {
+      getContextSnapshotForTab: async () => ({
+        title: "Submit Form",
+        url: "https://example.com/submit",
+        selectedText: "",
+        contentText: "Submit form",
+        leadText: "Submit lead",
+      }),
+      runBrowserAgentTask: async () => ({
+        ok: false,
+        journal: [],
+        warnings: [],
+        error: "用户取消了这次执行",
+      }),
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.executionPlan.turnType, "agent");
+  assert.equal(result.executionPlan.strategy, "browser_agent_task");
+  assert.equal(result.receipt.status, "failed");
+  assert.equal(result.receipt.evidence.executionAttempted, true);
+  assert.equal(result.receipt.trace.skillName, "browser-agent");
+  assert.match(result.receipt.userVisibleMessage, /用户取消/);
 });
 
 test("executeGenTabTurn plans artifact generation and returns normalized gentab", async () => {

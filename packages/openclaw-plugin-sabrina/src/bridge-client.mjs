@@ -127,6 +127,9 @@ async function performConnectorRequest(manifestPath, manifest, pathname, options
 async function performConnectorHealthRequest(manifestPath, manifest, options = {}) {
   const { stripSabrinaConnectorSecret } = await loadSabrinaProtocol();
   const response = await fetchConnectorResponse(`${manifest.endpoint}/v1/connector/health`, {
+    headers: {
+      authorization: `Bearer ${manifest.token}`,
+    },
     timeout: options.timeout,
   });
   const payload = await response.json().catch(() => null);

@@ -32,8 +32,12 @@ function getErrorMessage(error) {
 function getTurnLocales(payload = {}) {
   const actionPayload = payload?.actionPayload ?? {};
   const taskPayload = payload?.taskPayload ?? {};
+  const agentPayload = payload?.agentPayload ?? {};
   const uiLocale = normalizeUiLocale(
-    actionPayload?.uiLocale ?? taskPayload?.uiLocale ?? payload?.uiLocale,
+    actionPayload?.uiLocale ??
+      taskPayload?.uiLocale ??
+      agentPayload?.uiLocale ??
+      payload?.uiLocale,
   );
 
   return {
@@ -42,6 +46,7 @@ function getTurnLocales(payload = {}) {
       uiLocale,
       actionPayload?.assistantLocaleMode ??
         taskPayload?.assistantLocaleMode ??
+        agentPayload?.assistantLocaleMode ??
         payload?.assistantLocaleMode,
     ),
   };
@@ -147,7 +152,9 @@ function buildPureOpenClawContextPackage(uiLocale = "zh-CN") {
 
 async function packageContextFromPayload(payload, dependencies) {
   const activeTabId = normalizeNonEmptyString(
-    payload?.actionPayload?.tabId ?? payload?.taskPayload?.tabId,
+    payload?.actionPayload?.tabId ??
+      payload?.taskPayload?.tabId ??
+      payload?.agentPayload?.tabId,
   );
   return buildBrowserContextPackage(
     {
@@ -357,6 +364,95 @@ export async function executeOpenClawTaskTurn(payload = {}, dependencies = {}) {
   } catch (error) {
     return {
       ok: false,
+      contextPackage,
+      executionPlan: plan,
+      error,
+      receipt: buildFailedTurnReceipt({
+        plan,
+        contextPackage,
+        error,
+        uiLocale,
+        executionAttempted: true,
+      }),
+    };
+  }
+}
+
+export async function executeBrowserAgentTurn(payload = {}, dependencies = {}) {
+  const agentPayload = payload?.agentPayload ?? {};
+  const { uiLocale } = getTurnLocales(payload);
+  const runBrowserAgentTask = dependencies?.runBrowserAgentTask;
+
+  if (typeof runBrowserAgentTask !== "function") {
+    throw new Error(translate(uiLocale, "error.aiTurnUnavailable"));
+  }
+
+  const contextPackage = await packageContextFromPayload(payload, dependencies);
+  const plan = planTurnExecution({
+    intent: {
+      type: "agent",
+      agentPayload: {
+        tabId: normalizeNonEmptyString(agentPayload?.tabId),
+        task: normalizeNonEmptyString(agentPayload?.task),
+      },
+    },
+    contextPackage,
+    capability: null,
+  });
+
+  try {
+    const agentResult = await runBrowserAgentTask({
+      ...agentPayload,
+      tabId: normalizeNonEmptyString(agentPayload?.tabId),
+      task: normalizeNonEmptyString(agentPayload?.task),
+    });
+
+    if (agentResult?.ok) {
+      const response = {
+        message: normalizeNonEmptyString(agentResult?.summary),
+        skillName: "browser-agent",
+        taskId: normalizeNonEmptyString(agentPayload?.taskId),
+        warnings: Array.isArray(agentResult?.warnings) ? agentResult.warnings : [],
+      };
+
+      return {
+        ok: true,
+        agentResult,
+        contextPackage,
+        executionPlan: plan,
+        response,
+        receipt: buildCompletedTurnReceipt({
+          plan,
+          contextPackage,
+          response,
+          uiLocale,
+        }),
+      };
+    }
+
+    const error = new Error(
+      normalizeNonEmptyString(agentResult?.error) ||
+        translate(uiLocale, "turn.agentNoVisibleText"),
+    );
+
+    return {
+      ok: false,
+      agentResult: agentResult ?? null,
+      contextPackage,
+      executionPlan: plan,
+      error,
+      receipt: buildFailedTurnReceipt({
+        plan,
+        contextPackage,
+        error,
+        uiLocale,
+        executionAttempted: true,
+      }),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      agentResult: null,
       contextPackage,
       executionPlan: plan,
       error,
