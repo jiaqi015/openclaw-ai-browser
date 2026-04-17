@@ -1,447 +1,332 @@
 # Sabrina GenTab PRD
 
-这份文档定义 Sabrina 的 **GenTab** 产品需求。
+这份文档描述 Sabrina **GenTab** 功能的当前实现与产品定义。
 
-它不是一份纯概念稿，也不是离开仓库现状的未来幻想。
-
-它基于 Sabrina 当前已经成立的 browser-native contract 来定义：
-
-- 用户为什么需要 GenTab
-- GenTab 在 Sabrina 里的产品定位
-- 它的输入、输出、约束、交互和非功能要求
-- 当前已经成立的实现范围
+它基于仓库现状写成，不是概念稿，不是前瞻规划。
 
 ---
 
-## 1. 需求概述
-
-### 1.1 问题背景
-
-用户在浏览器里研究一个主题时，通常会：
-
-- 打开 3-10 个标签页收集信息
-- 在多个网页之间来回对比
-- 手动复制、粘贴、整理到笔记、表格或文档
-- 在“阅读材料”和“产出结果”之间切换多次
-
-这个过程耗时、重复、容易遗漏来源，也很难保持结构化。
-
-### 1.2 灵感来源
-
-Google Disco 证明了一件重要的事：
-
-**“从多个标签页直接生成结构化工作台”** 不是 gimmick，而是浏览器下一代 AI 能力的真实需求。
-
-但 Sabrina 不复制 Disco 的产品形态。
-
-Sabrina 的方式是：
-
-- 浏览器先组织真实页面上下文
-- 用户明确表达自己的意图
-- OpenClaw 复用既有模型、skill 和执行能力
-- 最终生成一个新的浏览器内结果页面
-
-### 1.3 产品定位
+## 1. 产品定位
 
 **GenTab = Generate Tab**
 
-它的核心价值不是“AI 帮你总结几个网页”，而是：
+核心价值：把用户打开的多个标签页材料，直接生成一个新的、可继续工作的浏览器结果页面。
 
-**把多标签页材料，生成一个结构化、可继续工作的浏览器结果工作台。**
+GenTab 代表 Sabrina 从"阅读网页"走向"生产结果页"。它是 Sabrina browser-native contract 的主链之一：
 
-也就是说，GenTab 代表 Sabrina 从：
-
-- 阅读网页
-
-走向：
-
-- 生产结果页
-
-### 1.4 与 Sabrina 总定位的关系
-
-GenTab 必须服从 Sabrina 的核心边界：
-
-- **Browser owns truth**：浏览器负责页面真相与来源
+- **Browser owns truth**：浏览器负责页面快照与来源
 - **Threads own continuity**：线程负责用户可见连续性
 - **Turns own planning**：GenTab 生成是正式 turn
 - **OpenClaw owns execution**：OpenClaw 负责生成与执行
 
-所以 GenTab 不是一个“悬浮在页面上的聊天技巧”，而是 Sabrina browser-native contract 的一条代表性主链。
+---
 
-### 1.5 子能力：Creative GenTab
+## 2. 两条路径
 
-`生成创意网页` 应该被定义为 **GenTab 的子能力**，而不是与 GenTab 平级的另一套产品。
+GenTab 目前存在两条并行的生成路径，入口相同，产物和渲染方式完全不同。
 
-原因不是营销命名，而是用户心智与工程现实同时指向这件事：
+### 2.1 Coding GenTab（主路径）
 
-- 对用户来说，它仍然是“基于当前页和上下文，生成一个新的结果页”
-- 对产品来说，它仍然沿用 GenTab 的入口、线程语义和浏览器内结果页模型
-- 对工程来说，它虽然可以使用独立的 `coding` schema、专用 surface 和生成链路，但这属于实现分层，不应该直接暴露成平行产品名
+**当前主推路径**。AI 作为前端开发者，输出一个完整的自包含 HTML 文件，在 iframe 内直接运行。
 
-因此，产品层推荐采用下面这套能力树：
+- 没有 DSL、没有 schema block、没有渲染器配置——AI 决定一切形态
+- 输出即产品：HTML 里包含 CSS 和 JS，可脱离 Sabrina 独立运行
+- 对应 `schemaVersion: "coding"` 标识
 
-- `GenTab`
-- `Structured GenTab`
-  - `table`
-  - `list`
-  - `timeline`
-  - `comparison`
-  - `card-grid`
-- `Creative GenTab`
-  - 生成定制网页
-  - 生成 dashboard / landing page / 交互页面
+### 2.2 Structured GenTab（旧路径）
 
-这也意味着：
+**保留兼容的旧模式**。AI 输出结构化 JSON，前端按 type 选择对应渲染器展示。
 
-- `Creative GenTab` 不建议被塞进普通 `preferredType`
-- 更适合作为 GenTab 生成器里的一个高天花板子模式
-- 入口上应与普通 GenTab 汇合，执行与渲染上可以继续独立
+- 支持 5 种预定义形态：`table` / `list` / `timeline` / `comparison` / `card-grid`
+- 保留来源 item、sections、suggestedPrompts 等结构化字段
+- 对应 `schemaVersion: "2"` 标识
 
 ---
 
-## 2. 目标用户
+## 3. Coding GenTab 详细规格
 
-- 需要调研与对比多个方案的开发者
-- 需要整理行业和竞品信息的产品经理
-- 需要汇总资料的研究者
-- 需要多页面比价和筛选的消费者
+### 3.1 输入
 
-这些用户的共同点是：
+| 字段 | 说明 |
+|------|------|
+| `referenceTabIds` | 用户选中的标签页 ID 列表，至少 1 个 |
+| `userIntent` | 用户的自然语言意图描述 |
+| `refinementText` | （可选）refinement 时的修改指令 |
+| `originalHtml` | （可选）refinement 时的原始 HTML |
 
-- 真实工作发生在多个标签页之间
-- 需要从材料中生成结构化成果
-- 需要保留来源以便回查和验证
+`preferredType` 对 Coding GenTab 无意义，忽略。
 
----
+### 3.2 三阶段 pipeline
 
-## 3. 核心价值
+```
+Pass 1: 设计规划（buildCodingGenTabPlanPrompt）
+  输入：userIntent + tab contexts
+  输出：{ title, design, layout, accent, keyData }
+  目标：决定交互形态和视觉方向，不写代码
 
-GenTab 要解决的不是“看懂网页”，而是 3 件事：
+Pass 2: 代码生成（buildCodingGenTabPrompt with plan）
+  输入：Pass 1 的 plan + tab contexts
+  输出：{ success, title, intent, designChoice, html }
+  目标：按 plan 写完整的自包含 HTML，填入真实数据
 
-1. **把多个标签页变成一个可工作的结果页面**
-2. **把来源保留下来，保证可验证**
-3. **把后续追问和继续调整变成浏览器里的连续工作**
-
-一句话：
-
-**从收集材料，到产出工作台。**
-
----
-
-## 4. 用户入口流程
-
-```text
-1. 用户打开多个标签页浏览材料
-2. 用户在 AI 侧边栏引用一个或多个标签页
-3. 用户输入自然语言意图，或点击“生成 GenTab”
-4. Sabrina 新建一个特殊标签页 sabrina://gentab/{genId}
-5. 页面显示生成中状态，后台执行 GenTab turn
-6. 生成完成后渲染结构化结果
-7. 用户可以继续 refine、切换形态、回到来源页
+Pass 3: QA 验证（buildCodingGenTabVerifyPrompt）
+  输入：Pass 2 生成的 HTML + 原始 tab contexts + plan
+  输出：{ ok: true } 或 { ok: false, html: fixedHtml }
+  目标：检查数据准确性、交互可用性、无占位符、JS 无错
 ```
 
----
+**Pass 1 设计分类逻辑**（由 AI 执行）：
 
-## 5. 输入要求
+| 数据类型 | 推荐形式 | 主交互 |
+|---------|---------|-------|
+| 对比型（2-5 个同类实体） | 卡片对决 / 并排擂台 | 「帮我选」按钮 + 胜者动画 |
+| 时序型（步骤/日程/流程） | 横向时间轴 / 进度条 | 点击节点展开 |
+| 层级型（分类/多维属性） | 可翻转/折叠卡片组 | 翻转、展开、标签切换 |
+| 单体型（一个主体） | 仪表盘 / 大数字英雄区 | 切换维度 |
+| 列表型（10+ 同质条目） | 可搜索/过滤的卡片流 | 实时搜索或标签过滤 |
+| 叙事型（长文要点/知识） | 知识卡片组 / 报纸版面 | 翻转展开、分页 |
 
-### 5.1 引用标签页
+**Pass 3 QA 检查项**：
 
-- 至少 1 个
-- 推荐 2-10 个
-- 超过合理上限时，系统应保守处理并给出裁剪结果
+1. 数据准确：每个具体数据（价格、名称、日期、规格）必须能在源页面中找到
+2. 交互可用：所有可点击元素必须绑定有效事件处理函数
+3. 无占位符：不允许 TODO、[INSERT]、"示例"、"sample"
+4. JS 无错：无未定义变量、语法错误、空函数体
+5. 方案符合：HTML 实现了 Pass 1 规划的形态（大方向一致即可）
+6. 首屏完整：不滚动时能看到标题 + 主要数据 + 主交互
+7. CSS 起手式：必须有 viewport meta 和 :root 变量，以及 onerror 兜底脚本
 
-### 5.2 用户意图
+### 3.3 自动修复循环
 
-自然语言输入，描述用户希望生成什么结果，例如：
+生成完成展示后，iframe 内注入了错误上报脚本：
 
-- “对比这 5 款 AI 编码工具”
-- “把这些招聘 JD 整理成对比台”
-- “基于这些资料生成一个时间线”
-
-### 5.3 期望形态
-
-允许用户选择：
-
-- `auto`
-- `table`
-- `list`
-- `timeline`
-- `comparison`
-- `card-grid`
-
-如果用户明确指定，系统应优先遵守；如果用户选择 `auto`，由 planner 和生成策略共同决定。
-
----
-
-## 6. 后端处理流程
-
-GenTab 后端主链应是：
-
-```text
-1. 收集引用标签页与当前页上下文
-2. 组织 Browser Context Package
-3. 生成 GenTab turn 的 ExecutionPlan
-4. 构建符合 schema 的生成提示
-5. 调用 OpenClaw sabrina-browser agent 执行
-6. 解析与规范化 AI 输出
-7. 存储 GenTab 结果与元数据
-8. 通知 UI 渲染完成
+```js
+window.onerror → 收集错误 → 800ms 后批量 postMessage 到父窗口
+window.addEventListener('unhandledrejection') → 同上
 ```
 
-这意味着 GenTab 不是单独的 ad hoc 路径，而应该走 Sabrina 的 turn contract。
+父窗口监听逻辑（`CodingGenTabSurface`）：
 
----
+- 只接受展示后 **8 秒内** 报告的错误（超时忽略，页面已稳定）
+- 每次页面加载只触发一次修复（`autoFixFiredRef` 防重）
+- 触发后自动调用 `handleRefine("自动检测到 JavaScript 错误，请修复：…")`
+- UI 显示"检测到错误，正在自动修复…"横幅
 
-## 7. 输出 Schema
-
-AI 必须输出严格 JSON，结构约束如下：
+### 3.4 输出 Schema
 
 ```json
 {
-  "success": true,
-  "error": "",
-  "gentab": {
-    "schemaVersion": "2",
-    "type": "table",
-    "title": "标题",
-    "description": "描述",
-    "summary": "总结",
-    "insights": ["洞见 1", "洞见 2"],
-    "sections": [
-      {
-        "id": "section-1",
-        "title": "章节标题",
-        "description": "章节说明",
-        "bullets": ["要点 1", "要点 2"]
-      }
-    ],
-    "suggestedPrompts": ["下一步可以继续问什么"],
-    "sources": [
-      {
-        "url": "https://example.com",
-        "title": "来源标题",
-        "host": "example.com",
-        "whyIncluded": "为什么纳入"
-      }
-    ],
-    "items": [
-      {
-        "id": "item-1",
-        "title": "项目标题",
-        "description": "项目描述",
-        "sourceUrl": "https://example.com",
-        "sourceTitle": "来源标题",
-        "fields": {
-          "价格": "$20",
-          "平台": "macOS"
-        },
-        "date": "2026-04-07"
-      }
-    ]
+  "schemaVersion": "coding",
+  "type": "coding",
+  "title": "标题",
+  "intent": "一句话描述这张页面在帮用户做什么",
+  "designChoice": "选择了什么形态，为什么（设计师视角，给用户看）",
+  "html": "完整的自包含 HTML 字符串",
+  "metadata": {
+    "sourceTabIds": ["tab-id-1", "tab-id-2"],
+    "userIntent": "用户的原始意图",
+    "generatedAt": "2026-04-17T10:00:00.000Z"
   }
 }
 ```
 
----
+### 3.5 技术约束（写入 prompt）
 
-## 8. 给生成模型的硬约束
+- 单个完整 HTML 文件，CSS 和 JS 全部内联
+- 禁止：Tailwind CDN、React、Vue、npm 依赖、fetch 外部请求、localStorage
+- 允许 CDN：Chart.js、Animate.css、Alpine.js、Google Fonts
+- 目标代码量：200–400 行
+- CSS 起手式：深色 design token（`--bg`, `--surface`, `--text-1`, `--accent` 等）
+- 所有数据硬编码在 HTML 里，不依赖任何运行时接口
 
-### 8.1 来源必须保留
+### 3.6 Refinement
 
-每个 item 必须保留：
+用户可以通过浮动工具栏的"优化"按钮对已生成页面提出修改要求。
 
-- `sourceUrl`
-- `sourceTitle`
+Refinement 走独立 prompt（`buildCodingGenTabRefinementPrompt`）：
 
-这样用户才能回到原始网页验证。
-
-### 8.2 形态选择必须受控
-
-如果用户指定了形态，优先遵守。  
-如果是 `auto`，生成逻辑应遵循这些优先级：
-
-- 多对象对比：优先 `table` / `comparison`
-- 时间顺序、计划、事件演进：优先 `timeline`
-- 摘录、清单、结论：优先 `list`
-- 卡片集合：优先 `card-grid`
-
-### 8.3 sections 不是重复 items
-
-`sections` 应该帮助用户理解“这组材料怎么看”，而不是简单重复 `items`。
-
-### 8.4 suggestedPrompts 要面向下一步工作
-
-它们不是通用问题，而应该是用户下一步最可能继续调整、追问、重组的自然语言建议。
-
-### 8.5 只输出 JSON
-
-不输出 markdown，不输出解释，不输出额外自然语言前后缀。
+- 接收原始 HTML + 修改指令 + 原始 tab contexts
+- 规则：最小改动，风格冻结，级联修复，数据来源只从 tab contexts 提取
+- 输出：同 Pass 2 schema（`{ success, title, intent, designChoice, html }`）
+- Refinement 完成后自动重新打开优化输入框，支持多次迭代
 
 ---
 
-## 9. UI 渲染要求
+## 4. UI 交互
 
-### 9.1 页面结构
+### 4.1 加载剧场（Loading Theatre）
 
-```text
-头部
-  - 图标 / 标题
-  - 描述 / type / 来源数量
-  - 重新生成 / 关闭
+生成过程中展示四阶段进度，每阶段有图标、主标签、副标签：
 
-上半区
-  - 摘要、总结、洞见
-  - 调整意图输入框
-  - 形态选择
-  - 建议下一步 quick actions
+| 阶段 | 图标 | 主标签 | 进度点 |
+|------|------|--------|--------|
+| `reading` | 📖 | 正在读你打开的网页 | 12% |
+| `thinking` | 💡 | 在想最合适的表现形式 | 32% |
+| `coding` | ⌨️ | 开始写代码 | 65% |
+| `checking` | 🔍 | 差不多了，自检一遍 | 88% |
 
-中部
-  - 来源卡片
-  - sections
+- 阶段推进由主进程的真实 IPC progress 事件驱动（`onCodingProgress`）
+- `thinking` 阶段的副标签展示 Pass 1 规划出的设计描述（真实内容）
+- `coding` 阶段进度条有"慢爬"逻辑：从 65% 向 82% 渐近，防止长时间静止
+- 兜底：2 秒内无 IPC 事件，自动进入 `reading` 阶段显示
 
-主内容区
-  - 根据 type 选择渲染器
-  - 支持切换视图
+### 4.2 结果页
 
-页脚
-  - 来源数量
-  - 生成时间
-  - 元数据
+生成完成后渲染：
+
+```
+absolute inset-0
+├── FloatingToolbar（悬浮在顶部，hover 时完全不透明）
+│   ├── Sparkles 图标 + 标题 + designChoice 注解
+│   ├── 外部打开按钮（ExternalLink，写入 blob: URL 后调 openExternal）
+│   ├── 复制 HTML 按钮（Copy/Check 状态切换）
+│   ├── 优化按钮（Pencil，点击展开 refine 输入行）
+│   └── 关闭按钮（X）
+├── 自动修复横幅（isAutoFixing 时显示，pointer-events: none）
+├── "自检发现问题，已自动修复" toast（wasFixed 时显示 4 秒）
+└── iframe（srcDoc=instrumentedHtml，sandbox="allow-scripts allow-same-origin allow-forms allow-popups"）
 ```
 
-### 9.2 各渲染器
+### 4.3 错误状态
 
-| 形态 | 渲染方式 |
-|------|---------|
-| `table` | 表格 |
-| `comparison` | 强调对比列的表格式布局 |
-| `list` | 清单式结果 |
-| `timeline` | 垂直时间线 |
-| `card-grid` | 响应式卡片网格 |
-
-### 9.3 交互
-
-- 点击来源链接，在新标签页打开原始 URL
-- 支持改意图重新生成
-- 支持换形态重新生成
-- 生成过程中显示明确状态
-- 失败时显示错误并允许重试
-- 所有来源链接保持可点击
+最简化：显示错误文本，提供重试和关闭按钮。
 
 ---
 
-## 10. 后处理规范化要求
+## 5. Structured GenTab 规格（旧路径）
 
-后端必须做容错规范化：
+### 5.1 输入
 
-1. 如果输出不是完全合法 JSON，尝试提取和修复
-2. 补齐缺失字段
-3. 清洗异常文本和空白
-4. 对来源去重
-5. 限制 item 数量，避免结果页失控
-6. 保留关键元数据：
-   - `sourceTabIds`
-   - `userIntent`
-   - `preferredType`
-   - `generatedAt`
+| 字段 | 说明 |
+|------|------|
+| `referenceTabIds` | 引用标签页 ID |
+| `userIntent` | 用户意图 |
+| `preferredType` | 期望形态：`auto` \| `table` \| `list` \| `timeline` \| `comparison` \| `card-grid` |
 
----
+### 5.2 输出 Schema
 
-## 11. Refine 要求
+```json
+{
+  "schemaVersion": "2",
+  "type": "table",
+  "title": "标题",
+  "description": "描述",
+  "summary": "总结",
+  "insights": ["洞见 1", "洞见 2"],
+  "sections": [
+    {
+      "id": "section-1",
+      "title": "章节标题",
+      "description": "章节说明",
+      "bullets": ["要点 1", "要点 2"]
+    }
+  ],
+  "suggestedPrompts": ["下一步建议"],
+  "sources": [
+    {
+      "url": "https://example.com",
+      "title": "来源标题",
+      "host": "example.com",
+      "whyIncluded": "为什么纳入"
+    }
+  ],
+  "items": [
+    {
+      "id": "item-1",
+      "title": "项目标题",
+      "description": "项目描述",
+      "sourceUrl": "https://example.com",
+      "sourceTitle": "来源标题",
+      "sourceTabId": "tab-id（用于 Live Cells 追踪）",
+      "quote": "从源页面提取的原文片段（30-120字）",
+      "fields": { "价格": "¥20", "平台": "macOS" },
+      "date": "2026-04-07"
+    }
+  ],
+  "metadata": {
+    "sourceTabIds": ["tab-id-1"],
+    "userIntent": "用户意图",
+    "generatedAt": "ISO 时间戳",
+    "preferredType": "auto",
+    "lastCellRefreshAt": "（单元格刷新时更新）"
+  }
+}
+```
 
-用户应能：
+### 5.3 Live Cells
 
-- 修改用户意图
-- 修改期望形态
-- 重新生成当前 GenTab
+每个 item 保存 `sourceTabId` 和 `quote`，用于追踪来源标签页是否仍然存在、内容是否已漂移。用户可以对单条 item 执行刷新，重新从最新页面提取内容，不需要重新生成整个 GenTab。
 
-当前版本可以只保留最新结果，不要求内建历史版本面板。
+### 5.4 UI 结构
 
----
+```
+页面整体（overflow-y-auto）
+├── 头部：图标 + 标题 + type badge + 来源数量 + 关闭/重新生成
+├── 生成中：进度条 + 当前意图展示 + 取消
+├── 错误：图标 + 错误信息 + 重试/关闭
+└── 完成后：
+    ├── 摘要区（summary + insights）+ Refine 区（修改意图 + 形态选择 + 建议提问）
+    ├── 来源卡片列表
+    ├── Sections 卡片网格
+    └── 工作视图（type 切换 tab + 对应渲染器）
+```
 
-## 12. 非功能需求
-
-### 12.1 性能
-
-- 上下文收集应尽量复用现有快照
-- 渲染应保持轻量
-- AI 生成时长由 OpenClaw 模型决定，但前后处理应尽量稳定、低开销
-
-### 12.2 存储
-
-- GenTab 数据本地持久化
-- `sabrina://gentab/{genId}` 可直接恢复打开
-- 元数据和来源信息保留完整
-
-### 12.3 容错
-
-- JSON 非法时可修复则修复
-- 缺失字段时补默认
-- 缺失引用页时明确标记
-- 生成失败时支持重试
-
-### 12.4 隐私
-
-- 结果本地存储
-- Sabrina 不引入新的中心化存储依赖
-- 生成继续通过用户已有的 OpenClaw 路径执行
-
----
-
-## 13. 当前实现状态
-
-对照仓库，GenTab 当前已经具备完整主链：
-
-| 模块 | 状态 | 仓库对应 |
-|------|------|----------|
-| 浏览器上下文收集 | ✅ | `buildBrowserContextPackageFromTabSet` |
-| Prompt 构建 | ✅ | `buildGenTabPrompt` |
-| JSON 解析与规范化 | ✅ | `normalizeGeneratedGenTab` |
-| Turn 主链接入 | ✅ | `runtime/turns/TurnEngine` |
-| IPC 路由 | ✅ | `host/electron/GenTabIpcActionService` |
-| 本地存储 | ✅ | `runtime/browser/GenTabStore.mjs` + `host/electron/register-gentab-ipc-handlers.mjs` |
-| GenTab 页面 | ✅ | `src/components/gentab-surface.tsx` |
-| 多渲染器 | ✅ | `src/components/gentab-renderers.tsx` |
-| Refine | ✅ | `use-gentab-surface-state` + `gentab-surface` |
-| 测试 | ✅ | `GenTabGenerationService.test.mjs` / `GenTabIpcActionService.test.mjs` / `TurnEngine.test.mjs` |
-
-当前最准确的说法是：
-
-**GenTab 已经完成功能闭环，并且已经接入 Sabrina 的 Browser Context Package 与 TurnEngine 主链。**
-
----
-
-## 14. 与 Google Disco 的关系
-
-| 维度 | Google Disco | Sabrina GenTab |
-|------|--------------|----------------|
-| 核心理念 | 多标签页生成结果工作台 | 相同 |
-| 能力来源 | Google 自有 AI 体系 | 复用 OpenClaw 生态 |
-| 产品定位 | 独立 AI 浏览器体验探索 | OpenClaw 的浏览器原生工作台 |
-| 架构 | 云端原生整合 | Browser truth + Turn planning + OpenClaw execution |
-
-所以 Sabrina 的借鉴重点不是“抄一个 UI”，而是：
-
-**确认 GenTab 这类多标签页到结果页的能力，确实是浏览器场景里的核心价值。**
+形态切换在同一结果页内发生，无需重新生成。
 
 ---
 
-## 15. 验收标准
+## 6. 存储
 
-1. 用户选中多个标签页并给出意图后，可以成功生成结构化结果
-2. 每个结果条目都保留可点击来源
-3. 五种形态都能正确渲染
-4. 失败时有明确错误和重试路径
-5. 用户可以通过 refine 改意图和形态重新生成
-6. 元数据和来源信息在重开后仍然可恢复
-7. 用户感受到的结果不是“总结网页”，而是“生成一个可继续工作的结果页”
+两条路径共用 `GenTabStore`：
+
+- `pendingById`：正在生成中的 GenTab 元数据（`referenceTabIds` + `userIntent` + `preferredType`）
+- `genTabsById`：已生成完成的 GenTab 数据
+
+本地持久化到 `gentab-state.json`，写入使用 tmp 文件 + rename 保证原子性。
+
+`GenTabStore.isValidGenTabData` 同时接受 `schemaVersion: "1" | "2"`（Structured 路径）。Coding GenTab 数据（`schemaVersion: "coding"`）在进入 store 之前以 `type: "coding"` 兼容写入，但当前 `isValidGenTabData` 校验只针对 Structured 路径——Coding GenTab 的数据直接在 IPC 层管理，不走这一校验路径。
 
 ---
 
-## 最后一句
+## 7. 路由逻辑
 
-GenTab 在 Sabrina 里的意义，不是一个附属 feature。
+`sabrina://gentab/{genId}?v=coding` → `CodingGenTabSurface`
 
-它是 Sabrina 最能代表 browser-native 方向的一条主链：
+`sabrina://gentab/{genId}`（无 `v` 参数）→ `GenTabSurface`（Structured 路径）
 
-**从多标签页材料，直接生成新的工作页面。**
+意图检测（`detectCodingGenTabIntent`）在聊天输入框侧判断用户消息是否应自动路由到 Coding GenTab，而非进入普通对话线程。触发条件：明确提到"创意网页"/"交互页面"/`gentab`，或符合"帮我做一个网页"等高置信度模式。
+
+---
+
+## 8. 当前实现状态
+
+| 模块 | 路径 | 状态 |
+|------|------|------|
+| Coding pipeline | `runtime/browser/GenTabCodingService.mjs` | ✅ |
+| Structured pipeline | `runtime/browser/GenTabGenerationService.mjs` | ✅ |
+| 存储 | `runtime/browser/GenTabStore.mjs` | ✅ |
+| IPC 路由 | `host/electron/GenTabIpcActionService.mjs` | ✅ |
+| Coding UI | `src/components/coding-gentab-surface.tsx` | ✅ |
+| Structured UI | `src/components/gentab-surface.tsx` | ✅ |
+| Coding 状态机 | `src/application/use-coding-gentab-state.ts` | ✅ |
+| Structured 状态机 | `src/application/use-gentab-surface-state.ts` | ✅ |
+| 类型定义 | `src/lib/gentab-types.ts` | ✅ |
+| 意图检测 | `src/lib/coding-gentab-intent.ts` | ✅ |
+| Live Cells 刷新 | `buildRefreshItemPrompt` + `refreshItem` | ✅ |
+| 自动修复循环 | iframe error reporter + auto-refine | ✅ |
+| 三阶段 pipeline | plan → code → verify | ✅ |
+
+---
+
+## 9. 非功能约束
+
+**性能**：上下文收集复用现有快照；Coding GenTab 生成通常需要 60–120 秒（三个 LLM pass）；进度条使用慢爬动画避免视觉静止。
+
+**安全**：iframe sandbox 限制为 `allow-scripts allow-same-origin allow-forms allow-popups`，不允许访问外部资源；生成的 HTML 中所有数据必须硬编码，禁止 fetch。
+
+**存储**：本地持久化，不引入中心化存储依赖；结果通过用户已有的 OpenClaw 路径生成。
+
+**容错**：
+- LLM 输出非 JSON 时尝试提取（`extractJsonFromOutput`）；完全失败时尝试直接提取 HTML 片段（`rescueHtmlFromFreeformOutput`）
+- QA pass 发现问题 → 输出修复后 HTML；无法解析 QA 输出 → 透传原始 HTML（不破坏用户体验）
+- 运行时 JS 错误 → 8 秒内自动触发修复 pass

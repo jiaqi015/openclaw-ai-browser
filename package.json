@@ -1,10 +1,12 @@
 {
   "name": "openclaw-ai-browser",
+  "productName": "Sabrina",
   "private": true,
   "version": "0.1.13",
   "type": "module",
   "main": "host/electron/main.mjs",
   "scripts": {
+    "postinstall": "node ./scripts/rename-dev-electron.mjs",
     "dev": "node ./scripts/dev.mjs",
     "dev:web": "vite --port=3000 --strictPort --host=127.0.0.1",
     "dev:electron": "wait-on tcp:3000 && electron .",

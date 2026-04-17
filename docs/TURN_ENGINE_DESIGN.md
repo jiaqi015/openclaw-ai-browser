@@ -8,10 +8,7 @@ It only clarifies how the runtime should organize browser context, thread contin
 
 Related reading:
 
-- [Docs Guide](./DOCS_GUIDE.md)
-- [System State](./SYSTEM_STATE.md)
 - [Browser/OpenClaw Architecture](./BROWSER_OPENCLAW_ARCHITECTURE.md)
-- [What Sabrina Should Learn From Claude Code](./CLAUDE_CODE_LEARNINGS.md)
 
 ## Why This Exists
 
@@ -172,6 +169,8 @@ type TurnIntent =
   | { type: 'gentab'; threadId: string; prompt: string }
 ```
 
+The `gentab` intent covers the structured JSON generation path (multi-source table/card layout). The Coding GenTab path (two-pass HTML generation via `GenTabCodingService`) currently bypasses `TurnEngine` and is dispatched directly from `GenTabIpcActionService`. It does not yet produce a `TurnIntent` or `ExecutionPlan`, and the turn journal is not populated for coding turns.
+
 This is not a product change.
 It is an internal execution boundary.
 
@@ -242,6 +241,8 @@ Its job is to convert:
 - OpenClaw capability data
 
 into a concrete `ExecutionPlan`.
+
+The `artifact_generation` strategy covers the structured GenTab path. The Coding GenTab path does not yet route through `TurnPlanner` and therefore does not emit this strategy at runtime — see note under `TurnIntent` above.
 
 ```ts
 type ExecutionPlan = {
@@ -475,34 +476,21 @@ It should not:
 - assemble page packages
 - own durable turn history
 
-## Migration Plan
+## Implementation Status
 
-### Phase 1
+All four phases are complete as of v0.1.x.
 
-- add `runtime/turns`
-- introduce `TurnIntent`, `ExecutionPlan`, `TurnReceipt`
-- route existing ask/skill/handoff/gentab code through `TurnEngine`
+What landed:
 
-### Phase 2
+- `runtime/turns` domain with `TurnEngine`, `TurnPlanner`, `TurnReceiptService`, `TurnJournalService`, and `TurnJournalStore`
+- `TurnIntent`, `ExecutionPlan` (with explicit `executionContract`), and `TurnReceipt` types in production
+- ask, skill, handoff, and structured GenTab turns all route through `TurnEngine`
+- `BrowserContextPackage` extended with execution facts (`executionReliability`, `reachabilityConfidence`, `authBoundary`, `reproducibilityGuarantee`, etc.)
+- skill compatibility provenance is explicit (`skill-metadata` vs `sabrina-overlay` vs `heuristic`)
+- `TurnJournalStore` persists Sabrina-side turn evidence separate from thread-visible messages
+- receipts carry `executionContract`; acceptance gates assert contract and journal wiring
 
-- extend Browser Context Package with execution facts
-- move current policy decisions to `TurnPlanner`
-
-### Phase 3
-
-- make skill compatibility provenance explicit
-- keep Sabrina registry as overlay only
-
-### Phase 4
-
-- add stronger turn journaling and diagnostics
-- expose receipts to host-level smoke and acceptance gates
-
-This phase is now partially landed:
-
-- `TurnJournalStore` persists Sabrina-side turn evidence
-- receipts carry `executionContract`
-- acceptance now asserts the presence of execution-contract and journal wiring
+One known gap: the Coding GenTab path (`GenTabCodingService`, two-pass HTML generation) bypasses `TurnEngine` and does not yet produce a turn journal entry. This is the next turn-layer integration candidate.
 
 ## What This Design Is Not
 

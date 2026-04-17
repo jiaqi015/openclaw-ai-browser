@@ -2,6 +2,10 @@
 
 > Sabrina AI Browser — 浏览器自动化 Agent 模式
 
+**实现状态：已完成**
+
+---
+
 ## 一、架构总览
 
 ```
@@ -9,741 +13,469 @@
           │
           ▼
 ┌─────────────────────────────────────────────────────┐
-│                  React 渲染器                        │
+│                  React 渲染层                         │
 │                                                      │
-│  AI Sidebar (已有)                                   │
-│    └─ Agent Mode UI                                  │
-│        ├─ 动作流（实时显示每步操作）                    │
-│        ├─ 安全确认气泡（红色操作弹确认）                │
-│        └─ 操作回放（历史记录）                         │
+│  AI Sidebar                                          │
+│    └─ AgentActionStream (操作流 UI)                  │
+│        ├─ 实时步骤日志（每步操作卡片）                  │
+│        ├─ 安全确认气泡（红色操作必须手动确认）           │
+│        ├─ Task Tree 可视化（动态执行计划）              │
+│        └─ 停止按钮（随时中断）                         │
 │                                                      │
-│  ──── preload.cjs bridge (扩展) ────                 │
+│  useBrowserAgentState — IPC 事件订阅、状态管理        │
+│                                                      │
+│  ──── preload.cjs bridge ────                        │
 └──────────────────────┬──────────────────────────────┘
-                       │ IPC
+                       │ IPC (agent:run-browser-task / agent:progress)
 ┌──────────────────────▼──────────────────────────────┐
 │                Electron 主进程                        │
 │                                                      │
-│  ┌────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │ 观察层      │  │ 操作层        │  │ 安全层       │ │
-│  │ PageAgent   │  │ PageAction   │  │ ActionGate   │ │
-│  │ Observer    │  │ Executor     │  │              │ │
-│  │            │  │              │  │ green/yellow │ │
-│  │ 标注元素    │  │ click/fill/  │  │ /red 分级    │ │
-│  │ 提取状态    │  │ select/scroll│  │              │ │
-│  │ 截屏       │  │ /navigate    │  │ 红色→等用户   │ │
-│  └────────────┘  └──────────────┘  └──────────────┘ │
+│  register-agent-ipc-handlers.mjs                    │
+│    └─ AgentTaskManager（任务生命周期管理）             │
+│        ├─ BrowserAgentService（本地模式 agent loop） │
+│        └─ runRemoteHandsMode（Brain-Hands 分离模式） │
 │                                                      │
-│  ┌──────────────────────────────────────────────────┐│
-│  │          BrowserAgentService (调度器)             ││
-│  │                                                  ││
-│  │  while (!done && step < maxSteps) {              ││
-│  │    snapshot = observe(webContents)                ││
-│  │    action = await thinkViaOpenClaw(snapshot)      ││
-│  │    gate = classifyRisk(action)                   ││
-│  │    if (gate === 'red') await waitUserConfirm()   ││
-│  │    result = execute(webContents, action)          ││
-│  │    journal.record(step, snapshot, action, result) ││
-│  │  }                                               ││
-│  └──────────────────────────────────────────────────┘│
-│                       │                              │
-│  ─── runLocalAgentTurn / runAgentTurn ───            │
-└───────────────────────┬─────────────────────────────┘
+│  ┌──────────────┐  ┌────────────────┐  ┌──────────┐ │
+│  │ 观察层        │  │ 执行层          │  │ 安全层   │ │
+│  │ Playwright   │  │ Playwright     │  │ Action   │ │
+│  │ Observer     │  │ Executor       │  │ Gate     │ │
+│  │              │  │                │  │          │ │
+│  │ page.eval()  │  │ locator API    │  │ green /  │ │
+│  │ 元素索引标注  │  │ 多级 Locator   │  │ yellow / │ │
+│  │ 坐标提取     │  │ 自动 scroll    │  │ red 分级 │ │
+│  └──────────────┘  └────────────────┘  └──────────┘ │
+│                                                      │
+│  PageNarratorService   PageLocatorService            │
+│  PageOverlayService    BrowserAgentPromptService     │
+└──────────────────────────────────────────────────────┘
                         │
-                 OpenClaw Agent
-            (思考 + 返回结构化动作)
+                 OpenClaw（本地或远程）
+            每步单 turn 调用，返回结构化 JSON 动作
 ```
 
 ---
 
-## 二、浏览器端要做什么
+## 二、Agent Loop
 
-### 2.1 观察层 — `PageAgentObserver`
+核心逻辑在 `runtime/browser/BrowserAgentService.mjs`，最多执行 **20 步**，连续失败 3 次自动中止。
 
-> 新文件：`runtime/browser/PageAgentObserver.mjs`
+```
+for step = 1..20:
+  1. waitForPageReady()          — Playwright waitForLoadState 等页面稳定
+  2. observePage()               — PlaywrightObserver 提取页面快照
+  3. narratePage()               — PageNarratorService 场景分类 + 关键元素评分
+  4. buildAgentPrompt()          — BrowserAgentPromptService 构建 prompt
+  5. runLocalAgentTurn(prompt)   — 调 OpenClaw，返回结构化 JSON 动作
+  6. parseAgentAction()          — 解析 LLM 输出
+  7. if action == "done"  → 成功退出
+     if action == "error" → 失败退出
+  8. resolveActionElement()      — PageLocatorService 定位目标元素
+  9. classifyAction()            — ActionGate 风险分级
+  10. moveCursorTo()             — PageOverlayService 视觉光标动画（仅展示）
+  11. if risk == "red" → requestConfirm()，等用户确认；拒绝则 continue
+  12. executeAction()            — PlaywrightExecutor 执行动作
+  13. if result.urlChanged → page.waitForLoadState("networkidle") + injectOverlay
+  14. if action.expectations → verifyExpectations()（后置校验）
+  15. journal.push(step 记录)
+```
 
-职责：给当前页面拍一张"可交互快照"，供 LLM 决策。
+每步开头检查 `signal.aborted`（AbortController），用户点停止后最多完成当前步骤即退出。
+
+---
+
+## 三、观察层 — PlaywrightObserver
+
+**文件**：`runtime/browser/PlaywrightObserver.mjs`
+
+用 `page.evaluate()` 在渲染进程内直接操作 DOM，不需要 CDP DOMSnapshot 或 AXTree。
+
+**工作流程**：
+
+1. 用 CSS selector 找到所有可见可交互元素（`a[href]`、`button`、`input`、`select`、`textarea`、`[role=button]` 等）
+2. 过滤不可见元素（`display:none`、零尺寸、视口外 500px 以上）
+3. 给每个元素写入 `data-sabrina-idx`（整数序号，本步有效，导航后重置）
+4. 收集元素属性：`tag`、`type`、`text`、`value`、`placeholder`、`disabled`、`rect`（viewport-relative 坐标，Playwright 保证精确）
+5. 同步收集 `scrollY`、`scrollHeight`、`pageText`（最多 5000 字符）
+
+**快照结构**：
 
 ```javascript
-/**
- * 注入 JS 到 webContents，标注所有可交互元素，返回结构化列表。
- * 这是整个 Agent 的"眼睛"。
- *
- * @returns {AgentPageSnapshot}
- */
-export async function observePage(webContents) → {
-  url: string,
-  title: string,
-  scrollPosition: { x, y, scrollHeight, viewportHeight },
-  interactiveElements: [
-    {
-      index: number,        // 从 1 开始的编号，LLM 用这个引用
-      tag: string,          // "button" | "input" | "a" | "select" | ...
-      role: string,         // ARIA role
-      type: string,         // input type: "text" | "email" | "password" | "submit" | ...
-      text: string,         // 可见文本（按钮文字、链接文字、label 文字）
-      placeholder: string,  // input placeholder
-      value: string,        // 当前值（密码字段返回 "***"）
-      checked: boolean,     // checkbox/radio
-      disabled: boolean,
-      rect: { x, y, w, h },// 屏幕坐标
-      options: string[],    // select 的 option 列表
-    }
-  ],
-  // 页面上的关键文本（表单标题、错误提示、成功消息）
-  pageText: string,         // 去噪后的可见文本，截断到 2000 字符
-  formGroups: [             // 识别出的表单分组
-    {
-      formIndex: number,
-      action: string,       // form action URL
-      method: string,       // GET/POST
-      fields: number[],     // 关联的 interactiveElements index
-    }
-  ],
+{
+  url, title,
+  interactiveElements: [{ index, tag, type, text, value, placeholder, disabled, rect }],
+  pageText,          // 去噪后的可见文字
+  scrollPosition: { y, scrollHeight },
+  hasMoreContent,    // (scrollY + viewportH) < (scrollHeight - 150)
+  tabId,
+  axNodes: [],       // Playwright 模式不需要 AXTree
 }
 ```
 
-**实现方式**：`webContents.executeJavaScript(IIFE)`，复用已有的 `PageContextService` 注入模式。
+**等待策略**（`waitForPageReady`）：
+- 首步（`full: true`）：`page.waitForLoadState("networkidle")`
+- 后续步骤：`page.waitForLoadState("domcontentloaded")`
+- 超时不报错，允许继续观察
 
-**关键设计决策**：
-- 密码字段的 `value` 一律返回 `"***"`，不传给 LLM
-- `text` 字段优先取 `aria-label` > `label[for]` > `placeholder` > `innerText`
-- 限制返回最多 80 个元素（按 DOM 顺序，跳过不可见的）
-- 每个元素的 `text` 截断到 60 字符
+---
 
-### 2.2 操作层 — `PageActionExecutor`
+## 四、场景叙述层 — PageNarratorService
 
-> 新文件：`runtime/browser/PageActionExecutor.mjs`
+**文件**：`runtime/browser/PageNarratorService.mjs`
 
-5 个原子操作，全部通过 `webContents.executeJavaScript()` 实现：
+原始快照直接扔给 LLM 的问题：50+ 个元素塞满上下文，LLM 难以快速定位重点。
 
-| 原语 | 签名 | 实现要点 |
+NarratorService 的职责是把快照压缩为"叙述对象"再交给 prompt 构建器：
+
+- **场景分类**（`classifyScene`）：根据 URL、标题、页面结构，识别出 `login`、`register`、`search_results`、`checkout`、`form`、`generic` 等场景类型，传递给 LLM 作为上下文提示
+- **关键元素评分**（`scoreElement`）：按标签类型、文本质量、高价值关键词（提交/搜索/登录）、失败历史对每个元素打分，取前 12 个作为"关键元素"
+- **快照 Diff**（`diffSnapshots`）：与上一步快照比较，生成 `url_changed`、`title_changed`、`elements_delta`、`scroll_moved`，让 LLM 感知上一步操作是否生效
+
+格式化后输出（`formatNarration`）的 prompt 段落包含场景类型、关键元素列表、其余元素备查、页面文字摘要、diff 说明。
+
+---
+
+## 五、执行层 — PlaywrightExecutor
+
+**文件**：`runtime/browser/PlaywrightExecutor.mjs`
+
+所有动作通过 Playwright Locator API 执行，框架负责 scroll-into-view、元素可见性等待、超时。
+
+**5 个原子操作**：
+
+| 操作 | 实现 | 特殊处理 |
 |------|------|---------|
-| `click` | `click(webContents, index)` | 找到元素 → `el.scrollIntoView()` → `el.click()` → 等 100ms |
-| `fill` | `fill(webContents, index, text)` | `el.focus()` → 清空 → 逐字符 dispatchEvent(input) → 触发 change |
-| `select` | `select(webContents, index, value)` | 设置 `el.value` → dispatch change 事件 |
-| `scroll` | `scroll(webContents, direction, amount?)` | `window.scrollBy(0, ±viewportHeight * 0.8)` |
-| `navigate` | `navigate(webContents, url)` | `webContents.loadURL(url)` + 等 did-stop-loading |
+| `click` | `locator.click()` | 多级 Locator 降级匹配 |
+| `fill` | `locator.fill(text)` | Playwright 先清空再输入，兼容 React/Vue；`__PASSWORD__` 时直接返回 `isPasswordEntry: true` 不填写；支持 `submit: true` 触发 Enter |
+| `select` | `locator.selectOption(value)` | — |
+| `scroll` | `page.evaluate(window.scrollBy)` | 每次滚动 `0.8 * viewportHeight` |
+| `navigate` | `page.goto(url, {waitUntil: "domcontentloaded"})` | 超时 30s |
 
-```javascript
-// 每个操作返回统一格式
-type ActionResult = {
-  ok: boolean,
-  elementText?: string,  // 被操作元素的文字（给 LLM 确认用）
-  error?: string,
-  // 操作后的页面变化信号
-  urlChanged: boolean,
-  newUrl?: string,
-}
-```
+**多级 Locator 降级**（`withResolvedLocator`）：
 
-**`fill` 的特殊处理**：
-- React/Vue 等框架劫持了 `value` setter，直接赋值不会触发状态更新
-- 需要用 `Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, text)` + `el.dispatchEvent(new Event('input', { bubbles: true }))`
+元素 DOM 的 `data-sabrina-idx` 可能因页面动态更新失效，Executor 按以下优先级依次尝试：
 
-**`navigate` 的特殊处理**：
-- 需要等 `did-stop-loading` 事件，超时 15s 后继续
-- 返回新 URL 供 LLM 确认导航是否成功
+1. `action.target`（语义目标，`{ role, text, type }`）→ `page.getByRole()` / `page.getByText()`
+2. `action.index` → `[data-sabrina-idx="N"]`
+3. 元素指纹（placeholder → role+text → tag+text → text → role → type → tag）
 
-### 2.3 安全层 — `ActionGate`
-
-> 新文件：`runtime/browser/ActionGate.mjs`
-
-```javascript
-/**
- * 对每个 LLM 产出的动作进行风险分级。
- * 返回 "green" | "yellow" | "red"
- */
-export function classifyAction(action, element) → RiskLevel
-
-// 分级规则：
-const RULES = {
-  green: [
-    // 无副作用的观察类操作
-    'scroll',
-    // 点击普通链接（非 submit、非 delete）
-    { action: 'click', when: el => el.tag === 'a' && !isDestructiveText(el.text) },
-    // 填写非敏感字段
-    { action: 'fill', when: el => !isSensitiveField(el) },
-  ],
-
-  yellow: [
-    // 填写非密码但敏感的字段（邮箱、手机号、地址）
-    { action: 'fill', when: el => isSensitiveField(el) && el.type !== 'password' },
-    // 点击提交类按钮（非支付、非删除）
-    { action: 'click', when: el => isSubmitLike(el) && !isPaymentOrDelete(el) },
-    // 导航到外部域名
-    { action: 'navigate', when: (_, ctx) => isExternalDomain(ctx) },
-  ],
-
-  red: [
-    // 密码输入
-    { action: 'fill', when: el => el.type === 'password' },
-    // 支付 / 删除 / 发送类按钮
-    { action: 'click', when: el => isPaymentOrDelete(el) || isSendMessage(el) },
-    // 任何涉及金额确认的操作
-    { action: 'click', when: el => hasMoneyContext(el) },
-  ],
-}
-```
-
-**辅助判断函数**：
-
-```javascript
-function isSensitiveField(el) {
-  const hints = /email|phone|tel|mobile|address|身份|证件|手机|邮箱|地址/i;
-  return hints.test(el.type + el.placeholder + el.text);
-}
-
-function isPaymentOrDelete(el) {
-  const hints = /pay|purchase|buy|order|delete|remove|支付|付款|购买|下单|删除/i;
-  return hints.test(el.text);
-}
-
-function isSendMessage(el) {
-  const hints = /send|发送|提交评论|post|publish|发布/i;
-  return hints.test(el.text);
-}
-```
-
-### 2.4 调度器 — `BrowserAgentService`
-
-> 新文件：`runtime/browser/BrowserAgentService.mjs`
-
-核心 agent loop，编排观察→思考→执行的循环：
-
-```javascript
-/**
- * @param {object} params
- * @param {string} params.tabId       — 要操作的标签页
- * @param {string} params.task        — 用户的自然语言任务描述
- * @param {object} params.userData    — 用户提供的数据（姓名、邮箱等，可选）
- * @param {function} params.sendProgress — 进度回调
- * @param {function} params.requestConfirm — 请求用户确认（红色操作）
- */
-export async function runBrowserAgent(params, dependencies) {
-  const { tabId, task, userData, sendProgress, requestConfirm } = params;
-  const { runLocalAgentTurn } = dependencies;
-  const webContents = getWebContentsByTabId(tabId);
-
-  const journal = [];  // 操作日志
-  const MAX_STEPS = 20;
-  const MAX_CONSECUTIVE_ERRORS = 3;
-  let consecutiveErrors = 0;
-
-  for (let step = 0; step < MAX_STEPS; step++) {
-    // 1. 观察
-    const snapshot = await observePage(webContents);
-    sendProgress({ type: 'observe', step, snapshot: summarize(snapshot) });
-
-    // 2. 思考（调 OpenClaw）
-    const prompt = buildAgentPrompt(task, snapshot, journal, userData);
-    const llmResponse = await runLocalAgentTurn({ message: prompt });
-    const action = parseAgentAction(llmResponse);
-
-    // 3. 判断是否完成
-    if (action.type === 'done') {
-      sendProgress({ type: 'done', step, summary: action.summary });
-      return { ok: true, journal, summary: action.summary };
-    }
-
-    if (action.type === 'error') {
-      sendProgress({ type: 'error', step, message: action.message });
-      return { ok: false, journal, error: action.message };
-    }
-
-    // 4. 安全分级
-    const element = snapshot.interactiveElements.find(e => e.index === action.index);
-    const risk = classifyAction(action, element);
-    sendProgress({ type: 'action', step, action, risk, element });
-
-    if (risk === 'red') {
-      const confirmed = await requestConfirm({
-        action,
-        element,
-        reason: getConfirmReason(action, element),
-      });
-      if (!confirmed) {
-        sendProgress({ type: 'skipped', step, action });
-        journal.push({ step, action, result: 'user_denied' });
-        continue;
-      }
-    }
-
-    // 5. 执行
-    const result = await executeAction(webContents, action);
-    journal.push({ step, action, result, timestamp: Date.now() });
-
-    if (!result.ok) {
-      consecutiveErrors++;
-      sendProgress({ type: 'action-error', step, error: result.error });
-      if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-        return { ok: false, journal, error: '连续操作失败，已停止' };
-      }
-    } else {
-      consecutiveErrors = 0;
-    }
-
-    // 6. 等页面稳定（如果 URL 变了，等加载完成）
-    if (result.urlChanged) {
-      await waitForLoad(webContents, 10_000);
-    } else {
-      await wait(300); // DOM 更新时间
-    }
-  }
-
-  return { ok: false, journal, error: '超过最大步数限制' };
-}
-```
-
-### 2.5 IPC 注册
-
-> 修改：`host/electron/register-browser-ipc-handlers.mjs`（或新增 `register-agent-ipc-handlers.mjs`）
-
-```javascript
-// 启动 agent 任务（长时间运行，流式返回进度）
-ipcMain.handle("agent:run-browser-task", async (e, payload) => {
-  const sendProgress = (data) => {
-    if (!e.sender.isDestroyed()) {
-      e.sender.send("agent:progress", data);
-    }
-  };
-
-  const requestConfirm = (data) => {
-    // 发确认请求到渲染器，等用户回应
-    return new Promise((resolve) => {
-      e.sender.send("agent:request-confirm", data);
-      ipcMain.once("agent:confirm-response", (_e, confirmed) => {
-        resolve(confirmed);
-      });
-    });
-  };
-
-  return runBrowserAgent(
-    { ...payload, sendProgress, requestConfirm },
-    { runLocalAgentTurn, getContextSnapshotForTab }
-  );
-});
-
-// 用户中断 agent
-ipcMain.handle("agent:stop", (_e) => {
-  stopCurrentAgent(); // 设置 abort flag
-});
-```
-
-### 2.6 Preload Bridge 扩展
-
-> 修改：`host/electron/preload.cjs`
-
-```javascript
-agent: {
-  runBrowserTask: (payload) => ipcRenderer.invoke("agent:run-browser-task", payload),
-  stop: () => ipcRenderer.invoke("agent:stop"),
-  onProgress: (cb) => {
-    ipcRenderer.on("agent:progress", (_e, data) => cb(data));
-    return () => ipcRenderer.removeAllListeners("agent:progress");
-  },
-  onRequestConfirm: (cb) => {
-    ipcRenderer.on("agent:request-confirm", (_e, data) => cb(data));
-  },
-  respondConfirm: (confirmed) => {
-    ipcRenderer.send("agent:confirm-response", confirmed);
-  },
-},
-```
+首个 locator 尝试超时 4000ms，后续每个 1500ms。失败原因若为"元素找不到"则继续降级，其他错误直接抛出。
 
 ---
 
-## 三、OpenClaw 端要做什么
+## 六、定位层 — PageLocatorService
 
-OpenClaw 在这个架构里只做一件事：**看快照 → 输出下一个动作**。无状态、单 turn。
+**文件**：`runtime/browser/PageLocatorService.mjs`
 
-### 3.1 Agent Prompt
+用于 `BrowserAgentService` 在执行前定位目标元素以供 ActionGate 分析属性（ActionGate 需要知道元素的 `type`、`text` 等才能分级）。
 
-```
-你是 Sabrina 浏览器的操作助手。用户给了你一个任务，你在操作一个真实的网页来完成它。
+`resolveActionElement(snapshot, action)` 的逻辑：
+1. 优先用 `action.target`（语义目标）在快照中按评分匹配
+2. 降级用 `action.index` 查找
+3. index 找不到时用 `action.targetText` 做文字兜底（防 index 漂移）
 
-## 任务
-${task}
-
-## 用户提供的数据
-${userData ? formatUserData(userData) : "（用户未提供额外数据）"}
-
-## 当前页面状态
-URL: ${snapshot.url}
-标题: ${snapshot.title}
-滚动位置: ${snapshot.scrollPosition.y}/${snapshot.scrollPosition.scrollHeight}
-
-### 可交互元素
-${snapshot.interactiveElements.map(el =>
-  `[${el.index}] <${el.tag}${el.type ? ' type='+el.type : ''}> "${el.text}" ${el.value ? '值="'+el.value+'"' : ''} ${el.disabled ? '[禁用]' : ''}`
-).join('\n')}
-
-### 页面文本
-${snapshot.pageText}
-
-## 操作历史（最近 5 步）
-${recentJournal}
-
-## 你的输出
-
-每次只输出一个 JSON 动作：
-
-点击元素：    {"action": "click", "index": 3, "reason": "点击提交按钮"}
-填写字段：    {"action": "fill", "index": 5, "text": "张三", "reason": "填写姓名"}
-选择下拉：    {"action": "select", "index": 7, "value": "北京", "reason": "选择城市"}
-滚动页面：    {"action": "scroll", "direction": "down", "reason": "查看更多表单字段"}
-跳转页面：    {"action": "navigate", "url": "https://...", "reason": "进入注册页"}
-任务完成：    {"action": "done", "summary": "已填写完所有字段，等待用户确认提交"}
-无法继续：    {"action": "error", "message": "页面要求验证码，需要用户手动完成"}
-
-## 规则
-
-1. 每次只输出一个动作，不要规划多步
-2. 密码字段用 {"action": "fill", "index": N, "text": "__PASSWORD__"}，系统会提示用户自行输入
-3. 如果页面有验证码(CAPTCHA)，输出 error 让用户处理
-4. 如果连续两步操作了同一个元素但页面没变化，换一种方式或报告 error
-5. 填写数据优先用"用户提供的数据"，没有提供的字段跳过或用 error 告知
-6. 不要猜测用户没有提供的个人信息（地址、电话等）
-7. 任务完成后，输出 done 并描述做了什么
-
-只输出 JSON，不要解释。
-```
-
-### 3.2 LLM 选型
-
-| 环节 | 推荐模型 | 原因 |
-|------|---------|------|
-| Agent 思考 | Sonnet（或 Haiku） | 每步都调一次，需要快+便宜，动作空间小不需要 Opus |
-| 复杂规划 | 可选升级到 Sonnet | 如果连续 error 可以切换到更强模型重试 |
-
-### 3.3 无需改 OpenClaw 核心
-
-Agent 模式复用已有的 `runLocalAgentTurn()` 调用路径，不需要改 OpenClaw 本身。
-每次 agent loop 就是一次普通的单 turn 调用，只是 prompt 不一样。
+评分函数 `matchScore` 综合文本完全匹配（+10）、文本包含（+5）、role 语义别名（+3~8）、type 匹配（+4）、hint 模糊匹配（+2），并对失败过的元素做惩罚（每次 -5 分）。
 
 ---
 
-## 四、能解决哪些场景
+## 七、安全层 — ActionGate
 
-### 第一优先级（MVP）
+**文件**：`runtime/browser/ActionGate.mjs`
 
-| 场景 | 用户说 | Agent 做什么 | 步数 |
-|------|--------|-------------|------|
-| **填表单** | "帮我用这些信息填表" | 识别字段 → 逐个 fill → 等确认 submit | 5-15 |
-| **登录** | "帮我登录这个网站" | 找到账号密码框 → fill → click 登录 | 3-5 |
-| **简单搜索** | "在这个网站搜 MacBook Pro" | 找到搜索框 → fill → click/enter | 2-3 |
+对每个 LLM 产出的动作进行三级风险分类，在 `classifyAction(action, element, context)` 中完成：
 
-### 第二优先级
+### 红色（必须手动确认）
 
-| 场景 | 用户说 | Agent 做什么 | 步数 |
-|------|--------|-------------|------|
-| **多步导航** | "帮我找到退款页面" | click 导航 → scroll 找入口 → click 进入 | 5-10 |
-| **信息提取循环** | "把前 5 页搜索结果都看一下" | scroll → 提取 → click 下一页 → 循环 | 10-20 |
-| **表单 + 选择** | "注册一个账号" | 填表 → 选下拉 → 勾 checkbox → submit | 8-15 |
+- `fill` + `element.type === "password"`：密码字段（Agent 不填写，必须交回用户）
+- `click` + 元素文字匹配 `/pay|purchase|buy|order|delete|remove|支付|付款|购买|下单|删除|退款|转账/i`
+- `click` + 元素文字包含金额符号 `/[¥$￥]|元|币|price|amount|total/i`
 
-### 明确不做（V1）
+### 黄色（当前实现直接显示确认，未来可做倒计时自动执行）
 
-| 场景 | 为什么不做 |
-|------|-----------|
-| 验证码 | 无法解决，必须交回用户 |
-| 支付 | 安全风险太高 |
-| 文件上传 | 需要系统级文件选择器交互 |
-| 跨标签页操作 | 复杂度爆炸，先做单标签页 |
-| Canvas/WebGL 应用 | 无 DOM，观察层无法工作 |
+- `fill` + 敏感字段（email/phone/tel/mobile/address/身份/证件/手机/邮箱/地址/name/姓名）
+- `click` + 提交类按钮（submit/confirm/ok/next/register/login/sign/提交/确认/下一步/注册/登录）
+- `navigate` + 跨域（`targetOrigin !== currentOrigin`）
+
+### 绿色（直接执行）
+
+其余所有操作：普通文字输入、链接点击、滚动、页面内导航等。
+
+**确认文案**（`getConfirmReason`）：密码字段提示"请手动操作"，点击类描述目标按钮文字，导航类展示目标 URL。
 
 ---
 
-## 五、交互设计
+## 八、页面视觉层 — PageOverlayService
 
-### 5.1 入口：在 AI Sidebar 里触发
+**文件**：`runtime/browser/PageOverlayService.mjs`
 
-不新建 UI，复用已有的 AI Sidebar 聊天界面：
+通过 `webContents.executeJavaScript()` 向被操作页面注入一个 `position: fixed; z-index: 2147483647; pointer-events: none` 的全屏透明层，不干扰页面交互。
 
-```
-┌─────────────────────────────────┐
-│  AI Sidebar                      │
-│                                  │
-│  [用户] 帮我把这个注册表单填了     │
-│         我的信息：                │
-│         姓名：张三                │
-│         邮箱：zhangsan@mail.com  │
-│                                  │
-│  [AI] 好的，我来帮你填写。        │
-│       识别到 6 个表单字段。       │
-│                                  │
-│  ┌─ Agent 操作流 ──────────────┐ │
-│  │ ✓ 填写"姓名" → 张三         │ │
-│  │ ✓ 填写"邮箱" → zhangsan@.. │ │
-│  │ ● 正在填写"手机号"...       │ │
-│  │                             │ │
-│  │ ⚠️ 需要确认：               │ │
-│  │ 点击"注册"按钮？            │ │
-│  │ [确认] [跳过] [停止]        │ │
-│  └─────────────────────────────┘ │
-│                                  │
-│  [停止 Agent ■]                  │
-└─────────────────────────────────┘
-```
+三个视觉元素：
+- **状态栏**：底部居中浮层（磨砂玻璃样式），实时显示当前步骤状态文字和颜色指示点（红色=运行中，绿色=成功，黄色=等待，红色=错误）
+- **光标**：粉红色圆点，在 Agent 执行操作前平滑移动到目标元素中心（CSS transition）
+- **点击涟漪**：`click` 操作时在光标位置生成扩散动画圆环
 
-### 5.2 操作流实时展示
-
-每步操作在聊天流里实时追加，用紧凑的行内样式：
-
-```
-✓ 已完成    绿色对勾 + 灰色描述
-● 进行中    蓝色圆点 + 动画
-⚠️ 需确认   黄色/红色卡片 + 按钮
-✗ 失败      红色叉 + 错误信息
-⏭ 已跳过    灰色 + 划线
-```
-
-### 5.3 安全确认交互
-
-**黄色操作**（提交表单等）：行内显示一行提示，2 秒后自动执行，用户可以在 2 秒内点"取消"
-
-```
-⚠ 即将点击"提交" [取消 2s]
-```
-
-**红色操作**（支付、密码、删除）：弹出卡片，必须手动确认
-
-```
-┌─────────────────────────────────┐
-│ 🔴 需要你的确认                  │
-│                                  │
-│ Agent 想要：点击"立即支付 ¥299"  │
-│ 页面：store.example.com         │
-│                                  │
-│ [确认执行]  [跳过这步]  [停止]    │
-└─────────────────────────────────┘
-```
-
-**密码字段**：Agent 永远不填密码，改为提示用户自己输入
-
-```
-🔒 这个字段需要你手动输入密码
-   Agent 已定位到密码框并聚焦。
-   [输入完成后继续]
-```
-
-### 5.4 页面高亮（锦上添花，V2）
-
-在被操作的标签页上，当前正在操作的元素用半透明蓝色边框高亮：
+**导出函数**：
 
 ```javascript
-// 注入到 webContents 的高亮脚本
-el.style.outline = '2px solid rgba(99, 102, 241, 0.6)';
-el.style.outlineOffset = '2px';
-// 操作完成后移除
+injectOverlay(webContents)                     // 注入覆盖层（幂等）
+updateOverlayStatus(webContents, text, type)   // 更新状态栏文字（info/success/warning/error）
+moveCursorTo(webContents, x, y, isClick)       // 移动光标，isClick=true 时触发涟漪
+cleanupOverlay(webContents)                    // 淡出并移除覆盖层（延时 450ms 后 remove）
 ```
 
-### 5.5 中断和恢复
-
-- **随时停止**：底部常驻"停止"按钮，点击后 agent loop 退出，已完成的操作不回滚
-- **不支持回滚**：填过的表单不自动清空（成本高、不可靠），告诉用户"已停止，你可以手动修改"
-- **不支持恢复**：停止后重新开始，agent 会重新观察页面（已填的字段有 value，不会重复填）
+URL 变化后重新注入（`injectOverlay` 幂等，已有则只恢复可见度）。Overlay 注入失败（如 CSP 限制）只打 warning，不影响执行。
 
 ---
 
-## 六、任务管理层 — `AgentTaskManager`
+## 九、Prompt 构建 — BrowserAgentPromptService
 
-> 新文件：`runtime/browser/AgentTaskManager.mjs`
+**文件**：`runtime/browser/BrowserAgentPromptService.mjs`
 
-Agent 任务需要一个管理器来处理生命周期：创建 → 运行 → 暂停 → 恢复 → 完成/失败/中断。
+`buildAgentPrompt(task, snapshot, journal, userData, narration)` 组装最终发给 LLM 的 prompt，包含：
 
-### 6.1 为什么需要
+- **禁区警告**：`failureCount >= 2` 的元素列入禁止区域，LLM 不得再次尝试
+- **历史成功经验**：`userData.experiences` 中按网站类型记录的成功技巧
+- **用户数据**：提供给 Agent 的姓名/邮箱等结构化数据
+- **页面状态**：优先用 NarratorService 格式化（场景分类 + 关键元素 + diff），降级用原始元素列表
+- **意图约束**：来自聊天历史的用户偏好（`userData.constraints`）
+- **Task Tree**：当前执行计划，LLM 可以在响应中包含 `new_plan` 字段动态更新
+- **操作历史**：最近 5 步的动作和结果摘要
 
-- Agent loop 是长时间运行的（可能 30s-2min），不能阻塞 IPC
-- 用户可能同时操作其他标签页，agent 在后台等确认
-- 需要持久化任务状态，方便 UI 渲染和历史回看
-- 一个标签页同时只能跑一个 agent 任务
+**输出动作格式**（LLM 只输出 JSON，不加解释）：
 
-### 6.2 任务状态机
-
-```
-  create
-    │
-    ▼
- ┌──────┐   run    ┌─────────┐
- │ idle │────────▶│ running │◀──────────┐
- └──────┘         └────┬────┘           │
-                       │                │
-              ┌────────┼────────┐       │
-              ▼        ▼        ▼       │
-        ┌──────┐  ┌────────┐  ┌────┐   │
-        │paused│  │completed│  │error│  │
-        └──┬───┘  └────────┘  └──┬─┘   │
-           │                     │      │
-           │     resume          │ retry│
-           └─────────────────────┴──────┘
-                       │
-                       ▼
-                  ┌─────────┐
-                  │cancelled│  ← 用户随时可中断
-                  └─────────┘
+```json
+{"action": "click",    "index": 3,  "reason": "...", "expectations": {"urlChanged": true}}
+{"action": "fill",     "index": 5,  "text": "张三", "reason": "...", "expectations": {"domChanged": true}}
+{"action": "fill",     "index": 5,  "text": "贝壳新闻", "submit": true, "reason": "...", "expectations": {"urlChanged": true}}
+{"action": "select",   "index": 7,  "value": "北京", "reason": "..."}
+{"action": "scroll",   "direction": "down", "reason": "..."}
+{"action": "navigate", "url": "https://...", "reason": "..."}
+{"action": "done",     "summary": "已完成..."}
+{"action": "error",    "message": "遇到验证码，无法继续"}
 ```
 
-### 6.3 数据结构
+`expectations` 字段用于后置校验：`urlChanged`（URL 应变化）、`domChanged`（DOM 内容应变化）、`elementAppeared`（某元素应出现）。
+
+`parseAgentAction(llmResponse)` 从 LLM 原始字符串中用正则提取第一个 JSON 对象。
+
+---
+
+## 十、任务管理 — AgentTaskManager
+
+**文件**：`runtime/browser/AgentTaskManager.mjs`
+
+### 任务状态机
+
+```
+idle → running → completed
+              ↘ error
+              ↘ cancelled  ← cancelAgentTask() 随时可触发
+  running ↔ paused        ← 红色操作触发，respondToConfirm() 恢复
+```
+
+### 核心数据结构
 
 ```javascript
-/**
- * @typedef {object} AgentTask
- * @property {string}   taskId        — 唯一标识
- * @property {string}   tabId         — 操作的标签页
- * @property {string}   status        — idle|running|paused|completed|error|cancelled
- * @property {string}   userTask      — 用户的原始指令
- * @property {object}   userData      — 用户提供的数据（姓名、邮箱等）
- * @property {number}   currentStep   — 当前步数
- * @property {number}   maxSteps      — 最大步数（默认 20）
- * @property {Array}    journal       — 操作日志
- * @property {string}   pauseReason   — 暂停原因（等待用户确认 / 等待用户输入密码）
- * @property {object}   pendingConfirm — 当前等待确认的操作（如有）
- * @property {string}   summary       — 完成后的总结
- * @property {string}   error         — 错误信息
- * @property {number}   createdAt
- * @property {number}   updatedAt
- */
-```
-
-### 6.4 核心 API
-
-```javascript
-// 创建任务（不立即执行）
-createAgentTask(tabId, userTask, userData?) → taskId
-
-// 启动/恢复任务
-startAgentTask(taskId) → void
-// 内部调用 BrowserAgentService.runBrowserAgent()，以非阻塞方式
-
-// 暂停（agent loop 在下一个 observe 前停下来）
-pauseAgentTask(taskId) → void
-
-// 用户回应确认
-respondToConfirm(taskId, confirmed: boolean) → void
-
-// 用户手动完成了某步（如输入了密码）
-notifyManualStepDone(taskId) → void
-
-// 中断
-cancelAgentTask(taskId) → void
-
-// 查询
-getAgentTask(taskId) → AgentTask
-getActiveTaskForTab(tabId) → AgentTask | null
-
-// 事件
-onTaskUpdate(callback) → unsubscribe
-// 每次状态变化都 emit，UI 订阅即可
-```
-
-### 6.5 与 agent loop 的关系
-
-```
-AgentTaskManager          BrowserAgentService
-      │                          │
-      │  startAgentTask(id)      │
-      │─────────────────────────▶│ runBrowserAgent(params)
-      │                          │   │
-      │  onProgress(data)        │   │ observe → think → ...
-      │◀─────────────────────────│   │
-      │  update task.journal     │   │
-      │  emit onTaskUpdate       │   │
-      │                          │   │
-      │  onRequestConfirm(data)  │   │ risk=red → pause
-      │◀─────────────────────────│   │
-      │  set task.status=paused  │   │
-      │  set task.pendingConfirm │   │ await Promise...
-      │  emit onTaskUpdate       │   │
-      │                          │   │
-      │  respondToConfirm(true)  │   │
-      │─────────────────────────▶│   │ resolve → execute → continue
-      │  set task.status=running │   │
-      │                          │   │
-      │  cancelAgentTask(id)     │   │
-      │─────────────────────────▶│   │ abort signal → loop exits
-      │  set task.status=cancel  │   │
-      │                          │   ▼
-      │  onDone(result)          │ return { ok, journal }
-      │◀─────────────────────────│
-      │  set task.status=done    │
-```
-
-关键：TaskManager 持有 `AbortController`，cancel 时 signal 传入 agent loop。agent loop 每次迭代开头检查 `signal.aborted`。
-
-### 6.6 一个标签页只能有一个活跃任务
-
-```javascript
-function createAgentTask(tabId, userTask, userData) {
-  const existing = getActiveTaskForTab(tabId);
-  if (existing && existing.status === 'running') {
-    throw new Error('该标签页已有正在执行的 agent 任务');
-  }
-  // 如果有旧的 paused/error 任务，标记为 cancelled
-  if (existing) existing.status = 'cancelled';
-  // 创建新任务...
+{
+  taskId,      // 唯一标识
+  sessionId,   // 传给 OpenClaw 实现跨步骤持久记忆
+  tabId,
+  threadId,    // 关联的聊天 Thread，完成后写入消息历史
+  status,      // idle | running | paused | completed | error | cancelled
+  userTask,    // 用户原始指令
+  userData,    // 用户提供的数据（姓名/邮箱等）
+  journal,     // 操作日志
+  warnings,    // 非致命警告（步骤失败但任务继续）
+  currentStep,
+  abortController,    // cancel 时 abort()
+  pendingConfirm,     // 等待确认的操作描述
+  resolveConfirm,     // Promise resolver，respondToConfirm 调用
+  summary, error,
+  createdAt, updatedAt,
 }
 ```
 
+### 运行模式选择
+
+`startAgentTask()` 根据 OpenClaw 传输上下文判断使用哪种运行模式：
+
+- **本地模式**（默认）：调用 `runBrowserAgent()`，所有逻辑在本机 Electron 主进程中运行，OpenClaw 作为 LLM 推理引擎
+- **Brain-Hands 分离模式**（`relay-paired` driver）：见第十一节
+
+### 任务结束后处理
+
+任务完成或失败后：
+1. 若有 `threadId`，将结果（包含 journal 的 `skillTrace`）写入聊天 Thread 历史
+2. 调用 `archiveSession()` 存档（用于长期优化）
+3. 触发 `onTaskEnd` 回调，通知渲染层
+
+**单标签页限制**：同一 `tabId` 只能有一个 `running` 或 `paused` 状态的任务，新建时自动检查。
+
 ---
 
-## 七、文件清单
+## 十一、Brain-Hands 分离模式
 
-### 新增
+当 OpenClaw 配置了远程 relay 配对时（`driver === "relay-paired"`），切换到 Brain-Hands 分离架构：
+
+```
+OpenClaw（远程大脑）                 Sabrina 本地（双手）
+        │                                    │
+        │ browser.observe(tabId)             │
+        │ ─────────────────────────────────▶ │ observePage()
+        │ ◀──────────── { snapshot }──────── │
+        │                                    │
+        │ browser.execute(tabId, action)     │
+        │ ─────────────────────────────────▶ │ ActionGate（本地约束）
+        │                                    │ executeAction()
+        │ ◀──────────── { result } ───────── │
+        │                                    │
+        │ browser.updateStatus(message)      │
+        │ ─────────────────────────────────▶ │ updateOverlayStatus()
+        │                                    │
+        │ browser.verify(element)            │
+        │ ─────────────────────────────────▶ │ verifyElementFingerprint()
+```
+
+关键设计：**本地 ActionGate 仍然生效**。即使 Brain 在远程，`browser.execute` 处理器会先做 `classifyAction()`，红色操作依然弹本地确认，用户的安全控制权不因远程模式而削弱。
+
+两个并发 Promise：
+- `runRemoteHandsMode()`：被动 RPC 监听器，等待 Brain 发来指令
+- `runRemoteBrainLoop()`（OpenClaw 侧）：Brain 主循环，驱动整个任务流程
+
+任务结束时关闭 Messenger，AbortController 取消 Hands 监听。
+
+---
+
+## 十二、IPC 层
+
+**文件**：`host/electron/register-agent-ipc-handlers.mjs`
+
+### IPC 通道
+
+| 通道 | 方向 | 说明 |
+|------|------|------|
+| `agent:run-browser-task` | 渲染→主 | 创建并异步启动任务，立即返回 `{ ok, taskId }` |
+| `agent:progress` | 主→渲染 | 每步进度推送（observe/think/action-start/action-success 等） |
+| `agent:request-confirm` | 主→渲染 | 红色操作请求确认 |
+| `agent:confirm-response` | 渲染→主 | 用户的确认/拒绝响应 |
+| `agent:completed` | 主→渲染 | 任务最终结束（completed/error/cancelled） |
+| `agent:stop` | 渲染→主 | 用户中断任务 |
+| `agent:get-task` | 渲染→主 | 查询任务状态（脱敏返回） |
+
+任务启动后立即返回 `taskId`，不阻塞 IPC，进度通过 `event.sender.send()` 流式推送。渲染层销毁前检查 `isDestroyed()` 防止向已关闭窗口发送事件。
+
+---
+
+## 十三、UI 层
+
+### AgentActionStream 组件
+
+**文件**：`src/components/agent-action-stream.tsx`
+
+嵌在 AI Sidebar 聊天流中，按需渲染（`journal.length === 0 && status === "idle"` 时不渲染）。
+
+**视觉区块**（从上到下）：
+
+1. **Live Banner**（仅 running 时）：红色脉冲图标 + "Sabrina Agent 运行中" + 已执行步数 + shimmer 进度条
+2. **Task Tree**（running 时，有 plan 时）：任务树可视化，done/active/pending 三态
+3. **停止按钮**（running 时）：右对齐小按钮，点击触发 `onStop`
+4. **Thinking Card**（当前最新事件为 think 时）：脑图标 + 三点跳动动画
+5. **步骤日志**（新到旧排序，最多显示 380px 高度，可滚动）：每步 StepCard
+6. **确认卡片**（`pendingConfirm` 不为空时）：红色卡片，显示风险原因，"确认执行"和"跳过"两个按钮
+7. **完成/错误状态**：绿色完成横幅或红色错误横幅
+
+**StepCard** 展示内容：
+- 步骤编号 + 类型标签（观察页面/分析决策/执行操作/操作成功/校验通过 等）
+- 若有截图（Base64）则展示缩略图
+- 风险等级徽章（仅 red 显示"⚠ 高风险"）
+- Agent 的 reasoning（斜体引用）
+- 动作描述
+- 错误详情或校验失败原因
+
+### useBrowserAgentState hook
+
+**文件**：`src/application/use-browser-agent-state.ts`
+
+管理 Agent 运行期间的所有前端状态：`status`、`journal`、`pendingConfirm`、`summary`、`warnings`、`taskTree`。
+
+三路 IPC 订阅：
+- `onProgress`：追加 journal 条目，更新 taskTree
+- `onRequestConfirm`：切换 status 为 `paused`，设置 `pendingConfirm`
+- `onCompleted`：更新最终状态，清空 `activeTaskId`
+
+对外暴露三个操作：`runTask(task, userData, threadId)`、`stopTask()`、`respondConfirm(confirmed)`。
+
+---
+
+## 十四、交互设计原则
+
+### 操作模式：DOM 编号而非截图坐标
+
+使用 `data-sabrina-idx` 对元素编号，LLM 引用编号而非像素坐标。优点：
+- token 消耗小（不需要发截图）
+- 精确（坐标是 Playwright 实时计算的 viewport-relative，不漂移）
+- 可降级（多级 Locator 兜底）
+
+### LLM 通信：每步单 turn 无状态调用
+
+每个 agent loop 步骤是独立的 OpenClaw 调用，journal 作为历史上下文传入。好处：
+- 无状态漂移（每步观察最新页面）
+- 易调试（每步 prompt 独立可复现）
+- `sessionId` 传入 OpenClaw 可实现跨步记忆（可选）
+
+### 密码字段：永远不由 Agent 填写
+
+`fill` 目标为 `type=password` 时，Executor 返回 `isPasswordEntry: true`，ActionGate 将其标为红色，弹出用户手动输入提示，Agent 不接触密码内容。
+
+### 停止与回滚
+
+- **随时停止**：`AbortController.abort()` 在下一步迭代开头生效，当前步骤执行完毕后退出
+- **不支持回滚**：已填写的字段不自动清空（不可靠且成本高）。Agent 停止后告知用户自行修改
+- **已完成的操作不因停止而撤销**
+
+### 适用场景与限制
+
+| 场景 | 说明 |
+|------|------|
+| 表单填写 | Agent 核心能力，逐字段 fill |
+| 登录 | 账号填写后密码必须用户手动输入 |
+| 搜索与导航 | fill + submit，或 navigate |
+| 多步导航 | click 系列操作，最多 20 步 |
+| 验证码 | 无法解决，输出 error 交回用户 |
+| 支付操作 | ActionGate 红色，必须用户确认 |
+| 文件上传 | 暂未实现（需要系统文件选择器） |
+| Canvas/WebGL 应用 | DOM 观察层无法工作 |
+
+---
+
+## 十五、文件清单
 
 | 文件 | 职责 |
 |------|------|
-| `runtime/browser/PageAgentObserver.mjs` | 观察层：标注可交互元素 |
-| `runtime/browser/PageActionExecutor.mjs` | 操作层：5 个原子操作 |
-| `runtime/browser/ActionGate.mjs` | 安全层：风险分级 |
-| `runtime/browser/BrowserAgentService.mjs` | 调度器：agent loop |
-| `runtime/browser/AgentTaskManager.mjs` | 任务管理：生命周期、确认流、abort |
-| `runtime/browser/BrowserAgentPromptService.mjs` | Agent 提示词构建 |
-| `host/electron/register-agent-ipc-handlers.mjs` | IPC 注册 |
+| `runtime/browser/BrowserAgentService.mjs` | Agent loop 核心；Brain-Hands 分离模式的 Hands 端 |
+| `runtime/browser/PlaywrightObserver.mjs` | 观察层：DOM 快照提取，Playwright page.evaluate |
+| `runtime/browser/PlaywrightExecutor.mjs` | 执行层：5 个原子操作，多级 Locator 降级 |
+| `runtime/browser/ActionGate.mjs` | 安全层：green/yellow/red 三级风险分类 |
+| `runtime/browser/PageNarratorService.mjs` | 叙述层：场景分类、元素评分、快照 Diff |
+| `runtime/browser/PageLocatorService.mjs` | 定位层：语义目标匹配，防 index 漂移 |
+| `runtime/browser/PageOverlayService.mjs` | 视觉层：页面内状态栏、光标动画、涟漪效果 |
+| `runtime/browser/BrowserAgentPromptService.mjs` | Prompt 构建；LLM 响应解析 |
+| `runtime/browser/AgentTaskManager.mjs` | 任务生命周期：创建/启动/确认/取消/存档 |
+| `host/electron/register-agent-ipc-handlers.mjs` | IPC 注册：7 个通道 |
 | `src/components/agent-action-stream.tsx` | 操作流 UI 组件 |
-| `src/application/use-browser-agent-state.ts` | Agent 状态 hook |
-
-### 修改
-
-| 文件 | 改动 |
-|------|------|
-| `host/electron/ipc-handlers.mjs` | 加 `registerAgentIpcHandlers()` |
-| `host/electron/preload.cjs` | 加 `agent: {}` 桥接 |
-| `src/vite-env.d.ts` | 加 agent 相关类型 |
-| `src/components/ai-sidebar.tsx` | 嵌入 agent 操作流 |
+| `src/application/use-browser-agent-state.ts` | Agent 状态 hook，IPC 事件订阅 |
 
 ---
 
-## 七、里程碑
+## 十六、关键设计决策
 
-### M1：看得见（1-2 天）
-- `PageAgentObserver` — 能标注页面元素并返回结构化列表
-- 在 sidebar 里展示标注结果（验证观察层可用）
-
-### M2：动得了（2-3 天）
-- `PageActionExecutor` — 5 个原子操作
-- `ActionGate` — 安全分级
-- 手动串一个 fill + click 验证操作层
-
-### M3：能思考（2-3 天）
-- `BrowserAgentService` — agent loop
-- `BrowserAgentPromptService` — LLM 提示词
-- 端到端跑通"帮我填表单"
-
-### M4：体验完整（2-3 天）
-- Agent 操作流 UI
-- 安全确认交互
-- 中断/停止
-- 操作历史记录
-
----
-
-## 九、关键设计决策备忘
-
-| 决策 | 选项 | 选了什么 | 为什么 |
-|------|------|---------|--------|
-| 操作方式 | 截屏+坐标 vs DOM+编号 | DOM+编号 | 快、准、省 token，且我们就是浏览器 |
-| LLM 通信 | tool_use vs 纯文本 JSON | 纯文本 JSON | 复用现有 runLocalAgentTurn，不改 OpenClaw |
-| 安全机制 | 全部确认 vs 分级 | 三级分级 | 全部确认太烦，全自动太危险 |
-| 状态管理 | 多 turn 会话 vs 每步单 turn | 每步单 turn + journal | 简单、无状态漂移、好 debug |
-| 操作粒度 | 高级语义（fillForm）vs 原子（fill 单个字段）| 原子操作 | 通用性强，LLM 组合原子操作更灵活 |
-| 密码处理 | Agent 填写 vs 交回用户 | 交回用户 | 安全红线，没得商量 |
+| 决策 | 选择 | 理由 |
+|------|------|------|
+| 观察技术 | `page.evaluate()` 取代 CDP DOMSnapshot + AXTree | Playwright 保证坐标精确，代码简单，不需要坐标映射 |
+| 执行技术 | Playwright Locator API | 内置 scroll-into-view、等待、超时；多级降级比手写 JS 健壮 |
+| LLM 交互 | 每步单 turn + 纯文本 JSON | 复用 runLocalAgentTurn，不改 OpenClaw 核心；prompt 可重现 |
+| 安全机制 | 三级分级（green/yellow/red） | 全部确认烦躁；全自动风险高；分级平衡体验与安全 |
+| 密码处理 | 不填，交回用户 | 安全红线，无论本地还是远程模式一律执行 |
+| 状态管理 | journal 作为每步上下文 | 无状态漂移；每步从最新页面观察出发 |
+| 操作粒度 | 原子操作（单字段 fill、单元素 click）| LLM 组合原子操作，比高级语义更灵活通用 |
+| 远程模式安全 | Brain-Hands 分离但 ActionGate 始终本地执行 | 远程大脑无法绕过本地用户的安全确认 |

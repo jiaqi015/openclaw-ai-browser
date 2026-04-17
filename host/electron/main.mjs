@@ -1,8 +1,46 @@
 // App entry point — startup, window creation, and lifecycle only.
-import { existsSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { app, BrowserWindow, nativeImage, session } from "electron";
+
+// Set app name before anything else so `app.getName()`, userData paths,
+// notification senders, and the About panel all report "Sabrina" instead
+// of the npm package name. The macOS menu bar bold name is governed by the
+// host .app's CFBundleName — see scripts/rename-dev-electron.mjs.
+app.setName("Sabrina");
+
+// One-time migration: the rebrand moves userData from
+// "openclaw-ai-browser" (old dev name) to "Sabrina". Copy any top-level
+// JSON state files over so existing dev users don't appear wiped. We only
+// touch our own state files — never Chromium profile data (cookies,
+// IndexedDB, etc.) — and never overwrite an existing file.
+(function migrateLegacyUserDataStateFiles() {
+  const LEGACY_DIR_NAME = "openclaw-ai-browser";
+  const LEGACY_STATE_FILES = [
+    "browser-library.json",
+    "gentab-state.json",
+    "thread-state.json",
+    "turn-journal.json",
+    "openclaw-state.json",
+    "openclaw-tasks.json",
+  ];
+  try {
+    const currentDir = app.getPath("userData");
+    const legacyDir = path.join(path.dirname(currentDir), LEGACY_DIR_NAME);
+    if (currentDir === legacyDir || !existsSync(legacyDir)) return;
+    mkdirSync(currentDir, { recursive: true });
+    for (const name of LEGACY_STATE_FILES) {
+      const from = path.join(legacyDir, name);
+      const to = path.join(currentDir, name);
+      if (existsSync(from) && !existsSync(to)) {
+        copyFileSync(from, to);
+      }
+    }
+  } catch {
+    // Best-effort: a failed migration must never block startup.
+  }
+})();
 import {
   initializeMonitoring,
   bindRendererWindowContents,
@@ -237,7 +275,7 @@ function createMainWindow() {
     height: 980,
     minWidth: 1180,
     minHeight: 760,
-    title: "OpenClaw Browser Sabrina",
+    title: "Sabrina",
     titleBarStyle: "hidden",
     trafficLightPosition: { x: 18, y: 16 },
     backgroundColor: "#050505",

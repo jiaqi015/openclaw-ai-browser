@@ -13,10 +13,8 @@ This document is the governing layer for those questions.
 
 Related reading:
 
-- [Docs Guide](./DOCS_GUIDE.md)
-- [System State](./SYSTEM_STATE.md)
-- [Iteration Loop](./ITERATION_LOOP.md)
-- [Acceptance Matrix](./ACCEPTANCE_MATRIX.md)
+- [Browser/OpenClaw Architecture](./BROWSER_OPENCLAW_ARCHITECTURE.md)
+- [Turn Engine Design](./TURN_ENGINE_DESIGN.md)
 
 ## Product Invariants
 
@@ -63,6 +61,16 @@ Implications:
 - Vision or screenshot tooling may be added later as a fallback or augmentation layer.
 - Prompt construction must preserve the clean browser snapshot contract.
 
+### 5. Turn Execution Contract Must Not Regress
+
+`TurnEngine`, `TurnJournalStore`, and the `ExecutionPlan` contract shape are stable runtime boundaries.
+
+Implications:
+
+- Changes to `ExecutionPlan` or `TurnReceipt` shape require a `contractVersion` bump.
+- `TurnJournalStore` must continue to persist Sabrina-side turn evidence separately from thread-visible messages.
+- New browser AI paths must route through `TurnEngine` — bypassing it for a new feature type requires an explicit decision and a migration plan to close the gap.
+
 ## Release Tiers
 
 ### P0
@@ -98,15 +106,11 @@ This is the repo-level minimum gate. It currently includes:
 
 ### Layer 2. Critical flow validation
 
-Use the flow matrix in [ACCEPTANCE_MATRIX.md](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/docs/ACCEPTANCE_MATRIX.md).
-
-This verifies that the product still behaves correctly for the user, not just for the compiler.
+Verify that the product still behaves correctly for the user, not just for the compiler. Check the major flows: browser shell without OpenClaw, thread AI turns, skill execution, OpenClaw handoff, and GenTab generation.
 
 ### Layer 3. Iteration and release discipline
 
-Use [ITERATION_LOOP.md](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/docs/ITERATION_LOOP.md).
-
-This governs how changes are scoped, rolled out, accepted, and learned from.
+Scope changes to one invariant at a time. Accept a change only when all automated gates pass and the relevant critical flows are manually verified. Document the rollback plan before shipping.
 
 ## Required Evidence
 
@@ -135,6 +139,5 @@ The engineering system lives in:
 - `acceptance/acceptance.manifest.json`
 - `scripts/check-architecture-invariants.mjs`
 - `scripts/run-acceptance.mjs`
-- [ACCEPTANCE_MATRIX.md](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/docs/ACCEPTANCE_MATRIX.md)
-- [ITERATION_LOOP.md](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/docs/ITERATION_LOOP.md)
 - [BROWSER_OPENCLAW_ARCHITECTURE.md](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/docs/BROWSER_OPENCLAW_ARCHITECTURE.md)
+- [TURN_ENGINE_DESIGN.md](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/docs/TURN_ENGINE_DESIGN.md)

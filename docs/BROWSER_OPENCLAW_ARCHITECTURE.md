@@ -41,6 +41,39 @@ Must not own:
 - durable OpenClaw binding or model policy
 - skill success semantics
 
+#### Browser Agent
+
+`runtime/browser` also owns the Playwright-backed browser agent loop. The agent is a separate execution path from passive context extraction: it drives the browser autonomously on behalf of a task, rather than packaging a snapshot for OpenClaw to reason about.
+
+Agent loop per step: **observe → plan → gate → execute → verify**
+
+1. **Observe** — `PlaywrightObserver` captures a structured page snapshot (DOM accessibility tree, current URL, visible text). `PageNarratorService` produces a delta narration comparing the current snapshot to the previous step to reduce noise in the planning prompt.
+2. **Plan** — `BrowserAgentPromptService` builds the step prompt and the Brain (remote OpenClaw via driver, using a persistent `sessionId` for memory continuity) returns the next action.
+3. **Gate** — `ActionGate` classifies the proposed action before it executes:
+   - **green** — low-risk read or neutral interaction; executes immediately.
+   - **yellow** — medium-risk (PII field input, form submit, cross-origin navigation); auto-executes after a countdown so the user can intervene.
+   - **red** — high-risk (password fields, payment/delete/transfer buttons, money-related UI); requires explicit user confirmation before proceeding.
+4. **Execute** — `PlaywrightExecutor` carries out the confirmed action against the live Electron Chromium instance through `PlaywrightService` (CDP connection over `--remote-debugging-port`).
+5. **Verify** — next loop iteration re-observes and the Brain decides whether the goal is reached (`done`), recoverable (`continue`), or failed (`error`).
+
+The agent tracks tab switches mid-task, caps the loop at 20 steps, and enforces a 3-consecutive-error abort. `PageOverlayService` projects status overlays directly into the guest page surface so the user can see what the agent is doing.
+
+**Brain-Hands split:** the agent deliberately separates concerns across the trust boundary.
+
+- **Hands** (local, in `runtime/browser`): Playwright observation and execution, ActionGate enforcement, overlay rendering, tab lifecycle. Hands never make autonomous decisions about what to do.
+- **Brain** (remote, via OpenClaw driver): all planning and goal reasoning runs through `runLocalAgentTurn` backed by the active OpenClaw connection. The persistent `sessionId` lets the Brain accumulate context across steps without Sabrina needing to manage model memory directly.
+
+Key files:
+
+- [BrowserAgentService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/browser/BrowserAgentService.mjs) — agent loop orchestration
+- [PlaywrightService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/browser/PlaywrightService.mjs) — CDP connection to Electron Chromium
+- `PlaywrightObserver.mjs` / `PlaywrightExecutor.mjs` — observe and execute primitives
+- [ActionGate.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/browser/ActionGate.mjs) — risk classification (green/yellow/red)
+- `PageOverlayService.mjs` — in-page visual status layer
+- `PageLocatorService.mjs` — semantic element resolution for ActionGate analysis
+- `PageNarratorService.mjs` — snapshot delta narration
+- `AgentTaskManager.mjs` — task lifecycle and cancellation (AbortSignal)
+
 ### `runtime/threads`
 
 Owns:
@@ -385,12 +418,22 @@ That means:
 - future remote drivers such as relay pairing should plug into the same control-plane boundary
 - browser/runtime UI should stay generic even when the current driver is `ssh-cli`
 
+Four drivers are now implemented:
+
+| Driver | Transport | How it connects |
+|---|---|---|
+| `local-cli` | local | spawns `openclaw` subprocess on the same machine |
+| `ssh-cli` | remote | tunnels CLI over SSH to a remote host |
+| `relay-paired` | remote | connect-code pairing through a relay server, bidirectional envelope queue |
+| `endpoint` | remote | HTTP endpoint + Bearer access token; probes via `OPTIONS` request, routes invocations through `--endpoint` / `--token` CLI flags |
+
 Current implementation baseline:
 
 - remote connection config now carries a `driver` alongside optional SSH-specific fields
 - runtime transport probing fails fast for unsupported remote drivers instead of pretending every remote target is SSH-capable
 - plugin CLI exposes `--driver`, while `ssh-target` remains a driver-specific option for the current `ssh-cli` path
 - `relay-paired` now has a real connect-code lifecycle, relay claim state sync, and a minimal bidirectional envelope queue for browser/OpenClaw session traffic
+- `endpoint` driver probes the target URL with `OPTIONS`, validates auth (401/403 → token error), and injects `OPENCLAW_ENDPOINT` / `OPENCLAW_TOKEN` into the subprocess environment
 
 Current implementation:
 
@@ -398,17 +441,20 @@ Current implementation:
 - [OpenClawClient.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/openclaw/OpenClawClient.mjs)
 - [OpenClawRuntimeService.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/openclaw/OpenClawRuntimeService.mjs)
 - [packages/openclaw-plugin-sabrina/src/index.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/packages/openclaw-plugin-sabrina/src/index.mjs)
+- [runtime/openclaw/drivers/OpenClawEndpointDriver.mjs](/Users/jiaqi/Documents/Playground/sabrina-ai-browser/runtime/openclaw/drivers/OpenClawEndpointDriver.mjs)
 
 ## Current Gaps
 
 The repo is now materially better, but not "done". The biggest remaining architecture work is:
 
-1. Add a real connect-code UX for the local fallback and future remote pairing path.
+1. ~~Add a real connect-code UX for the local fallback and future remote pairing path.~~ **Done** — `relay-paired` driver ships a full connect-code lifecycle with relay claim state sync and bidirectional envelope queue.
 2. Continue pushing browser capability truth into explicit OpenClaw metadata so Sabrina overlay rules can shrink over time.
 3. Expand host-level smoke from current service-boundary checks into a fuller desktop/Electron P0 flow when CI ergonomics allow.
 4. Expand Browser Context Package execution facts from route safety into richer execution facts such as reachability confidence and reproducibility guarantees.
-5. Add a second remote driver before productizing remote broadly, so "remote" is proven not to be SSH-shaped by accident.
+5. ~~Add a second remote driver before productizing remote broadly, so "remote" is proven not to be SSH-shaped by accident.~~ **Done** — `relay-paired` and `endpoint` drivers now exist alongside `ssh-cli`.
 6. Decide how strict plugin trust should be when `plugins.allow` is empty and local linked plugins can auto-load.
+7. Browser agent loop needs test coverage — `BrowserAgentService` has no smoke tests; ActionGate risk classification is the only unit-tested slice.
+8. `endpoint` driver currently falls back to spawning a local `openclaw` subprocess for gateway management calls rather than using the HTTP endpoint natively; this should migrate to pure fetch invocations.
 
 ## Architectural Rule Of Thumb
 

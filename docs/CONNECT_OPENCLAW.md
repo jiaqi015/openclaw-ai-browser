@@ -1,5 +1,9 @@
 # Sabrina 接入 OpenClaw
 
+Sabrina 需要连接一个运行中的 OpenClaw 实例才能工作。OpenClaw 是 AI agent 平台，Sabrina 是它的浏览器工作台。
+
+**版本要求：** OpenClaw 最新版本，Sabrina ≥ 0.1.13。
+
 这份文档给第一次使用 Sabrina 的用户。
 
 目标只有一个：**把 Sabrina 接到你的 OpenClaw 上，然后直接开始用。**
@@ -87,13 +91,35 @@ Sabrina 现在支持：
 
 ### SSH 能连上，但 Sabrina 里还是显示需要处理
 
-SSH 不再是 Sabrina 远程连接的主路径。
+SSH 是仍然支持的连接方式，适合直接有 SSH 访问权限的场景。
 
-如果你看到的是旧版 SSH 目标：
+**SSH 连接方式：**
 
-1. 保留这个目标没问题
-2. 但更推荐重新建一个 `连接地址 + 连接码` 的远程目标
-3. 后续主交互会优先围绕连接码工作
+1. 在目标配置里填入 SSH 地址（格式：`user@host` 或 `user@host:port`）
+2. 确保本机 SSH 密钥已配置，能无密码登录目标机器
+3. Sabrina 会通过 `ssh-cli` driver 在远端执行 OpenClaw
+
+SSH 和连接码是两条并行路径，代码里均为一等公民（driver 分别为 `ssh-cli` 和 `relay-paired`）。
+
+**什么时候优先选连接码而不是 SSH：**
+
+- 目标机器没有暴露 SSH 端口（如防火墙限制）
+- 不方便管理 SSH 密钥
+- 希望通过一次性连接码临时授权
+
+如果你看到的是旧版 SSH 目标，保留没问题，也可以新建一个 `连接地址 + 连接码` 目标作为替代。
+
+### Relay 中继地址从哪里获取？
+
+`连接地址`（Relay URL）是中继服务的 HTTPS 地址，用于 Sabrina 和远端 OpenClaw 之间的配对通信。
+
+Sabrina **没有内置公共中继服务**，中继地址需要你自己提供或部署：
+
+- 如果你的团队或 OpenClaw 提供商提供了中继服务，直接填入对方给你的地址。
+- 如果你想自己搭建，仓库里包含 `packages/sabrina-relay-dev`，可以在任意支持 Node.js 的服务器上运行。
+- 地址格式为 HTTPS URL，例如 `https://relay.your-domain.com`。
+
+填好地址后，Sabrina 会在点击 `生成连接码` 时将配对信息发布到该中继。
 
 ### 连接码模式卡在等待认领
 
